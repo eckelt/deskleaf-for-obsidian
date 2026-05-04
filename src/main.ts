@@ -30,6 +30,29 @@ export default class FocalPlugin extends Plugin {
       <line x1="84" y1="50" x2="95" y2="50" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
     `);
 
+    // Leaf shape with calendar grid inside (header strip + date dots)
+    addIcon("deskleaf", `
+      <path fill-rule="evenodd" fill="currentColor" d="
+        M 50 85 C 34 84 18 70 16 56 C 14 42 20 24 36 18 C 44 14 58 14 68 22
+        C 74 26 78 26 76 32 C 74 36 68 38 64 42
+        C 74 52 76 66 68 76 C 60 84 56 86 50 85 Z
+        M 26 80 C 20 82 14 88 16 92 C 20 96 28 90 28 84 Z
+        M 26 31 L 70 31 L 70 40 L 26 40 Z
+        M 32 50 m -4.5 0 a 4.5 4.5 0 1 0 9 0 a 4.5 4.5 0 1 0 -9 0
+        M 43 50 m -4.5 0 a 4.5 4.5 0 1 0 9 0 a 4.5 4.5 0 1 0 -9 0
+        M 54 50 m -4.5 0 a 4.5 4.5 0 1 0 9 0 a 4.5 4.5 0 1 0 -9 0
+        M 65 50 m -4.5 0 a 4.5 4.5 0 1 0 9 0 a 4.5 4.5 0 1 0 -9 0
+        M 32 61 m -4.5 0 a 4.5 4.5 0 1 0 9 0 a 4.5 4.5 0 1 0 -9 0
+        M 43 61 m -4.5 0 a 4.5 4.5 0 1 0 9 0 a 4.5 4.5 0 1 0 -9 0
+        M 54 61 m -4.5 0 a 4.5 4.5 0 1 0 9 0 a 4.5 4.5 0 1 0 -9 0
+        M 65 61 m -4.5 0 a 4.5 4.5 0 1 0 9 0 a 4.5 4.5 0 1 0 -9 0
+        M 32 72 m -4.5 0 a 4.5 4.5 0 1 0 9 0 a 4.5 4.5 0 1 0 -9 0
+        M 43 72 m -4.5 0 a 4.5 4.5 0 1 0 9 0 a 4.5 4.5 0 1 0 -9 0
+        M 54 72 m -4.5 0 a 4.5 4.5 0 1 0 9 0 a 4.5 4.5 0 1 0 -9 0
+        M 65 72 m -4.5 0 a 4.5 4.5 0 1 0 9 0 a 4.5 4.5 0 1 0 -9 0
+      "/>
+    `);
+
     await this.loadSettings();
 
     this.calendarReader = new CalendarReader(this.getBinaryPath());
@@ -56,7 +79,7 @@ export default class FocalPlugin extends Plugin {
     });
 
     // Ribbon icons
-    this.addRibbonIcon("calendar-days", "Deskleaf: Kalender", () => this.activateView(VIEW_TYPE_FOCAL));
+    this.addRibbonIcon("deskleaf", "Deskleaf: Kalender", () => this.activateView(VIEW_TYPE_FOCAL));
     this.addRibbonIcon("focal-point", "Deskleaf: Sidebar", () => this.activateSidebar());
     this.addRibbonIcon("search", "Deskleaf: Suche", () => new FocalSearchModal(this.app, this).open());
 

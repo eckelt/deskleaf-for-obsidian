@@ -1,10 +1,27 @@
-import { ItemView, WorkspaceLeaf, TFile, setIcon, Notice, Platform, MarkdownView } from "obsidian";
+import {
+  ItemView,
+  WorkspaceLeaf,
+  TFile,
+  setIcon,
+  Notice,
+  Platform,
+  MarkdownView,
+} from "obsidian";
 import type FocalPlugin from "./main";
 import type { CalendarEvent } from "./types";
 import {
-  toDateStr, toTimeStr, get1DayColumn, getNDayColumns, getWeekColumns,
-  weekHeaderLabel, dayHeaderLabel, rangeHeaderLabel, addDays, parseDate, shortDayLabel,
-  getWeekNumber
+  toDateStr,
+  toTimeStr,
+  get1DayColumn,
+  getNDayColumns,
+  getWeekColumns,
+  weekHeaderLabel,
+  dayHeaderLabel,
+  rangeHeaderLabel,
+  addDays,
+  parseDate,
+  shortDayLabel,
+  getWeekNumber,
 } from "./date-utils";
 import type { DayColumn } from "./date-utils";
 import { openFile } from "./open-file";
@@ -19,20 +36,22 @@ const TOTAL_HOURS = DAY_END - DAY_START;
 
 // Minimum column width in px — drives how many days fit
 const MIN_COL_W = 120;
-const GUTTER_W  = 44;
+const GUTTER_W = 44;
 
 function topFromISO(iso: string): number {
   const d = new Date(iso);
-  return ((d.getHours() - DAY_START) * 60 + d.getMinutes()) / 60 * HOUR_PX;
+  return (((d.getHours() - DAY_START) * 60 + d.getMinutes()) / 60) * HOUR_PX;
 }
 
 function heightFromISO(start: string, end: string): number {
   const mins = (new Date(end).getTime() - new Date(start).getTime()) / 60000;
-  return Math.max(20, mins / 60 * HOUR_PX);
+  return Math.max(20, (mins / 60) * HOUR_PX);
 }
 
 // ── Drag-to-create helpers ───────────────────────────────────────────
-function snapMins(mins: number): number { return Math.round(mins / 15) * 15; }
+function snapMins(mins: number): number {
+  return Math.round(mins / 15) * 15;
+}
 function minsToTimeStr(mins: number): string {
   return `${String(Math.floor(mins / 60)).padStart(2, "0")}:${String(mins % 60).padStart(2, "0")}`;
 }
@@ -70,12 +89,17 @@ function assignColumns(events: CalendarEvent[]): EventLayout[] {
     const layouts: EventLayout[] = [];
     for (const ev of cluster) {
       let col = colEnds.findIndex((end) => end <= ev.start);
-      if (col === -1) { col = colEnds.length; colEnds.push(ev.end); }
-      else colEnds[col] = ev.end;
+      if (col === -1) {
+        col = colEnds.length;
+        colEnds.push(ev.end);
+      } else colEnds[col] = ev.end;
       layouts.push({ event: ev, col, totalCols: 0 });
     }
     const totalCols = Math.max(1, colEnds.length);
-    for (const l of layouts) { l.totalCols = totalCols; result.push(l); }
+    for (const l of layouts) {
+      l.totalCols = totalCols;
+      result.push(l);
+    }
     i = j;
   }
   return result;
@@ -97,21 +121,41 @@ export class FocalCalendarView extends ItemView {
   private lastVisibleDays: number = 0;
   private initialScrollDone = false;
   private navLabelEl: HTMLElement | null = null;
-  private dragCreate: { ghost: HTMLElement; onMove: (e: MouseEvent) => void; onUp: (e: MouseEvent) => void } | null = null;
-  private dragMove: { ghost: HTMLElement; landing: HTMLElement; onMove: (e: MouseEvent) => void; onUp: (e: MouseEvent) => void } | null = null;
-  private dragResize: { onMove: (e: MouseEvent) => void; onUp: (e: MouseEvent) => void } | null = null;
+  private dragCreate: {
+    ghost: HTMLElement;
+    onMove: (e: MouseEvent) => void;
+    onUp: (e: MouseEvent) => void;
+  } | null = null;
+  private dragMove: {
+    ghost: HTMLElement;
+    landing: HTMLElement;
+    onMove: (e: MouseEvent) => void;
+    onUp: (e: MouseEvent) => void;
+  } | null = null;
+  private dragResize: {
+    onMove: (e: MouseEvent) => void;
+    onUp: (e: MouseEvent) => void;
+  } | null = null;
 
   constructor(leaf: WorkspaceLeaf, plugin: FocalPlugin) {
     super(leaf);
     this.plugin = plugin;
   }
 
-  getViewType() { return VIEW_TYPE_FOCAL; }
-  getDisplayText() { return "Deskleaf"; }
-  getIcon() { return "calendar-days"; }
+  getViewType() {
+    return VIEW_TYPE_FOCAL;
+  }
+  getDisplayText() {
+    return "Deskleaf";
+  }
+  getIcon() {
+    return "deskleaf";
+  }
 
   async onOpen() {
-    this.unsubscribeData = this.plugin.calendarReader.onChange(() => this.render());
+    this.unsubscribeData = this.plugin.calendarReader.onChange(() =>
+      this.render(),
+    );
     this.buildNavBar(this.containerEl.children[0] as HTMLElement);
     this.setupResizeObserver();
     this.setupActiveLeafTracking();
@@ -123,16 +167,21 @@ export class FocalCalendarView extends ItemView {
     this.unsubscribeData?.();
     this.resizeObserver?.disconnect();
     this.resizeObserver = null;
-    if (this.nowTimer !== null) { window.clearInterval(this.nowTimer); this.nowTimer = null; }
+    if (this.nowTimer !== null) {
+      window.clearInterval(this.nowTimer);
+      this.nowTimer = null;
+    }
     this.cancelDrag();
   }
 
   private initialScrollTop(): number {
     const columns =
-      this.visibleDays === 6 ? getWeekColumns(this.anchor) :
-      this.visibleDays === 1 ? get1DayColumn(this.anchor) :
-      getNDayColumns(this.anchor, this.visibleDays);
-    const allDates = columns.flatMap(c => c.dates);
+      this.visibleDays === 6
+        ? getWeekColumns(this.anchor)
+        : this.visibleDays === 1
+          ? get1DayColumn(this.anchor)
+          : getNDayColumns(this.anchor, this.visibleDays);
+    const allDates = columns.flatMap((c) => c.dates);
     let earliest: number | null = null;
     for (const date of allDates) {
       for (const ev of this.plugin.calendarReader.getEventsForDate(date)) {
@@ -147,27 +196,32 @@ export class FocalCalendarView extends ItemView {
 
   private hasEventsInView(): boolean {
     const columns =
-      this.visibleDays === 6 ? getWeekColumns(this.anchor) :
-      this.visibleDays === 1 ? get1DayColumn(this.anchor) :
-      getNDayColumns(this.anchor, this.visibleDays);
-    return columns.flatMap(c => c.dates).some(
-      d => this.plugin.calendarReader.getEventsForDate(d).length > 0
-    );
+      this.visibleDays === 6
+        ? getWeekColumns(this.anchor)
+        : this.visibleDays === 1
+          ? get1DayColumn(this.anchor)
+          : getNDayColumns(this.anchor, this.visibleDays);
+    return columns
+      .flatMap((c) => c.dates)
+      .some((d) => this.plugin.calendarReader.getEventsForDate(d).length > 0);
   }
 
   private render() {
     const anchorStr = toDateStr(this.anchor);
-    const rangeChanged = anchorStr !== this.lastAnchorStr || this.visibleDays !== this.lastVisibleDays;
+    const rangeChanged =
+      anchorStr !== this.lastAnchorStr ||
+      this.visibleDays !== this.lastVisibleDays;
     if (rangeChanged) {
-      this.lastAnchorStr    = anchorStr;
-      this.lastVisibleDays  = this.visibleDays;
+      this.lastAnchorStr = anchorStr;
+      this.lastVisibleDays = this.visibleDays;
       this.initialScrollDone = false;
     }
 
     // Only preserve user scroll position once we've scrolled to the first event
     const shouldPreserveScroll = this.initialScrollDone && !rangeChanged;
     const prevScroll = shouldPreserveScroll
-      ? (this.containerEl.querySelector<HTMLElement>(".focal-grid-body-scroll")?.scrollTop ?? null)
+      ? (this.containerEl.querySelector<HTMLElement>(".focal-grid-body-scroll")
+          ?.scrollTop ?? null)
       : null;
 
     this.updateNavLabel();
@@ -181,7 +235,9 @@ export class FocalCalendarView extends ItemView {
     this.buildMiniMonth(wrapper);
 
     setTimeout(() => {
-      const scrollEl = this.containerEl.querySelector<HTMLElement>(".focal-grid-body-scroll");
+      const scrollEl = this.containerEl.querySelector<HTMLElement>(
+        ".focal-grid-body-scroll",
+      );
       if (!scrollEl) return;
       if (prevScroll !== null) {
         scrollEl.scrollTop = prevScroll;
@@ -196,8 +252,12 @@ export class FocalCalendarView extends ItemView {
 
   private setupResizeObserver() {
     this.resizeObserver = new ResizeObserver((entries) => {
-      const width = entries[0]?.contentRect.width ?? this.containerEl.clientWidth;
-      const n = Math.min(6, Math.max(1, Math.floor((width - GUTTER_W) / MIN_COL_W)));
+      const width =
+        entries[0]?.contentRect.width ?? this.containerEl.clientWidth;
+      const n = Math.min(
+        6,
+        Math.max(1, Math.floor((width - GUTTER_W) / MIN_COL_W)),
+      );
       if (n !== this.visibleDays) {
         this.visibleDays = n;
         this.render();
@@ -210,14 +270,19 @@ export class FocalCalendarView extends ItemView {
 
   private setupActiveLeafTracking() {
     // active-leaf-change fires on every tab switch, including already-open tabs
-    this.registerEvent(this.app.workspace.on("active-leaf-change", (leaf) => {
-      const file = (leaf?.view as any)?.file as TFile | null ?? null;
-      this.syncSelectionToFile(file);
-    }));
+    this.registerEvent(
+      this.app.workspace.on("active-leaf-change", (leaf) => {
+        const file = ((leaf?.view as any)?.file as TFile | null) ?? null;
+        this.syncSelectionToFile(file);
+      }),
+    );
     // Cache fallback: leaf may become active before metadata is indexed
-    this.registerEvent(this.app.metadataCache.on("changed", (file) => {
-      if (this.app.workspace.getActiveFile() === file) this.syncSelectionToFile(file);
-    }));
+    this.registerEvent(
+      this.app.metadataCache.on("changed", (file) => {
+        if (this.app.workspace.getActiveFile() === file)
+          this.syncSelectionToFile(file);
+      }),
+    );
   }
 
   private syncSelectionToFile(file: TFile | null) {
@@ -226,7 +291,7 @@ export class FocalCalendarView extends ItemView {
 
     const fm = this.app.metadataCache.getFileCache(file)?.frontmatter;
     const raw = fm?.["event-id"];
-    const ids: string[] = Array.isArray(raw) ? raw : (raw ? [String(raw)] : []);
+    const ids: string[] = Array.isArray(raw) ? raw : raw ? [String(raw)] : [];
 
     if (ids.length === 0) {
       this.clearSelection();
@@ -236,8 +301,13 @@ export class FocalCalendarView extends ItemView {
     const date = fm?.date as string | undefined;
     const title = fm?.title as string | undefined;
     const allEvents = this.plugin.calendarReader.getEvents();
-    const event = allEvents.find(e => ids.includes(e.id))
-      ?? (date && title ? allEvents.find(e => e.title === title && e.start.slice(0, 10) === date) : undefined);
+    const event =
+      allEvents.find((e) => ids.includes(e.id)) ??
+      (date && title
+        ? allEvents.find(
+            (e) => e.title === title && e.start.slice(0, 10) === date,
+          )
+        : undefined);
     if (!event) return;
 
     if (event.id !== this.selectedEventId) {
@@ -250,7 +320,9 @@ export class FocalCalendarView extends ItemView {
     this.selectedEventId = event.id;
     this.selectedDate = date ?? event.start.slice(0, 10);
     // Detect a series by title — covers modified instances where isRecurring may be false
-    const titleCount = this.plugin.calendarReader.getEvents().filter(e => e.title === event.title).length;
+    const titleCount = this.plugin.calendarReader
+      .getEvents()
+      .filter((e) => e.title === event.title).length;
     this.selectedSeriesTitle = titleCount > 1 ? event.title : null;
   }
 
@@ -266,28 +338,39 @@ export class FocalCalendarView extends ItemView {
   // ── Nav bar ──────────────────────────────────────────────────────
 
   private buildNavBar(header: HTMLElement) {
-    const navBtns = header.querySelector<HTMLElement>(".view-header-nav-buttons");
+    const navBtns = header.querySelector<HTMLElement>(
+      ".view-header-nav-buttons",
+    );
     if (navBtns) {
       navBtns.empty();
 
-      const todayBtn = navBtns.createEl("button", { cls: "clickable-icon view-header-nav-button" });
+      const todayBtn = navBtns.createEl("button", {
+        cls: "clickable-icon view-header-nav-button",
+      });
       todayBtn.setAttribute("aria-label", "Heute");
       todayBtn.createEl("span").innerHTML =
         `<svg viewBox="0 0 16 16" fill="none" aria-hidden="true">` +
-        `<rect x="1.5" y="1.5" width="13" height="13" rx="2.2" stroke="currentColor" stroke-width="1.2"/>` +
+        `<rect x="1.5" y="1.5" width="13" height="15" rx="2.2" stroke="currentColor" stroke-width="1.2"/>` +
         `<line x1="1.5" y1="5.5" x2="14.5" y2="5.5" stroke="currentColor" stroke-width="1"/>` +
         `<circle cx="8" cy="12.8" r="1.3" fill="currentColor"/>` +
         `<line x1="8" y1="11.2" x2="8" y2="8.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>` +
         `<path d="M5.8 9.8 L8 7.5 L10.2 9.8" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>` +
         `</svg>`;
-      todayBtn.addEventListener("click", () => { this.anchor = new Date(); this.render(); });
+      todayBtn.addEventListener("click", () => {
+        this.anchor = new Date();
+        this.render();
+      });
 
-      const prev = navBtns.createEl("button", { cls: "clickable-icon view-header-nav-button" });
+      const prev = navBtns.createEl("button", {
+        cls: "clickable-icon view-header-nav-button",
+      });
       setIcon(prev, "arrow-left");
       prev.setAttribute("aria-label", "Zurück");
       prev.addEventListener("click", () => this.navigate(-1));
 
-      const next = navBtns.createEl("button", { cls: "clickable-icon view-header-nav-button" });
+      const next = navBtns.createEl("button", {
+        cls: "clickable-icon view-header-nav-button",
+      });
       setIcon(next, "arrow-right");
       next.setAttribute("aria-label", "Weiter");
       next.addEventListener("click", () => this.navigate(1));
@@ -299,11 +382,15 @@ export class FocalCalendarView extends ItemView {
 
   private updateNavLabel() {
     if (!this.navLabelEl) return;
-    this.navLabelEl.textContent = this.visibleDays === 1
-      ? dayHeaderLabel(this.anchor)
-      : this.visibleDays === 6
-      ? weekHeaderLabel(this.anchor)
-      : rangeHeaderLabel(this.anchor, addDays(this.anchor, this.visibleDays - 1));
+    this.navLabelEl.textContent =
+      this.visibleDays === 1
+        ? dayHeaderLabel(this.anchor)
+        : this.visibleDays === 6
+          ? weekHeaderLabel(this.anchor)
+          : rangeHeaderLabel(
+              this.anchor,
+              addDays(this.anchor, this.visibleDays - 1),
+            );
   }
 
   private buildStatusBar(el: HTMLElement) {
@@ -317,8 +404,10 @@ export class FocalCalendarView extends ItemView {
       return;
     }
     if (this.plugin.calendarReader.getEvents().length === 0) {
-      el.createDiv({ cls: "focal-status-bar focal-status-bar--warn",
-        text: `Keine Events. Pfad: ${this.plugin.calendarReader.getPath()}` });
+      el.createDiv({
+        cls: "focal-status-bar focal-status-bar--warn",
+        text: `Keine Events. Pfad: ${this.plugin.calendarReader.getPath()}`,
+      });
     }
   }
 
@@ -332,9 +421,11 @@ export class FocalCalendarView extends ItemView {
 
   private buildTimeGrid(el: HTMLElement) {
     const columns: DayColumn[] =
-      this.visibleDays === 6 ? getWeekColumns(this.anchor) :
-      this.visibleDays === 1 ? get1DayColumn(this.anchor) :
-      getNDayColumns(this.anchor, this.visibleDays);
+      this.visibleDays === 6
+        ? getWeekColumns(this.anchor)
+        : this.visibleDays === 1
+          ? get1DayColumn(this.anchor)
+          : getNDayColumns(this.anchor, this.visibleDays);
     const today = toDateStr(new Date());
 
     const grid = el.createDiv("focal-time-grid");
@@ -345,7 +436,9 @@ export class FocalCalendarView extends ItemView {
 
     for (const col of columns) {
       if (col.dates.length === 2) {
-        const group = headerRow.createDiv("focal-day-header focal-day-header--double");
+        const group = headerRow.createDiv(
+          "focal-day-header focal-day-header--double",
+        );
         for (const date of col.dates) {
           const d = parseDate(date);
           let cls = "focal-day-subheader";
@@ -365,7 +458,7 @@ export class FocalCalendarView extends ItemView {
     // All-day strip with spanning chips
     const allDates = columns.flatMap((c) => c.dates);
     const hasAllDay = allDates.some(
-      (d) => this.plugin.calendarReader.getAllDayEventsForDate(d).length > 0
+      (d) => this.plugin.calendarReader.getAllDayEventsForDate(d).length > 0,
     );
     if (hasAllDay) this.buildAllDayRowSpanning(grid, columns, allDates);
 
@@ -376,7 +469,9 @@ export class FocalCalendarView extends ItemView {
     const gridHeight = TOTAL_HOURS * HOUR_PX;
 
     // Time gutter
-    const gutter = bodyInner.createDiv("focal-time-gutter focal-time-gutter--labels");
+    const gutter = bodyInner.createDiv(
+      "focal-time-gutter focal-time-gutter--labels",
+    );
     gutter.style.height = `${gridHeight}px`;
     for (let h = DAY_START; h <= DAY_END; h++) {
       const lbl = gutter.createDiv("focal-time-label");
@@ -386,37 +481,59 @@ export class FocalCalendarView extends ItemView {
 
     for (const col of columns) {
       if (col.dates.length === 2) {
-        const doubleCol = bodyInner.createDiv("focal-day-body focal-day-body--double");
+        const doubleCol = bodyInner.createDiv(
+          "focal-day-body focal-day-body--double",
+        );
         for (const date of col.dates) {
-          this.buildDayBody(doubleCol.createDiv("focal-day-body focal-day-body--sub"),
-            date, gridHeight, today);
+          this.buildDayBody(
+            doubleCol.createDiv("focal-day-body focal-day-body--sub"),
+            date,
+            gridHeight,
+            today,
+          );
         }
       } else {
-        this.buildDayBody(bodyInner.createDiv("focal-day-body"), col.dates[0], gridHeight, today);
+        this.buildDayBody(
+          bodyInner.createDiv("focal-day-body"),
+          col.dates[0],
+          gridHeight,
+          today,
+        );
       }
     }
   }
 
-  private buildAllDayRowSpanning(grid: HTMLElement, columns: DayColumn[], allDates: string[]) {
+  private buildAllDayRowSpanning(
+    grid: HTMLElement,
+    columns: DayColumn[],
+    allDates: string[],
+  ) {
     const ROW_H = 24;
     const totalCols = columns.length;
 
     // date → column index mapping
     const dateToCol = new Map<string, number>();
-    columns.forEach((col, i) => col.dates.forEach(d => dateToCol.set(d, i)));
+    columns.forEach((col, i) => col.dates.forEach((d) => dateToCol.set(d, i)));
 
     // Collect unique all-day events with their visible column spans
     const seen = new Set<string>();
-    const items: Array<{ ev: CalendarEvent; startCol: number; endCol: number }> = [];
+    const items: Array<{
+      ev: CalendarEvent;
+      startCol: number;
+      endCol: number;
+    }> = [];
 
     for (const date of allDates) {
-      for (const ev of this.plugin.calendarReader.getAllDayEventsForDate(date)) {
+      for (const ev of this.plugin.calendarReader.getAllDayEventsForDate(
+        date,
+      )) {
         if (seen.has(ev.id)) continue;
         seen.add(ev.id);
         const evStart = ev.start.slice(0, 10);
-        const evEnd   = ev.end.slice(0, 10);
+        const evEnd = ev.end.slice(0, 10);
 
-        let sc = totalCols, ec = -1;
+        let sc = totalCols,
+          ec = -1;
         for (const [d, colIdx] of dateToCol) {
           if (d >= evStart && d <= evEnd) {
             sc = Math.min(sc, colIdx);
@@ -428,21 +545,29 @@ export class FocalCalendarView extends ItemView {
     }
 
     // Sort: earlier start first, longer span first within same start
-    items.sort((a, b) => a.startCol - b.startCol || (b.endCol - b.startCol) - (a.endCol - a.startCol));
+    items.sort(
+      (a, b) =>
+        a.startCol - b.startCol ||
+        b.endCol - b.startCol - (a.endCol - a.startCol),
+    );
 
     // Greedy row assignment (non-overlapping spans share a row)
     const rowEnds: number[] = [];
     const rowOf = items.map(({ startCol, endCol }) => {
-      let row = rowEnds.findIndex(end => end < startCol);
-      if (row === -1) { row = rowEnds.length; rowEnds.push(endCol); }
-      else rowEnds[row] = endCol;
+      let row = rowEnds.findIndex((end) => end < startCol);
+      if (row === -1) {
+        row = rowEnds.length;
+        rowEnds.push(endCol);
+      } else rowEnds[row] = endCol;
       return row;
     });
 
     const areaH = rowEnds.length * ROW_H + 4;
 
     const allDayRow = grid.createDiv("focal-allday-row");
-    allDayRow.createDiv("focal-time-gutter focal-allday-label").setText("ganztägig");
+    allDayRow
+      .createDiv("focal-time-gutter focal-allday-label")
+      .setText("ganztägig");
     const area = allDayRow.createDiv("focal-allday-area");
     area.style.height = `${areaH}px`;
 
@@ -458,20 +583,32 @@ export class FocalCalendarView extends ItemView {
       const row = rowOf[i];
       const chip = area.createDiv("focal-allday-chip");
       chip.setAttribute("title", ev.title);
-      if (ev.id === this.selectedEventId) chip.addClass("focal-allday-chip--selected");
-      else if (this.selectedSeriesTitle && ev.title === this.selectedSeriesTitle) chip.addClass("focal-allday-chip--series");
+      if (ev.id === this.selectedEventId)
+        chip.addClass("focal-allday-chip--selected");
+      else if (
+        this.selectedSeriesTitle &&
+        ev.title === this.selectedSeriesTitle
+      )
+        chip.addClass("focal-allday-chip--series");
       if (ev.isRecurring) chip.addClass("focal-allday-chip--recurring");
       if (ev.isCancelled) chip.addClass("focal-allday-chip--cancelled");
 
-      chip.style.left  = `calc(${(startCol / totalCols) * 100}% + 3px)`;
-      chip.style.top   = `${row * ROW_H + 2}px`;
+      chip.style.left = `calc(${(startCol / totalCols) * 100}% + 3px)`;
+      chip.style.top = `${row * ROW_H + 2}px`;
       chip.style.width = `calc(${((endCol - startCol + 1) / totalCols) * 100}% - 6px)`;
       chip.setText(ev.title);
-      chip.addEventListener("click", (e) => this.openEvent(ev, ev.start.slice(0, 10), e.metaKey || e.ctrlKey));
+      chip.addEventListener("click", (e) =>
+        this.openEvent(ev, ev.start.slice(0, 10), e.metaKey || e.ctrlKey),
+      );
     }
   }
 
-  private buildDayBody(el: HTMLElement, date: string, gridHeight: number, today: string) {
+  private buildDayBody(
+    el: HTMLElement,
+    date: string,
+    gridHeight: number,
+    today: string,
+  ) {
     el.dataset.date = date;
     if (date === today) el.addClass("focal-day-body--today");
     if (date === this.selectedDate) el.addClass("focal-day-body--selected");
@@ -486,7 +623,8 @@ export class FocalCalendarView extends ItemView {
 
     if (date === today) {
       const now = new Date();
-      const topPx = ((now.getHours() - DAY_START) * 60 + now.getMinutes()) / 60 * HOUR_PX;
+      const topPx =
+        (((now.getHours() - DAY_START) * 60 + now.getMinutes()) / 60) * HOUR_PX;
       if (topPx >= 0 && topPx <= gridHeight) {
         const nowLine = el.createDiv("focal-now-line");
         nowLine.style.top = `${topPx}px`;
@@ -494,7 +632,9 @@ export class FocalCalendarView extends ItemView {
       }
     }
 
-    for (const layout of assignColumns(this.plugin.calendarReader.getEventsForDate(date))) {
+    for (const layout of assignColumns(
+      this.plugin.calendarReader.getEventsForDate(date),
+    )) {
       this.buildEventCard(el, layout.event, layout.col, layout.totalCols, date);
     }
 
@@ -502,7 +642,13 @@ export class FocalCalendarView extends ItemView {
       el.addEventListener("mousedown", (e) => this.onDayMouseDown(e, el, date));
   }
 
-  private buildEventCard(container: HTMLElement, event: CalendarEvent, col: number, totalCols: number, date: string) {
+  private buildEventCard(
+    container: HTMLElement,
+    event: CalendarEvent,
+    col: number,
+    totalCols: number,
+    date: string,
+  ) {
     const gridBottom = TOTAL_HOURS * HOUR_PX;
     const rawTop = topFromISO(event.start);
     const rawBottom = rawTop + heightFromISO(event.start, event.end);
@@ -514,14 +660,21 @@ export class FocalCalendarView extends ItemView {
 
     const card = container.createDiv("focal-event-card");
     card.setAttribute("title", event.title);
-    if (event.id === this.selectedEventId) card.addClass("focal-event-card--selected");
-    else if (this.selectedSeriesTitle && event.title === this.selectedSeriesTitle) card.addClass("focal-event-card--series");
+    if (event.id === this.selectedEventId)
+      card.addClass("focal-event-card--selected");
+    else if (
+      this.selectedSeriesTitle &&
+      event.title === this.selectedSeriesTitle
+    )
+      card.addClass("focal-event-card--series");
     const noteFile = this.plugin.noteManager.noteExists(event);
     if (noteFile) card.addClass("focal-event-card--has-note");
-    if (event.isRecurring)  card.addClass("focal-event-card--recurring");
-    if (event.isCancelled)  card.addClass("focal-event-card--cancelled");
-    if ((event as any)._continuesBefore) card.addClass("focal-event-card--continues-before");
-    if ((event as any)._continuesAfter)  card.addClass("focal-event-card--continues-after");
+    if (event.isRecurring) card.addClass("focal-event-card--recurring");
+    if (event.isCancelled) card.addClass("focal-event-card--cancelled");
+    if ((event as any)._continuesBefore)
+      card.addClass("focal-event-card--continues-before");
+    if ((event as any)._continuesAfter)
+      card.addClass("focal-event-card--continues-after");
 
     const pct = (n: number) => `${(n * 100).toFixed(2)}%`;
     card.style.top = `${topPx}px`;
@@ -530,8 +683,12 @@ export class FocalCalendarView extends ItemView {
     card.style.width = `calc(${pct(1 / totalCols)} - 3px)`;
 
     const timeRow = card.createDiv("focal-event-time-row");
-    timeRow.createSpan({ cls: "focal-event-time", text: toTimeStr(event.start) });
-    if (event.isRecurring) timeRow.createSpan({ cls: "focal-event-recurring-icon", text: "↻" });
+    timeRow.createSpan({
+      cls: "focal-event-time",
+      text: toTimeStr(event.start),
+    });
+    if (event.isRecurring)
+      timeRow.createSpan({ cls: "focal-event-recurring-icon", text: "↻" });
 
     card.createDiv({ cls: "focal-event-title", text: event.title });
     if (event.location && heightPx > 42)
@@ -540,10 +697,14 @@ export class FocalCalendarView extends ItemView {
     if (noteFile) {
       const fm = this.app.metadataCache.getFileCache(noteFile)?.frontmatter;
       if (fm?.toBeRemoved)
-        card.createDiv({ cls: "focal-event-removal-hint", text: `⏱ ${fm.removalDate ?? ""}` });
+        card.createDiv({
+          cls: "focal-event-removal-hint",
+          text: `⏱ ${fm.removalDate ?? ""}`,
+        });
     }
 
-    const canEdit = event.isOrganizer && !event.isCancelled && !Platform.isMobile;
+    const canEdit =
+      event.isOrganizer && !event.isCancelled && !Platform.isMobile;
 
     if (canEdit) {
       // Resize handle at bottom edge
@@ -560,15 +721,23 @@ export class FocalCalendarView extends ItemView {
         if ((e.target as HTMLElement).closest(".focal-resize-handle")) return;
         e.stopPropagation();
         wasDrag = false;
-        this.onEventMoveMouseDown(e, event, date, card, () => { wasDrag = true; });
+        this.onEventMoveMouseDown(e, event, date, card, () => {
+          wasDrag = true;
+        });
       });
       card.addEventListener("click", (e) => {
         e.stopPropagation();
-        if (wasDrag) { wasDrag = false; return; }
+        if (wasDrag) {
+          wasDrag = false;
+          return;
+        }
         this.openEvent(event, date, e.metaKey || e.ctrlKey);
       });
     } else {
-      card.addEventListener("click", (e) => { e.stopPropagation(); this.openEvent(event, date, e.metaKey || e.ctrlKey); });
+      card.addEventListener("click", (e) => {
+        e.stopPropagation();
+        this.openEvent(event, date, e.metaKey || e.ctrlKey);
+      });
     }
   }
 
@@ -580,14 +749,19 @@ export class FocalCalendarView extends ItemView {
     e.preventDefault();
 
     const rect = dayEl.getBoundingClientRect();
-    const startMin = Math.max(0, Math.min(23 * 60, snapMins((e.clientY - rect.top) / HOUR_PX * 60)));
+    const startMin = Math.max(
+      0,
+      Math.min(23 * 60, snapMins(((e.clientY - rect.top) / HOUR_PX) * 60)),
+    );
     let endMin = Math.min(24 * 60, startMin + 30);
 
     const ghost = dayEl.createDiv("focal-ghost-event");
     this.refreshGhost(ghost, startMin, endMin);
 
     const onMove = (ev: MouseEvent) => {
-      const rawMins = snapMins((ev.clientY - dayEl.getBoundingClientRect().top) / HOUR_PX * 60);
+      const rawMins = snapMins(
+        ((ev.clientY - dayEl.getBoundingClientRect().top) / HOUR_PX) * 60,
+      );
       endMin = Math.max(startMin + 15, Math.min(24 * 60, rawMins));
       this.refreshGhost(ghost, startMin, endMin);
     };
@@ -608,9 +782,9 @@ export class FocalCalendarView extends ItemView {
   }
 
   private refreshGhost(ghost: HTMLElement, startMin: number, endMin: number) {
-    ghost.style.top    = `${(startMin / 60) * HOUR_PX}px`;
+    ghost.style.top = `${(startMin / 60) * HOUR_PX}px`;
     ghost.style.height = `${Math.max(14, ((endMin - startMin) / 60) * HOUR_PX)}px`;
-    ghost.textContent  = `${minsToTimeStr(startMin)} – ${minsToTimeStr(endMin)}`;
+    ghost.textContent = `${minsToTimeStr(startMin)} – ${minsToTimeStr(endMin)}`;
   }
 
   private cancelDrag() {
@@ -635,12 +809,20 @@ export class FocalCalendarView extends ItemView {
     document.body.style.userSelect = "";
   }
 
-  private showCreatePopover(date: string, startMin: number, endMin: number, e: MouseEvent) {
+  private showCreatePopover(
+    date: string,
+    startMin: number,
+    endMin: number,
+    e: MouseEvent,
+  ) {
     this.containerEl.querySelector(".focal-create-popover")?.remove();
 
     const popover = document.body.createDiv("focal-create-popover");
 
-    popover.createDiv({ cls: "focal-create-time", text: `${minsToTimeStr(startMin)} – ${minsToTimeStr(endMin)}` });
+    popover.createDiv({
+      cls: "focal-create-time",
+      text: `${minsToTimeStr(startMin)} – ${minsToTimeStr(endMin)}`,
+    });
 
     const input = popover.createEl("input", {
       type: "text",
@@ -652,13 +834,16 @@ export class FocalCalendarView extends ItemView {
 
     const confirm = async () => {
       const title = input.value.trim();
-      if (!title) { input.focus(); return; }
+      if (!title) {
+        input.focus();
+        return;
+      }
       popover.remove();
       try {
         await this.plugin.calendarReader.createEvent({
           title,
           start: minsToISO(date, startMin),
-          end:   minsToISO(date, endMin),
+          end: minsToISO(date, endMin),
         });
       } catch (err: any) {
         new Notice(`Fehler beim Erstellen: ${err?.message ?? err}`);
@@ -666,8 +851,14 @@ export class FocalCalendarView extends ItemView {
     };
     const cancel = () => popover.remove();
 
-    const createBtn = actions.createEl("button", { cls: "focal-create-btn focal-create-btn--primary", text: "Erstellen" });
-    const cancelBtn = actions.createEl("button", { cls: "focal-create-btn", text: "Abbrechen" });
+    const createBtn = actions.createEl("button", {
+      cls: "focal-create-btn focal-create-btn--primary",
+      text: "Erstellen",
+    });
+    const cancelBtn = actions.createEl("button", {
+      cls: "focal-create-btn",
+      text: "Abbrechen",
+    });
 
     // Prevent input blur when clicking buttons
     createBtn.addEventListener("mousedown", (ev) => ev.preventDefault());
@@ -676,7 +867,10 @@ export class FocalCalendarView extends ItemView {
     cancelBtn.addEventListener("click", cancel);
 
     input.addEventListener("keydown", (ev) => {
-      if (ev.key === "Enter")  { ev.preventDefault(); confirm(); }
+      if (ev.key === "Enter") {
+        ev.preventDefault();
+        confirm();
+      }
       if (ev.key === "Escape") cancel();
     });
 
@@ -691,32 +885,47 @@ export class FocalCalendarView extends ItemView {
 
     // Position: right of cursor, clamped to viewport
     popover.style.left = `${e.clientX + 12}px`;
-    popover.style.top  = `${e.clientY - 24}px`;
+    popover.style.top = `${e.clientY - 24}px`;
     setTimeout(() => {
       const r = popover.getBoundingClientRect();
-      if (r.right  > window.innerWidth  - 8) popover.style.left = `${e.clientX - r.width - 12}px`;
-      if (r.bottom > window.innerHeight - 8) popover.style.top  = `${window.innerHeight - r.height - 8}px`;
+      if (r.right > window.innerWidth - 8)
+        popover.style.left = `${e.clientX - r.width - 12}px`;
+      if (r.bottom > window.innerHeight - 8)
+        popover.style.top = `${window.innerHeight - r.height - 8}px`;
       input.focus();
     }, 0);
   }
 
   // ── Drag-to-move / Drag-to-resize ───────────────────────────────
 
-  private findDayBodyAt(x: number, y: number): { el: HTMLElement; date: string } | null {
+  private findDayBodyAt(
+    x: number,
+    y: number,
+  ): { el: HTMLElement; date: string } | null {
     for (const el of document.elementsFromPoint(x, y)) {
       const h = el as HTMLElement;
-      if (h.dataset?.date && h.classList.contains("focal-day-body")) return { el: h, date: h.dataset.date };
+      if (h.dataset?.date && h.classList.contains("focal-day-body"))
+        return { el: h, date: h.dataset.date };
     }
     return null;
   }
 
   private onEventMoveMouseDown(
-    e: MouseEvent, event: CalendarEvent, date: string, cardEl: HTMLElement, onDragStart: () => void
+    e: MouseEvent,
+    event: CalendarEvent,
+    date: string,
+    cardEl: HTMLElement,
+    onDragStart: () => void,
   ) {
-    const startX = e.clientX, startY = e.clientY;
+    const startX = e.clientX,
+      startY = e.clientY;
     const cardRect = cardEl.getBoundingClientRect();
-    const clickOffsetMins = Math.round((e.clientY - cardRect.top) / HOUR_PX * 60);
-    const durationMins = Math.round((new Date(event.end).getTime() - new Date(event.start).getTime()) / 60000);
+    const clickOffsetMins = Math.round(
+      ((e.clientY - cardRect.top) / HOUR_PX) * 60,
+    );
+    const durationMins = Math.round(
+      (new Date(event.end).getTime() - new Date(event.start).getTime()) / 60000,
+    );
 
     const ghost = document.body.createDiv("focal-drag-ghost");
     ghost.style.cssText = `width:${cardRect.width}px;height:${cardRect.height}px;left:${cardRect.left}px;top:${cardRect.top}px;display:none`;
@@ -732,7 +941,8 @@ export class FocalCalendarView extends ItemView {
 
     const onMove = (ev: MouseEvent) => {
       if (!dragging) {
-        const dx = ev.clientX - startX, dy = ev.clientY - startY;
+        const dx = ev.clientX - startX,
+          dy = ev.clientY - startY;
         if (dx * dx + dy * dy < 25) return;
         dragging = true;
         document.body.style.userSelect = "none";
@@ -740,12 +950,13 @@ export class FocalCalendarView extends ItemView {
         onDragStart();
       }
       ghost.style.left = `${ev.clientX - cardRect.width / 2}px`;
-      ghost.style.top  = `${ev.clientY - (clickOffsetMins / 60) * HOUR_PX}px`;
+      ghost.style.top = `${ev.clientY - (clickOffsetMins / 60) * HOUR_PX}px`;
 
       const hit = this.findDayBodyAt(ev.clientX, ev.clientY);
       if (hit) {
         const dayRect = hit.el.getBoundingClientRect();
-        const rawMins = (ev.clientY - dayRect.top) / HOUR_PX * 60 - clickOffsetMins;
+        const rawMins =
+          ((ev.clientY - dayRect.top) / HOUR_PX) * 60 - clickOffsetMins;
         targetStartMins = Math.max(0, Math.min(23 * 60, snapMins(rawMins)));
         targetDate = hit.date;
         landing.textContent = `${minsToTimeStr(targetStartMins)} – ${minsToTimeStr(Math.min(24 * 60, targetStartMins + durationMins))}`;
@@ -767,14 +978,16 @@ export class FocalCalendarView extends ItemView {
       if (!dragging || !targetDate) return;
 
       const origDate = event.start.slice(0, 10);
-      const origStartMins = new Date(event.start).getHours() * 60 + new Date(event.start).getMinutes();
+      const origStartMins =
+        new Date(event.start).getHours() * 60 +
+        new Date(event.start).getMinutes();
       if (targetDate === origDate && targetStartMins === origStartMins) return;
 
       try {
         await this.plugin.calendarReader.moveEvent(
           event.id,
           minsToISO(targetDate, targetStartMins),
-          minsToISO(targetDate, targetStartMins + durationMins)
+          minsToISO(targetDate, targetStartMins + durationMins),
         );
       } catch (err: any) {
         new Notice(`Fehler beim Verschieben: ${err?.message ?? err}`);
@@ -786,19 +999,27 @@ export class FocalCalendarView extends ItemView {
     document.addEventListener("mouseup", onUp);
   }
 
-  private onResizeMouseDown(e: MouseEvent, event: CalendarEvent, date: string, cardEl: HTMLElement) {
+  private onResizeMouseDown(
+    e: MouseEvent,
+    event: CalendarEvent,
+    date: string,
+    cardEl: HTMLElement,
+  ) {
     if (e.button !== 0) return;
     e.preventDefault();
 
-    const startMins = new Date(event.start).getHours() * 60 + new Date(event.start).getMinutes();
-    let endMins = new Date(event.end).getHours() * 60 + new Date(event.end).getMinutes();
+    const startMins =
+      new Date(event.start).getHours() * 60 +
+      new Date(event.start).getMinutes();
+    let endMins =
+      new Date(event.end).getHours() * 60 + new Date(event.end).getMinutes();
     const dayBody = cardEl.closest<HTMLElement>(".focal-day-body");
     const origH = cardEl.offsetHeight;
 
     const onMove = (ev: MouseEvent) => {
       if (!dayBody) return;
       const dayRect = dayBody.getBoundingClientRect();
-      const rawMins = (ev.clientY - dayRect.top) / HOUR_PX * 60;
+      const rawMins = ((ev.clientY - dayRect.top) / HOUR_PX) * 60;
       endMins = Math.max(startMins + 15, Math.min(24 * 60, snapMins(rawMins)));
       const newH = Math.max(20, ((endMins - startMins) / 60) * HOUR_PX) - 2;
       cardEl.style.height = `${newH}px`;
@@ -811,14 +1032,15 @@ export class FocalCalendarView extends ItemView {
       cardEl.style.height = `${origH}px`;
       this.dragResize = null;
 
-      const origEndMins = new Date(event.end).getHours() * 60 + new Date(event.end).getMinutes();
+      const origEndMins =
+        new Date(event.end).getHours() * 60 + new Date(event.end).getMinutes();
       if (endMins === origEndMins) return;
 
       try {
         await this.plugin.calendarReader.moveEvent(
           event.id,
           minsToISO(date, startMins),
-          minsToISO(date, endMins)
+          minsToISO(date, endMins),
         );
       } catch (err: any) {
         new Notice(`Fehler beim Ändern: ${err?.message ?? err}`);
@@ -834,55 +1056,80 @@ export class FocalCalendarView extends ItemView {
   // ── Mini month ───────────────────────────────────────────────────
 
   private buildMiniMonth(container: HTMLElement) {
-    const year  = this.anchor.getFullYear();
+    const year = this.anchor.getFullYear();
     const month = this.anchor.getMonth();
-    const monthNames = ["Jan","Feb","Mär","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"];
+    const monthNames = [
+      "Jan",
+      "Feb",
+      "Mär",
+      "Apr",
+      "Mai",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Okt",
+      "Nov",
+      "Dez",
+    ];
 
     const mini = container.createDiv("focal-mini-month");
-    mini.createDiv({ cls: "focal-mini-month-header", text: `${monthNames[month]} ${year}` });
+    mini.createDiv({
+      cls: "focal-mini-month-header",
+      text: `${monthNames[month]} ${year}`,
+    });
 
     const grid = mini.createDiv("focal-mini-month-grid");
 
     // Header row: KW label + day-of-week labels
     grid.createDiv({ cls: "focal-mini-dow focal-mini-kw-header", text: "KW" });
-    for (const d of ["Mo","Di","Mi","Do","Fr","Sa","So"])
+    for (const d of ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"])
       grid.createDiv({ cls: "focal-mini-dow", text: d });
 
-    const firstDow   = new Date(year, month, 1).getDay();
+    const firstDow = new Date(year, month, 1).getDay();
     const leadingEmpty = firstDow === 0 ? 6 : firstDow - 1;
-    const totalDays  = new Date(year, month + 1, 0).getDate();
-    const totalRows  = Math.ceil((leadingEmpty + totalDays) / 7);
-    const today      = toDateStr(new Date());
-    const anchorStr  = toDateStr(this.anchor);
+    const totalDays = new Date(year, month + 1, 0).getDate();
+    const totalRows = Math.ceil((leadingEmpty + totalDays) / 7);
+    const today = toDateStr(new Date());
+    const anchorStr = toDateStr(this.anchor);
 
     for (let row = 0; row < totalRows; row++) {
       // KW: use the first real day in this row
       let kwDate: Date | null = null;
       for (let col = 0; col < 7; col++) {
         const dayNum = row * 7 + col - leadingEmpty + 1;
-        if (dayNum >= 1 && dayNum <= totalDays) { kwDate = new Date(year, month, dayNum); break; }
+        if (dayNum >= 1 && dayNum <= totalDays) {
+          kwDate = new Date(year, month, dayNum);
+          break;
+        }
       }
       const kwCell = grid.createDiv("focal-mini-kw");
       if (kwDate) kwCell.setText(String(getWeekNumber(kwDate)));
 
       for (let col = 0; col < 7; col++) {
         const dayNum = row * 7 + col - leadingEmpty + 1;
-        if (dayNum < 1 || dayNum > totalDays) { grid.createDiv("focal-mini-day--empty"); continue; }
+        if (dayNum < 1 || dayNum > totalDays) {
+          grid.createDiv("focal-mini-day--empty");
+          continue;
+        }
 
-        const date    = new Date(year, month, dayNum);
+        const date = new Date(year, month, dayNum);
         const dateStr = toDateStr(date);
-        const cell    = grid.createDiv("focal-mini-day");
+        const cell = grid.createDiv("focal-mini-day");
         cell.setText(String(dayNum));
 
         const hasEvent =
           this.plugin.calendarReader.getEventsForDate(dateStr).length > 0 ||
           this.plugin.calendarReader.getAllDayEventsForDate(dateStr).length > 0;
 
-        if (hasEvent)              cell.addClass("focal-mini-day--has-event");
+        if (hasEvent) cell.addClass("focal-mini-day--has-event");
         if (dateStr === anchorStr) cell.addClass("focal-mini-day--anchor");
-        if (dateStr === today)     cell.addClass("focal-mini-day--today");
+        if (dateStr === today) cell.addClass("focal-mini-day--today");
 
-        cell.addEventListener("click", () => { this.anchor = date; this.render(); });
+        cell.addEventListener("click", () => {
+          this.anchor = date;
+          this.render();
+        });
       }
     }
   }
@@ -891,7 +1138,8 @@ export class FocalCalendarView extends ItemView {
 
   private tickNowLine() {
     const now = new Date();
-    const topPx = ((now.getHours() - DAY_START) * 60 + now.getMinutes()) / 60 * HOUR_PX;
+    const topPx =
+      (((now.getHours() - DAY_START) * 60 + now.getMinutes()) / 60) * HOUR_PX;
     const root = this.containerEl.children[1] as HTMLElement;
     root.querySelectorAll<HTMLElement>(".focal-now-line").forEach((el) => {
       el.style.top = `${topPx}px`;
@@ -900,13 +1148,20 @@ export class FocalCalendarView extends ItemView {
 
   // ── Note opening ────────────────────────────────────────────────
 
-  private async openEvent(event: CalendarEvent, date?: string, modifier = false) {
+  private async openEvent(
+    event: CalendarEvent,
+    date?: string,
+    modifier = false,
+  ) {
     this.applySelection(event, date);
     this.render();
     const { file, isNew } = await this.plugin.noteManager.openOrCreate(event);
     await openFile(this.app, file, modifier);
-    if (isNew) setTimeout(() => {
-      this.app.workspace.getActiveViewOfType(MarkdownView)?.editor.fold({ line: 0, ch: 0 });
-    }, 100);
+    if (isNew)
+      setTimeout(() => {
+        this.app.workspace
+          .getActiveViewOfType(MarkdownView)
+          ?.editor.fold({ line: 0, ch: 0 });
+      }, 100);
   }
 }
