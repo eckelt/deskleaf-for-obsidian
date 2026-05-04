@@ -2,6 +2,11 @@ import { App, TFile, normalizePath } from "obsidian";
 import type { CalendarEvent, NoteType, FocalSettings } from "./types";
 import { toDateStr, toTimeStr, parseDate, addDays } from "./date-utils";
 
+function toArray(raw: unknown): string[] {
+  if (Array.isArray(raw)) return raw.map(String);
+  return raw ? [String(raw)] : [];
+}
+
 function normalizeAttendee(name: string): string {
   const comma = name.indexOf(",");
   if (comma === -1) return name;
@@ -31,8 +36,7 @@ export class NoteManager {
     for (const f of this.app.vault.getMarkdownFiles()) {
       const fm = this.app.metadataCache.getFileCache(f)?.frontmatter;
       if (!fm) continue;
-      const raw = fm["event-id"];
-      const ids: string[] = Array.isArray(raw) ? raw : (raw ? [String(raw)] : []);
+      const ids = toArray(fm["event-id"]);
       if (ids.includes(event.id)) return f;
       // Fallback for notes created with older event-id formats (slug or colon-based)
       if (!titleDateMatch && fm.title === event.title && fm.date === date) titleDateMatch = f;
@@ -104,19 +108,25 @@ export class NoteManager {
     return "meeting";
   }
 
+  private buildAttendeesList(event: CalendarEvent): string {
+    return (event.attendees ?? []).map((a) => `- [[${normalizeAttendee(a)}]]`).join("\n") || "- ";
+  }
+
+  private buildBodySection(event: CalendarEvent): string {
+    const cleaned = this.cleanBody(event.body);
+    return cleaned ? `## Beschreibung\n${cleaned}\n\n` : "";
+  }
+
   private async renderTemplate(event: CalendarEvent, type: NoteType, _carriedTodos: string): Promise<string> {
     const frontmatter = this.buildFrontmatter(event, type);
     const templateContent = await this.loadTemplate(type);
-    const attendeesList = (event.attendees ?? []).map((a) => `- [[${normalizeAttendee(a)}]]`).join("\n");
-    const cleanedBody = this.cleanBody(event.body);
-    const bodySection = cleanedBody ? `## Beschreibung\n${cleanedBody}\n\n` : "";
 
     const body = templateContent
       .replace(/\{\{title\}\}/g, event.title)
       .replace(/\{\{date\}\}/g, event.start.slice(0, 10))
-      .replace(/\{\{attendees\}\}/g, attendeesList || "- ")
+      .replace(/\{\{attendees\}\}/g, this.buildAttendeesList(event))
       .replace(/\{\{location\}\}/g, event.location ?? "")
-      .replace(/\{\{body\}\}/g, bodySection)
+      .replace(/\{\{body\}\}/g, this.buildBodySection(event))
       .replace(/\{\{carried_todos\}\}/g, this.buildCarriedTodosQuery(event));
 
     return `${frontmatter}\n${body}`;
