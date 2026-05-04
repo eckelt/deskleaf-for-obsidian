@@ -37,17 +37,16 @@ export class FocalSearchModal extends Modal {
     setTimeout(() => input.focus(), 50);
   }
 
-  private getNotesFolder(): string {
-    return this.plugin.settings.notesFolder;
+  private getNotesFiles(): TFile[] {
+    const folder = this.plugin.settings.notesFolder;
+    return this.app.vault.getMarkdownFiles().filter((f) => f.path.startsWith(folder + "/"));
   }
 
   private showRecentNotes(container: HTMLElement) {
     container.empty();
     container.createDiv({ cls: "focal-search-section-title", text: "Zuletzt bearbeitet" });
 
-    const folder = this.getNotesFolder();
-    const files = this.app.vault.getMarkdownFiles()
-      .filter((f) => f.path.startsWith(folder + "/"))
+    const files = this.getNotesFiles()
       .sort((a, b) => b.stat.mtime - a.stat.mtime)
       .slice(0, 6);
 
@@ -60,10 +59,7 @@ export class FocalSearchModal extends Modal {
     container.empty();
     container.createDiv({ cls: "focal-search-section-title", text: `Ergebnisse für „${query}"` });
 
-    const folder = this.getNotesFolder();
-    const files = this.app.vault.getMarkdownFiles().filter((f) =>
-      f.path.startsWith(folder + "/")
-    );
+    const files = this.getNotesFiles();
 
     const lq = query.toLowerCase();
     const matches: { file: TFile; snippet: string }[] = [];
