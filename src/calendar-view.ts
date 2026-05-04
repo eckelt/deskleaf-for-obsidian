@@ -274,11 +274,11 @@ export class FocalCalendarView extends ItemView {
       todayBtn.setAttribute("aria-label", "Heute");
       todayBtn.createEl("span").innerHTML =
         `<svg viewBox="0 0 16 16" fill="none" aria-hidden="true">` +
-        `<rect x="1.5" y="1" width="13" height="12.5" rx="2.5" stroke="currentColor" stroke-width="1.2"/>` +
-        `<line x1="1.5" y1="5" x2="14.5" y2="5" stroke="currentColor" stroke-width="1"/>` +
-        `<circle cx="8" cy="11.5" r="1.2" fill="currentColor"/>` +
-        `<line x1="8" y1="10" x2="8" y2="7.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>` +
-        `<path d="M5.8 9.2 L8 6.8 L10.2 9.2" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>` +
+        `<rect x="1.5" y="1.5" width="13" height="13" rx="2.2" stroke="currentColor" stroke-width="1.2"/>` +
+        `<line x1="1.5" y1="5.5" x2="14.5" y2="5.5" stroke="currentColor" stroke-width="1"/>` +
+        `<circle cx="8" cy="12.8" r="1.3" fill="currentColor"/>` +
+        `<line x1="8" y1="11.2" x2="8" y2="8.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>` +
+        `<path d="M5.8 9.8 L8 7.5 L10.2 9.8" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>` +
         `</svg>`;
       todayBtn.addEventListener("click", () => { this.anchor = new Date(); this.render(); });
 
