@@ -32,8 +32,10 @@ export class FocalSidebarView extends ItemView {
     this.highlightActiveTopic();
 
     this.registerEvent(this.app.workspace.on("file-open", (file) => {
+      const prev = this.activeFilePath;
       this.activeFilePath = file?.path ?? null;
       this.highlightActiveTopic();
+      if (file?.path !== prev) this.debouncedRefresh(200);
     }));
     this.registerEvent(this.app.metadataCache.on("changed", (file) => {
       // Skip while the user is actively editing — refresh fires on every keystroke otherwise
@@ -43,10 +45,6 @@ export class FocalSidebarView extends ItemView {
     this.registerEvent(this.app.vault.on("create", () => this.debouncedRefresh()));
     this.registerEvent(this.app.vault.on("delete", () => this.debouncedRefresh()));
     this.registerEvent(this.app.vault.on("rename", () => this.debouncedRefresh()));
-    // Refresh once when the user leaves the file they were editing
-    this.registerEvent(this.app.workspace.on("file-open", (file) => {
-      if (file?.path !== this.activeFilePath) this.debouncedRefresh(200);
-    }));
 
     // Internal links rendered by MarkdownRenderer need explicit click handling in custom views
     this.registerDomEvent(this.containerEl, "click", (e: MouseEvent) => {
@@ -304,26 +302,32 @@ export class FocalSidebarView extends ItemView {
     });
   }
 
+  private parseTodosFromFile(file: TFile, content: string): TodoItem[] {
+    const lines = content.split("\n");
+    const cache = this.app.metadataCache.getFileCache(file);
+    const date: string | null = cache?.frontmatter?.date ?? null;
+    const noteTitle: string = cache?.frontmatter?.title ?? file.basename;
+    const todos: TodoItem[] = [];
+    for (let i = 0; i < lines.length; i++) {
+      const openMatch = /^- \[ \] (.+)$/.exec(lines[i]);
+      const doneMatch = /^- \[x\] (.+)$/i.exec(lines[i]);
+      if (openMatch || doneMatch)
+        todos.push({ text: (openMatch ?? doneMatch)![1], checked: !!doneMatch, file, lineIndex: i, date, noteTitle });
+    }
+    return todos;
+  }
+
   private async collectTodos(): Promise<TodoItem[]> {
     const notesFolder = this.plugin.settings.notesFolder;
     const files = this.app.vault.getMarkdownFiles().filter((f) => {
       const fm = this.app.metadataCache.getFileCache(f)?.frontmatter;
-      if (fm?.["kanban-plugin"]) return false; // Kanban boards excluded
+      if (fm?.["kanban-plugin"]) return false;
       return f.path.startsWith(notesFolder + "/") || this.hasTopicTag(f);
     });
     const todos: TodoItem[] = [];
     for (const file of files) {
       const content = await this.app.vault.cachedRead(file);
-      const lines = content.split("\n");
-      const cache = this.app.metadataCache.getFileCache(file);
-      const date: string | null = cache?.frontmatter?.date ?? null;
-      const noteTitle: string = cache?.frontmatter?.title ?? file.basename;
-      for (let i = 0; i < lines.length; i++) {
-        const openMatch = /^- \[ \] (.+)$/.exec(lines[i]);
-        const doneMatch = /^- \[x\] (.+)$/i.exec(lines[i]);
-        if (openMatch || doneMatch)
-          todos.push({ text: (openMatch ?? doneMatch)![1], checked: !!doneMatch, file, lineIndex: i, date, noteTitle });
-      }
+      todos.push(...this.parseTodosFromFile(file, content));
     }
     return todos;
   }
