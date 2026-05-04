@@ -1159,9 +1159,8 @@ export class FocalCalendarView extends ItemView {
     await openFile(this.app, file, modifier);
     if (isNew)
       setTimeout(() => {
-        this.app.workspace
-          .getActiveViewOfType(MarkdownView)
-          ?.editor.fold({ line: 0, ch: 0 });
+        const editor = this.app.workspace.getActiveViewOfType(MarkdownView)?.editor as any;
+        editor?.fold?.({ line: 0, ch: 0 });
       }, 100);
   }
 }
