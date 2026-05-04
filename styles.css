@@ -1,0 +1,1186 @@
+/* ── Focal Plugin Styles ─────────────────────────────────────────── */
+
+:root {
+  --f-bg:           #f7f6f3;
+  --f-bg-col:       #ffffff;
+  --f-fg:           #1e1e1e;
+  --f-muted:        #8a8a85;
+  --f-border:       #e0deda;
+  --f-border-dark:  #c8c5be;
+  --f-today-bg:     hsla(var(--accent-h), var(--accent-s), var(--accent-l), 0.06);
+  --f-today-header: hsla(var(--accent-h), var(--accent-s), var(--accent-l), 0.12);
+
+  /* Event cards — light mode: soft pastel surface */
+  --f-event-bg:         hsl(var(--accent-h), 55%, 91%);
+  --f-event-border:     hsl(var(--accent-h), 50%, 55%);
+  --f-event-fg:         var(--f-fg);
+  --f-event-sel-bg:     var(--interactive-accent);
+  --f-event-sel-border: var(--interactive-accent);
+  --f-event-sel-fg:     var(--text-on-accent, #fff);
+  --f-event-series-bg:     hsl(var(--accent-h), 62%, 62%);
+  --f-event-series-border: hsl(var(--accent-h), 58%, 46%);
+
+  --f-now-color:    var(--interactive-accent);
+
+  --f-gutter:       44px;
+
+  --split-calendar: 38.2%;
+  --split-notes:    61.8%;
+}
+
+.theme-light {
+  /* Repeat light-mode event card vars so --accent-h resolves at body level */
+  --f-event-bg:         hsl(var(--accent-h), 55%, 91%);
+  --f-event-border:     hsl(var(--accent-h), 50%, 55%);
+  --f-event-sel-bg:     hsl(var(--accent-h), 55%, 48%);
+  --f-event-sel-border: hsl(var(--accent-h), 55%, 38%);
+  --f-event-sel-fg:     #fff;
+  --f-event-series-bg:     hsl(var(--accent-h), 55%, 74%);
+  --f-event-series-border: hsl(var(--accent-h), 52%, 50%);
+  --f-today-bg:         hsla(var(--accent-h), var(--accent-s), var(--accent-l), 0.06);
+  --f-today-header:     hsla(var(--accent-h), var(--accent-s), var(--accent-l), 0.12);
+}
+
+.theme-dark {
+  --f-bg:           #1e1e1e;
+  --f-bg-col:       #252525;
+  --f-fg:           #d8d5ce;
+  --f-muted:        #706e68;
+  --f-border:       #333330;
+  --f-border-dark:  #484540;
+  --f-today-bg:     hsla(var(--accent-h), var(--accent-s), var(--accent-l), 0.07);
+  --f-today-header: hsla(var(--accent-h), var(--accent-s), var(--accent-l), 0.13);
+
+  /* Event cards — dark mode: accent-hued surface, low saturation */
+  --f-event-bg:         hsl(var(--accent-h), 18%, 22%);
+  --f-event-border:     hsl(var(--accent-h), 35%, 42%);
+  --f-event-fg:         hsl(var(--accent-h), 15%, 86%);
+  --f-event-sel-bg:     var(--interactive-accent);
+  --f-event-sel-border: var(--interactive-accent);
+  --f-event-sel-fg:     var(--text-on-accent, #fff);
+  --f-event-series-bg:     hsl(var(--accent-h), 40%, 40%);
+  --f-event-series-border: hsl(var(--accent-h), 50%, 54%);
+}
+
+/* ── Root ────────────────────────────────────────────────────────── */
+
+.focal-root {
+  background: var(--f-bg);
+  color: var(--f-fg);
+  font-family: var(--font-interface);
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.focal-calendar-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+/* ── Split Layout ────────────────────────────────────────────────── */
+
+.focal-split {
+  flex-direction: row !important;
+}
+
+.focal-split-calendar {
+  width: var(--split-calendar);
+  flex-shrink: 0;
+  border-right: 1px solid var(--f-border-dark);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.focal-split-notes {
+  width: var(--split-notes);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  background: var(--f-bg-col);
+}
+
+.focal-split-notes--slide-in {
+  animation: focal-slide-in 160ms ease-out;
+}
+
+@keyframes focal-slide-in {
+  from { transform: translateX(20px); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+
+/* ── Nav Bar (uses native .view-header elements) ────────────────── */
+
+/* Always show the header for our view — Obsidian hides it by default on desktop */
+.workspace-leaf-content[data-type="focal-calendar"] .view-header {
+  display: flex !important;
+}
+
+/* Size the custom today SVG to match other clickable-icon buttons */
+.view-header-nav-button svg {
+  width: 16px;
+  height: 16px;
+}
+
+.focal-action-link {
+  color: var(--text-faint);
+  font-size: 0.82em;
+  cursor: pointer;
+}
+.focal-action-link:hover { color: var(--text-accent); }
+
+/* Arrow group: ← → */
+.focal-nav-arrow-group { display: flex; gap: 0; }
+
+.focal-nav-arrow {
+  padding: 3px 4px;
+}
+
+.focal-view-toggle { color: var(--text-faint); }
+.focal-view-toggle:hover { color: var(--text-muted); }
+
+.focal-note-close-btn {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-accent);
+  opacity: 0.85;
+}
+.focal-note-close-btn:hover { opacity: 1; }
+
+/* ── Status Bar ──────────────────────────────────────────────────── */
+
+.focal-status-bar {
+  flex-shrink: 0;
+  font-size: 0.7em;
+  font-family: monospace;
+  padding: 2px 10px;
+}
+
+.focal-status-bar--error {
+  background: #c0392b;
+  color: #fff;
+}
+
+.focal-status-bar--warn {
+  color: var(--f-muted);
+  background: var(--f-today-bg);
+}
+
+/* ── Time Grid ───────────────────────────────────────────────────── */
+
+.focal-time-grid {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Sticky column-header row */
+.focal-grid-header-row {
+  flex-shrink: 0;
+  display: flex;
+  border-bottom: 1px solid var(--f-border-dark);
+  background: var(--f-bg);
+  z-index: 10;
+}
+
+.focal-time-gutter {
+  width: var(--f-gutter);
+  min-width: var(--f-gutter);
+  flex-shrink: 0;
+}
+
+.focal-day-header {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  font-size: 0.75em;
+  font-weight: 600;
+  padding: 5px 2px;
+  border-left: 1px solid var(--f-border);
+  letter-spacing: 0.02em;
+  color: var(--f-muted);
+}
+
+.focal-day-header--today {
+  background: var(--f-today-header);
+  color: var(--f-fg);
+}
+
+.focal-day-header--selected {
+  background: var(--f-event-sel-bg);
+  color: var(--f-event-sel-fg);
+}
+
+.focal-day-header--double {
+  display: flex;
+  padding: 0;
+}
+
+.focal-day-subheader {
+  flex: 1;
+  text-align: center;
+  font-size: 0.75em;
+  font-weight: 600;
+  padding: 5px 2px;
+  color: var(--f-muted);
+}
+
+.focal-day-subheader.focal-day-header--today {
+  background: var(--f-today-header);
+  color: var(--f-fg);
+}
+
+.focal-day-subheader.focal-day-header--selected {
+  background: var(--f-event-sel-bg);
+  color: var(--f-event-sel-fg);
+}
+
+/* ── All-day strip ───────────────────────────────────────────────── */
+
+.focal-allday-row {
+  display: flex;
+  border-bottom: 1px solid var(--f-border-dark);
+  background: var(--f-bg);
+  flex-shrink: 0;
+}
+
+.focal-allday-label {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding: 4px 6px 4px 0;
+  font-size: 0.62em;
+  color: var(--text-faint);
+  white-space: nowrap;
+  padding-top: 6px;
+}
+
+.focal-allday-col {
+  flex: 1;
+  min-width: 0;
+  border-left: 1px solid var(--f-border);
+  padding: 3px 3px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.focal-allday-col--double {
+  display: flex;
+  flex-direction: row;
+  border-left: 1px solid var(--f-border);
+  padding: 0;
+  gap: 0;
+}
+
+.focal-allday-col--double > .focal-allday-col {
+  flex: 1;
+}
+
+.focal-allday-chip {
+  font-size: 0.72em;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: var(--f-event-bg);
+  border-left: 3px solid var(--f-event-border);
+  color: var(--f-event-fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.focal-allday-chip:hover { filter: brightness(0.94); }
+
+.focal-allday-chip--selected {
+  background: var(--f-event-sel-bg);
+  border-left-color: var(--f-event-sel-border);
+  color: var(--f-event-sel-fg);
+}
+
+.focal-allday-chip--series {
+  background: var(--f-event-series-bg);
+  border-left-color: var(--f-event-series-border);
+}
+
+/* Scrollable body */
+.focal-grid-body-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.focal-grid-body-inner {
+  display: flex;
+  position: relative;
+}
+
+/* Time label gutter */
+.focal-time-gutter--labels {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.focal-time-label {
+  position: absolute;
+  right: 6px;
+  transform: translateY(-50%);
+  font-size: 0.65em;
+  font-variant-numeric: tabular-nums;
+  color: var(--f-muted);
+  white-space: nowrap;
+  pointer-events: none;
+  line-height: 1;
+}
+
+/* ── Day Column Body ─────────────────────────────────────────────── */
+
+.focal-day-body {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  border-left: 1px solid var(--f-border);
+  background: var(--f-bg-col);
+  box-sizing: border-box;
+}
+
+.focal-day-body--today {
+  background: var(--f-today-bg);
+}
+
+.focal-day-body--selected {
+  background: hsla(var(--accent-h), var(--accent-s), var(--accent-l), 0.04);
+}
+
+.focal-day-body--double {
+  display: flex;
+  background: transparent;
+  border: none;
+}
+
+.focal-day-body--sub {
+  border-left: 1px solid var(--f-border);
+}
+
+/* Hour lines */
+.focal-hour-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--f-border);
+  pointer-events: none;
+}
+
+.focal-hour-line--half {
+  background: var(--f-border);
+  opacity: 0.4;
+}
+
+/* Current time indicator */
+.focal-now-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #d96060;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.focal-now-dot {
+  position: absolute;
+  left: -4px;
+  top: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #d96060;
+}
+
+/* ── Event Cards ─────────────────────────────────────────────────── */
+
+.focal-event-card {
+  position: absolute;
+  box-sizing: border-box;
+  background: var(--f-event-bg);
+  border: 1px solid var(--f-event-border);
+  border-left: 3px solid var(--f-event-border);
+  color: var(--f-event-fg);
+  padding: 2px 5px;
+  cursor: pointer;
+  overflow: hidden;
+  border-radius: 6px;
+  margin: 0 2px;
+  z-index: 2;
+  transition: filter 80ms;
+}
+
+.focal-event-card:hover {
+  filter: brightness(0.94);
+  z-index: 3;
+}
+
+.focal-event-card--selected {
+  background: var(--f-event-sel-bg);
+  border-color: var(--f-event-sel-border);
+  color: var(--f-event-sel-fg);
+  z-index: 4;
+}
+
+.focal-event-card--series {
+  background: var(--f-event-series-bg);
+  border-color: var(--f-event-series-border);
+}
+
+.focal-event-card--cancelled {
+  opacity: 0.38;
+}
+
+.focal-event-card--cancelled .focal-event-title {
+  text-decoration: line-through;
+}
+
+.focal-allday-chip--cancelled {
+  opacity: 0.38;
+  text-decoration: line-through;
+}
+
+.focal-event-card--has-note {
+  border-left-width: 4px;
+}
+
+/* Multi-day continuation: square off the cut edge */
+.focal-event-card--continues-after  { border-bottom: none; border-radius: 6px 6px 0 0; }
+.focal-event-card--continues-before { border-top: none;    border-radius: 0 0 6px 6px; }
+
+/* ── Drag-to-create ghost ───────────────────────────────────────── */
+
+.focal-ghost-event {
+  position: absolute;
+  left: 1px;
+  width: calc(100% - 3px);
+  background: hsla(var(--accent-h), var(--accent-s), var(--accent-l), 0.15);
+  border: 2px dashed var(--interactive-accent);
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 10;
+  font-size: 0.72em;
+  padding: 2px 5px;
+  color: var(--interactive-accent);
+  font-weight: 500;
+  box-sizing: border-box;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* ── Drag-to-move ghost (follows cursor, fixed position) ────────── */
+
+.focal-drag-ghost {
+  position: fixed;
+  z-index: 1000;
+  background: var(--f-event-bg);
+  border: 1px solid var(--f-event-border);
+  border-left: 3px solid var(--f-event-border);
+  color: var(--f-event-fg);
+  padding: 2px 5px;
+  border-radius: 6px;
+  pointer-events: none;
+  opacity: 0.8;
+  box-sizing: border-box;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+}
+
+/* ── Landing indicator (target time slot) ───────────────────────── */
+
+.focal-landing-ghost {
+  position: absolute;
+  left: 1px;
+  width: calc(100% - 3px);
+  background: hsla(var(--accent-h), var(--accent-s), var(--accent-l), 0.12);
+  border: 2px solid var(--interactive-accent);
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 9;
+  font-size: 0.7em;
+  padding: 2px 5px;
+  color: var(--interactive-accent);
+  font-weight: 500;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+/* ── Resize handle at bottom of event card ──────────────────────── */
+
+.focal-resize-handle {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 8px;
+  cursor: ns-resize;
+  border-radius: 0 0 6px 6px;
+}
+
+.focal-resize-handle::after {
+  content: '';
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 18px;
+  height: 2px;
+  border-radius: 1px;
+  background: currentColor;
+  opacity: 0;
+  transition: opacity 120ms;
+}
+
+.focal-event-card:hover .focal-resize-handle::after { opacity: 0.4; }
+
+/* ── All-day spanning area ──────────────────────────────────────── */
+
+.focal-allday-area {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+}
+
+.focal-allday-col-sep {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  border-left: 1px solid var(--f-border);
+  pointer-events: none;
+}
+
+.focal-allday-area .focal-allday-chip {
+  position: absolute;
+}
+
+/* ── Create popover ─────────────────────────────────────────────── */
+
+.focal-create-popover {
+  position: fixed;
+  z-index: 1000;
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.18);
+  min-width: 230px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.focal-create-time {
+  font-size: 0.76em;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.focal-create-input {
+  width: 100%;
+  font-size: 0.88em;
+  padding: 5px 8px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 5px;
+  background: var(--background-primary);
+  color: var(--text-normal);
+  box-sizing: border-box;
+}
+.focal-create-input:focus {
+  outline: none;
+  border-color: var(--interactive-accent);
+}
+
+.focal-create-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.focal-create-btn {
+  font-size: 0.8em;
+  padding: 4px 12px;
+  border-radius: 5px;
+  cursor: pointer;
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-secondary);
+  color: var(--text-normal);
+  line-height: 1.4;
+}
+.focal-create-btn:hover { background: var(--background-modifier-hover); }
+
+.focal-create-btn--primary {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent, #fff);
+  border-color: var(--interactive-accent);
+}
+.focal-create-btn--primary:hover { filter: brightness(1.1); }
+.focal-event-card--continues-after.focal-event-card--continues-before { border-radius: 0; }
+
+.focal-event-time-row {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.focal-event-time {
+  font-size: 0.62em;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.7;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.focal-event-recurring-icon {
+  font-size: 0.65em;
+  opacity: 0.6;
+  line-height: 1;
+}
+
+.focal-event-title {
+  display: block;
+  font-size: 0.75em;
+  font-weight: 600;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.focal-event-location {
+  display: block;
+  font-size: 0.65em;
+  opacity: 0.65;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-top: 1px;
+}
+
+.focal-event-removal-hint {
+  display: block;
+  font-size: 0.6em;
+  opacity: 0.6;
+}
+
+/* ── Note Pane ───────────────────────────────────────────────────── */
+
+.focal-note-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--f-border);
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  background: var(--f-bg-col);
+}
+
+.focal-note-toolbar-title {
+  font-weight: 600;
+  font-size: 0.9em;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.focal-note-close {
+  background: none;
+  border: none;
+  color: var(--text-faint);
+  padding: 0 4px;
+  cursor: pointer;
+  margin-left: auto;
+  font-size: 0.85em;
+}
+
+.focal-note-close:hover { color: var(--text-normal); }
+
+.focal-note-content {
+  flex: 1;
+  padding: 16px 20px;
+  overflow-y: auto;
+}
+
+.focal-note-open-link {
+  display: inline-block;
+  margin-top: 16px;
+  font-size: 0.85em;
+  color: var(--f-fg);
+  text-decoration: underline;
+  cursor: pointer;
+  border: none;
+  background: none;
+  padding: 0;
+}
+
+.focal-note-empty {
+  padding: 24px;
+  color: var(--f-muted);
+  font-size: 0.85em;
+}
+
+.focal-removal-btn {
+  background: none;
+  border: 1px solid var(--f-border-dark);
+  color: var(--f-muted);
+  padding: 2px 7px;
+  cursor: pointer;
+  font-size: 0.72em;
+  border-radius: 3px;
+}
+
+.focal-removal-btn--active {
+  background: var(--f-fg);
+  color: var(--f-bg);
+}
+
+.focal-removal-btn:hover { background: var(--f-border); }
+
+/* ── History Nav ─────────────────────────────────────────────────── */
+
+.focal-history-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72em;
+  color: var(--f-muted);
+}
+
+.focal-history-btn {
+  background: none;
+  border: 1px solid var(--f-border-dark);
+  color: var(--f-fg);
+  padding: 1px 5px;
+  cursor: pointer;
+  font-size: 0.9em;
+  border-radius: 2px;
+}
+
+.focal-history-btn:hover { background: var(--f-border); }
+
+/* ── Sidebar (combined Topics + Todos) ───────────────────────────── */
+
+.focal-sidebar-root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.focal-sidebar-topics {
+  flex-shrink: 0;
+  overflow-y: auto;
+  max-height: 50%;
+}
+
+.focal-sidebar-section-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.7em;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--f-muted);
+  padding: 10px 16px 4px;
+}
+
+.focal-sidebar-count {
+  font-size: 0.9em;
+  font-variant-numeric: tabular-nums;
+  background: var(--f-border-dark);
+  color: var(--f-muted);
+  border-radius: 8px;
+  padding: 0 5px;
+  letter-spacing: 0;
+  line-height: 1.6;
+}
+
+.focal-sidebar-divider {
+  height: 1px;
+  background: var(--f-border);
+  flex-shrink: 0;
+  margin: 0 12px;
+}
+
+.focal-sidebar-todos {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+/* ── Todo Board ──────────────────────────────────────────────────── */
+
+
+.focal-board-section {
+  padding: 0 16px 8px;
+}
+
+.focal-board-group-label {
+  font-size: 0.68em;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin: 14px 0 4px;
+}
+
+.focal-todo-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--f-border);
+}
+
+.focal-todo-row:last-child { border-bottom: none; }
+
+.focal-todo-row input[type="checkbox"] {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+  margin-top: 3px;
+}
+
+.focal-todo-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.focal-todo-text { font-size: 0.85em; min-width: 0; overflow: hidden; }
+.focal-todo-text p { margin: 0; display: inline; }
+
+.focal-todo-chip {
+  color: var(--text-faint);
+  font-size: 0.72em;
+  cursor: pointer;
+}
+
+.focal-todo-chip:hover { color: var(--text-accent); text-decoration: underline; }
+
+/* ── Topics View ─────────────────────────────────────────────────── */
+
+.focal-topics-list { padding: 8px 16px; }
+
+.focal-topic-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--f-border);
+  cursor: grab;
+  user-select: none;
+}
+
+.focal-topic-row:last-child { border-bottom: none; }
+.focal-topic-row--active { background: var(--f-today-header); }
+.focal-topic-row.focal-dragging { opacity: 0.35; }
+.focal-topic-row.focal-drop-before { border-top: 2px solid var(--interactive-accent); }
+.focal-topic-row.focal-drop-after  { border-bottom: 2px solid var(--interactive-accent); }
+
+.focal-topic-handle {
+  color: var(--f-muted);
+  opacity: 0.35;
+  cursor: grab;
+  padding: 0 4px;
+  font-size: 1em;
+  align-self: center;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.focal-topic-row:hover .focal-topic-handle { opacity: 0.7; }
+.focal-topic-row.focal-dragging .focal-topic-handle { cursor: grabbing; }
+
+
+.focal-topic-content { flex: 1; min-width: 0; }
+
+.focal-topic-title {
+  color: var(--text-normal);
+  font-size: 0.9em;
+  font-weight: 500;
+  cursor: pointer;
+  display: block;
+}
+
+.focal-topic-title:hover { color: var(--text-accent); text-decoration: underline; }
+
+.focal-topic-delete {
+  color: var(--text-faint);
+  cursor: pointer;
+  padding: 0 4px;
+  font-size: 0.7em;
+  opacity: 0;
+  transition: opacity 120ms;
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.focal-topic-row:hover .focal-topic-delete { opacity: 1; }
+.focal-topic-delete:hover { color: var(--text-error, #e05252); }
+
+.focal-topics-empty {
+  padding: 32px 20px;
+  color: var(--f-muted);
+  font-size: 0.85em;
+  text-align: center;
+}
+
+.focal-topic-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 5px;
+}
+
+.focal-chip {
+  color: var(--text-faint);
+  font-size: 0.72em;
+}
+
+.focal-topic-new-row {
+  padding: 8px 0;
+  cursor: text;
+  border-bottom: 1px dashed var(--f-border);
+  min-height: 32px;
+}
+
+.focal-topic-new-row:hover {
+  border-bottom-color: var(--text-faint);
+}
+
+.focal-topic-new-row--active {
+  border-bottom-color: var(--text-accent);
+}
+
+.focal-topic-new-input {
+  width: 100%;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text-normal);
+  font-size: 0.9em;
+  font-weight: 500;
+  padding: 0;
+  box-shadow: none;
+}
+
+/* ── New Topic Modal ─────────────────────────────────────────────── */
+
+.focal-new-topic-modal { padding: 4px 0 0; }
+
+.focal-modal-title {
+  margin: 0 0 12px;
+  font-size: 0.95em;
+  font-weight: 700;
+}
+
+.focal-modal-input {
+  width: 100%;
+  border: 1px solid var(--f-border-dark);
+  background: var(--f-bg-col);
+  color: var(--f-fg);
+  font-size: 0.95em;
+  padding: 7px 10px;
+  border-radius: 3px;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.focal-modal-input:focus { border-color: var(--f-event-border); }
+
+.focal-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.focal-modal-confirm {
+  background: none;
+  border: none;
+  color: var(--text-accent);
+  font-weight: 600;
+}
+.focal-modal-confirm:hover { text-decoration: underline; }
+
+/* ── Search Modal ────────────────────────────────────────────────── */
+
+.focal-search-modal { padding: 0; }
+
+.focal-search-input {
+  width: 100%;
+  border: none;
+  border-bottom: 2px solid var(--f-border-dark);
+  background: var(--f-bg-col);
+  color: var(--f-fg);
+  font-size: 1em;
+  padding: 12px 16px;
+  font-family: var(--font-interface);
+  outline: none;
+}
+
+.focal-search-results { max-height: 420px; overflow-y: auto; padding: 6px 0; }
+
+.focal-search-section-title {
+  font-size: 0.68em;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--f-muted);
+  padding: 4px 16px;
+}
+
+.focal-search-row {
+  padding: 6px 16px;
+  border-bottom: 1px solid var(--f-border);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.focal-search-row:last-child { border-bottom: none; }
+.focal-search-row:hover { background: var(--f-today-bg); }
+
+.focal-search-title {
+  background: none;
+  border: none;
+  color: var(--f-fg);
+  font-size: 0.88em;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+}
+
+.focal-search-title:hover { text-decoration: underline; }
+.focal-search-date { font-size: 0.68em; color: var(--f-muted); font-variant-numeric: tabular-nums; }
+.focal-search-snippet { font-size: 0.73em; color: var(--f-muted); line-height: 1.4; }
+.focal-search-empty { padding: 20px 16px; color: var(--f-muted); font-size: 0.85em; }
+
+/* ── Mini month ──────────────────────────────────────────────────── */
+
+.focal-mini-month {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  z-index: 20;
+  background: var(--f-bg);
+  border: 1px solid var(--f-border-dark);
+  border-radius: 6px;
+  padding: 8px 6px 6px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.10);
+  width: 186px;
+  pointer-events: all;
+}
+
+.focal-mini-month-header {
+  font-size: 0.66em;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-align: center;
+  color: var(--f-muted);
+  margin-bottom: 5px;
+}
+
+.focal-mini-month-grid {
+  display: grid;
+  grid-template-columns: 22px repeat(7, 1fr);
+  gap: 1px;
+}
+
+.focal-mini-dow {
+  font-size: 0.58em;
+  font-weight: 600;
+  text-align: center;
+  color: var(--f-muted);
+  padding-bottom: 3px;
+}
+
+.focal-mini-kw-header {
+  text-align: right;
+  padding-right: 4px;
+}
+
+.focal-mini-kw {
+  font-size: 0.55em;
+  color: var(--f-muted);
+  opacity: 0.6;
+  text-align: right;
+  padding-right: 4px;
+  line-height: 1.9;
+  font-variant-numeric: tabular-nums;
+}
+
+.focal-mini-day {
+  font-size: 0.62em;
+  text-align: center;
+  line-height: 1.9;
+  border-radius: 3px;
+  cursor: pointer;
+  color: var(--f-fg);
+  position: relative;
+}
+
+.focal-mini-day:hover { background: var(--f-today-bg); }
+.focal-mini-day--empty { pointer-events: none; }
+
+.focal-mini-day--has-event::after {
+  content: '';
+  position: absolute;
+  bottom: 1px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--f-event-border);
+}
+
+.focal-mini-day--anchor {
+  background: var(--f-today-header);
+}
+
+.focal-mini-day--today {
+  background: var(--f-event-sel-bg);
+  color: var(--f-event-sel-fg);
+  font-weight: 700;
+}
+
+/* ── Mobile ──────────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  .focal-mini-month { bottom: 72px; }
+
+  .focal-split { flex-direction: column !important; }
+
+  .focal-split-calendar {
+    width: 100% !important;
+    max-height: 50vh;
+    border-right: none;
+    border-bottom: 1px solid var(--f-border-dark);
+  }
+
+  .focal-split-notes { width: 100% !important; flex: 1; }
+}
