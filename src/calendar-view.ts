@@ -93,6 +93,9 @@ export class FocalCalendarView extends ItemView {
   private unsubscribeData: (() => void) | null = null;
   private resizeObserver: ResizeObserver | null = null;
   private nowTimer: number | null = null;
+  private lastAnchorStr: string | null = null;
+  private lastVisibleDays: number = 0;
+  private initialScrollDone = false;
   private navLabelEl: HTMLElement | null = null;
   private dragCreate: { ghost: HTMLElement; onMove: (e: MouseEvent) => void; onUp: (e: MouseEvent) => void } | null = null;
   private dragMove: { ghost: HTMLElement; landing: HTMLElement; onMove: (e: MouseEvent) => void; onUp: (e: MouseEvent) => void } | null = null;
@@ -142,9 +145,30 @@ export class FocalCalendarView extends ItemView {
     return targetHour * HOUR_PX;
   }
 
+  private hasEventsInView(): boolean {
+    const columns =
+      this.visibleDays === 6 ? getWeekColumns(this.anchor) :
+      this.visibleDays === 1 ? get1DayColumn(this.anchor) :
+      getNDayColumns(this.anchor, this.visibleDays);
+    return columns.flatMap(c => c.dates).some(
+      d => this.plugin.calendarReader.getEventsForDate(d).length > 0
+    );
+  }
+
   private render() {
-    const prevScroll = this.containerEl
-      .querySelector<HTMLElement>(".focal-grid-body-scroll")?.scrollTop ?? null;
+    const anchorStr = toDateStr(this.anchor);
+    const rangeChanged = anchorStr !== this.lastAnchorStr || this.visibleDays !== this.lastVisibleDays;
+    if (rangeChanged) {
+      this.lastAnchorStr    = anchorStr;
+      this.lastVisibleDays  = this.visibleDays;
+      this.initialScrollDone = false;
+    }
+
+    // Only preserve user scroll position once we've scrolled to the first event
+    const shouldPreserveScroll = this.initialScrollDone && !rangeChanged;
+    const prevScroll = shouldPreserveScroll
+      ? (this.containerEl.querySelector<HTMLElement>(".focal-grid-body-scroll")?.scrollTop ?? null)
+      : null;
 
     this.updateNavLabel();
 
@@ -163,6 +187,7 @@ export class FocalCalendarView extends ItemView {
         scrollEl.scrollTop = prevScroll;
       } else {
         scrollEl.scrollTop = this.initialScrollTop();
+        if (this.hasEventsInView()) this.initialScrollDone = true;
       }
     }, 0);
   }
