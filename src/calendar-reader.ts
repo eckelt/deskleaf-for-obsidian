@@ -1,6 +1,7 @@
 import { Notice } from "obsidian";
 import type { CalendarEvent } from "./types";
-import type { ChildProcess, execFile as ExecFile } from "child_process";
+import type { ChildProcess, execFile as ExecFile, spawn as Spawn } from "child_process";
+import type { existsSync as ExistsSync } from "fs";
 
 export class CalendarReader {
   private binaryPath: string;
@@ -13,8 +14,19 @@ export class CalendarReader {
   private saveCache: ((events: CalendarEvent[], date: string) => Promise<void>) | null = null;
   private loadCacheFn: (() => Promise<{ events: CalendarEvent[]; date: string | null }>) | null = null;
 
+  private execFile: typeof ExecFile | null = null;
+  private spawn: typeof Spawn | null = null;
+  private existsSync: typeof ExistsSync | null = null;
+
   constructor(binaryPath: string) {
     this.binaryPath = binaryPath;
+    try {
+      const cp = require("child_process") as typeof import("child_process");
+      const fs = require("fs") as typeof import("fs");
+      this.execFile  = cp.execFile;
+      this.spawn     = cp.spawn;
+      this.existsSync = fs.existsSync;
+    } catch { /* mobile: Node.js modules unavailable */ }
   }
 
   setCacheCallbacks(
@@ -72,20 +84,14 @@ export class CalendarReader {
   // ── Lifecycle ────────────────────────────────────────────────────
 
   async load(): Promise<void> {
-    let execFile: typeof import("child_process").execFile;
-    let existsSync: typeof import("fs").existsSync;
-    try {
-      execFile  = (require("child_process") as typeof import("child_process")).execFile;
-      existsSync = (require("fs") as typeof import("fs")).existsSync;
-    } catch {
-      // Mobile: Node.js modules unavailable — use synced cache from data.json
+    if (!this.execFile || !this.existsSync) {
       this.loadError = "Mobiles Gerät";
       await this.tryLoadCache();
       this.notify();
       return;
     }
 
-    if (!existsSync(this.binaryPath)) {
+    if (!this.existsSync(this.binaryPath)) {
       this.loadError = `focal-cal nicht gefunden: ${this.binaryPath} — bitte swift/build.sh ausführen`;
       await this.tryLoadCache();
       this.notify();
@@ -93,7 +99,7 @@ export class CalendarReader {
     }
 
     return new Promise<void>((resolve) => {
-      execFile(
+      this.execFile!(
         this.binaryPath,
         ["export", "--days-back", "90", "--days-forward", "365"],
         { timeout: 15_000 },
@@ -127,17 +133,11 @@ export class CalendarReader {
   private startProcess(): void {
     this.stopProcess();
 
-    let spawn: typeof import("child_process").spawn;
-    let existsSync: typeof import("fs").existsSync;
-    try {
-      spawn      = (require("child_process") as typeof import("child_process")).spawn;
-      existsSync = (require("fs") as typeof import("fs")).existsSync;
-    } catch { return; } // mobile
-
-    if (!existsSync(this.binaryPath)) return;
+    if (!this.spawn || !this.existsSync) return; // mobile
+    if (!this.existsSync(this.binaryPath)) return;
 
     this.lineBuffer = "";
-    const proc = spawn(this.binaryPath, [
+    const proc = this.spawn(this.binaryPath, [
       "watch", "--days-back", "90", "--days-forward", "365"
     ]);
     this.process = proc;
@@ -227,9 +227,7 @@ export class CalendarReader {
     notes?: string;
     location?: string;
   }): Promise<string> {
-    let execFile: typeof ExecFile;
-    try { execFile = (require("child_process") as typeof import("child_process")).execFile; }
-    catch { return Promise.reject(new Error("Nicht auf diesem Gerät verfügbar")); }
+    if (!this.execFile) return Promise.reject(new Error("Nicht auf diesem Gerät verfügbar"));
     return new Promise((resolve, reject) => {
       const args = [
         "create",
@@ -240,7 +238,7 @@ export class CalendarReader {
         ...(params.notes    ? ["--notes",    params.notes]    : []),
         ...(params.location ? ["--location", params.location] : []),
       ];
-      execFile(this.binaryPath, args, { timeout: 10_000 }, (err, stdout) => {
+      this.execFile!(this.binaryPath, args, { timeout: 10_000 }, (err, stdout) => {
         if (err) { reject(err); return; }
         resolve(stdout.trim());
       });
@@ -248,11 +246,9 @@ export class CalendarReader {
   }
 
   async moveEvent(id: string, newStart: string, newEnd: string): Promise<void> {
-    let execFile: typeof ExecFile;
-    try { execFile = (require("child_process") as typeof import("child_process")).execFile; }
-    catch { return Promise.reject(new Error("Nicht auf diesem Gerät verfügbar")); }
+    if (!this.execFile) return Promise.reject(new Error("Nicht auf diesem Gerät verfügbar"));
     return new Promise((resolve, reject) => {
-      execFile(
+      this.execFile!(
         this.binaryPath,
         ["move", "--id", id, "--start", newStart, "--end", newEnd],
         { timeout: 10_000 },
@@ -262,11 +258,9 @@ export class CalendarReader {
   }
 
   async cancelEvent(id: string, span: "this" | "future" = "this"): Promise<void> {
-    let execFile: typeof ExecFile;
-    try { execFile = (require("child_process") as typeof import("child_process")).execFile; }
-    catch { return Promise.reject(new Error("Nicht auf diesem Gerät verfügbar")); }
+    if (!this.execFile) return Promise.reject(new Error("Nicht auf diesem Gerät verfügbar"));
     return new Promise((resolve, reject) => {
-      execFile(
+      this.execFile!(
         this.binaryPath,
         ["cancel", "--id", id, "--span", span],
         { timeout: 10_000 },
