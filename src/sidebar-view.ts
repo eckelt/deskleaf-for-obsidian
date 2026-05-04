@@ -24,7 +24,7 @@ export class FocalSidebarView extends ItemView {
 
   getViewType() { return VIEW_TYPE_SIDEBAR; }
   getDisplayText() { return "Deskleaf"; }
-  getIcon() { return "focal-point"; }
+  getIcon() { return "deskleaf"; }
 
   async onOpen() {
     await this.render();

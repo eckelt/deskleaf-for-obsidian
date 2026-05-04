@@ -350,11 +350,11 @@ export class FocalCalendarView extends ItemView {
       todayBtn.setAttribute("aria-label", "Heute");
       todayBtn.createEl("span").innerHTML =
         `<svg viewBox="0 0 16 16" fill="none" aria-hidden="true">` +
-        `<rect x="1.5" y="1.5" width="13" height="15" rx="2.2" stroke="currentColor" stroke-width="1.2"/>` +
+        `<rect x="1.5" y="1.5" width="13" height="13" rx="2.2" stroke="currentColor" stroke-width="1.2"/>` +
         `<line x1="1.5" y1="5.5" x2="14.5" y2="5.5" stroke="currentColor" stroke-width="1"/>` +
-        `<circle cx="8" cy="12.8" r="1.3" fill="currentColor"/>` +
-        `<line x1="8" y1="11.2" x2="8" y2="8.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>` +
-        `<path d="M5.8 9.8 L8 7.5 L10.2 9.8" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>` +
+        `<circle cx="8" cy="13" r="1.2" fill="currentColor"/>` +
+        `<line x1="8" y1="11.5" x2="8" y2="9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>` +
+        `<path d="M5.5 9 L8 7 L10.5 9" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>` +
         `</svg>`;
       todayBtn.addEventListener("click", () => {
         this.anchor = new Date();
@@ -1159,7 +1159,8 @@ export class FocalCalendarView extends ItemView {
     await openFile(this.app, file, modifier);
     if (isNew)
       setTimeout(() => {
-        const editor = this.app.workspace.getActiveViewOfType(MarkdownView)?.editor as any;
+        const editor = this.app.workspace.getActiveViewOfType(MarkdownView)
+          ?.editor as any;
         editor?.fold?.({ line: 0, ch: 0 });
       }, 100);
   }
