@@ -30,26 +30,29 @@ export default class FocalPlugin extends Plugin {
       <line x1="84" y1="50" x2="95" y2="50" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
     `);
 
-    // Leaf silhouette with calendar header bar + date dot grid (fill-rule evenodd)
+    // Leaf silhouette: wide rounded body left, near-vertical right side with pointed top-right,
+    // stem lower-left. Calendar header strip + 4×3 dot grid inside (fill-rule evenodd).
     addIcon("deskleaf", `
       <path fill-rule="evenodd" fill="currentColor" d="
-        M 46 84 C 26 84 12 68 12 52 C 12 34 24 18 44 14
-        C 56 10 70 16 76 26 C 80 32 76 38 68 44
-        C 76 52 78 66 70 76 C 62 82 54 86 46 84 Z
-        M 24 78 C 18 80 12 86 14 90 C 18 94 26 88 26 82 Z
-        M 24 28 L 72 28 L 72 38 L 24 38 Z
-        M 32 51 m -5 0 a 5 5 0 1 0 10 0 a 5 5 0 1 0 -10 0
-        M 44 51 m -5 0 a 5 5 0 1 0 10 0 a 5 5 0 1 0 -10 0
-        M 56 51 m -5 0 a 5 5 0 1 0 10 0 a 5 5 0 1 0 -10 0
-        M 68 51 m -5 0 a 5 5 0 1 0 10 0 a 5 5 0 1 0 -10 0
-        M 32 63 m -5 0 a 5 5 0 1 0 10 0 a 5 5 0 1 0 -10 0
-        M 44 63 m -5 0 a 5 5 0 1 0 10 0 a 5 5 0 1 0 -10 0
-        M 56 63 m -5 0 a 5 5 0 1 0 10 0 a 5 5 0 1 0 -10 0
-        M 68 63 m -5 0 a 5 5 0 1 0 10 0 a 5 5 0 1 0 -10 0
-        M 32 75 m -5 0 a 5 5 0 1 0 10 0 a 5 5 0 1 0 -10 0
-        M 44 75 m -5 0 a 5 5 0 1 0 10 0 a 5 5 0 1 0 -10 0
-        M 56 75 m -5 0 a 5 5 0 1 0 10 0 a 5 5 0 1 0 -10 0
-        M 68 75 m -5 0 a 5 5 0 1 0 10 0 a 5 5 0 1 0 -10 0
+        M 48 80 C 32 82 14 70 14 54
+               C 14 36 26 20 44 16
+               C 56 12 70 14 76 24
+               C 82 34 82 60 74 72
+               C 66 80 58 82 48 80 Z
+        M 24 76 C 18 80 12 86 14 90 C 18 94 26 88 26 82 Z
+        M 20 26 L 78 26 L 78 36 L 20 36 Z
+        M 28 46 m -5 0 a 5 5 0 1 0 10 0 a 5 5 0 1 0 -10 0
+        M 41 46 m -5 0 a 5 5 0 1 0 10 0 a 5 5 0 1 0 -10 0
+        M 54 46 m -5 0 a 5 5 0 1 0 10 0 a 5 5 0 1 0 -10 0
+        M 67 46 m -5 0 a 5 5 0 1 0 10 0 a 5 5 0 1 0 -10 0
+        M 28 57 m -5 0 a 5 5 0 1 0 10 0 a 5 5 0 1 0 -10 0
+        M 41 57 m -5 0 a 5 5 0 1 0 10 0 a 5 5 0 1 0 -10 0
+        M 54 57 m -5 0 a 5 5 0 1 0 10 0 a 5 5 0 1 0 -10 0
+        M 67 57 m -5 0 a 5 5 0 1 0 10 0 a 5 5 0 1 0 -10 0
+        M 28 68 m -5 0 a 5 5 0 1 0 10 0 a 5 5 0 1 0 -10 0
+        M 41 68 m -5 0 a 5 5 0 1 0 10 0 a 5 5 0 1 0 -10 0
+        M 54 68 m -5 0 a 5 5 0 1 0 10 0 a 5 5 0 1 0 -10 0
+        M 67 68 m -5 0 a 5 5 0 1 0 10 0 a 5 5 0 1 0 -10 0
       "/>
     `);
 
