@@ -511,16 +511,25 @@ export class FocalCalendarView extends ItemView {
     const ROW_H = 24;
     const totalCols = columns.length;
 
-    // date → column index mapping
-    const dateToCol = new Map<string, number>();
-    columns.forEach((col, i) => col.dates.forEach((d) => dateToCol.set(d, i)));
+    // date → fractional position within [0, totalCols].
+    // Double-date columns (Sa+So) split into left/right halves so a
+    // Sunday-only event doesn't bleed into Saturday's half.
+    const dateFrac = new Map<string, { start: number; end: number }>();
+    columns.forEach((col, i) => {
+      if (col.dates.length === 2) {
+        dateFrac.set(col.dates[0], { start: i, end: i + 0.5 });
+        dateFrac.set(col.dates[1], { start: i + 0.5, end: i + 1 });
+      } else {
+        dateFrac.set(col.dates[0], { start: i, end: i + 1 });
+      }
+    });
 
-    // Collect unique all-day events with their visible column spans
+    // Collect unique all-day events with their visible fractional spans
     const seen = new Set<string>();
     const items: Array<{
       ev: CalendarEvent;
-      startCol: number;
-      endCol: number;
+      fracStart: number;
+      fracEnd: number;
     }> = [];
 
     for (const date of allDates) {
@@ -532,33 +541,32 @@ export class FocalCalendarView extends ItemView {
         const evStart = ev.start.slice(0, 10);
         const evEnd = ev.end.slice(0, 10);
 
-        let sc = totalCols,
-          ec = -1;
-        for (const [d, colIdx] of dateToCol) {
+        let fs = totalCols, fe = 0;
+        for (const [d, frac] of dateFrac) {
           if (d >= evStart && d <= evEnd) {
-            sc = Math.min(sc, colIdx);
-            ec = Math.max(ec, colIdx);
+            fs = Math.min(fs, frac.start);
+            fe = Math.max(fe, frac.end);
           }
         }
-        if (sc <= ec) items.push({ ev, startCol: sc, endCol: ec });
+        if (fs < fe) items.push({ ev, fracStart: fs, fracEnd: fe });
       }
     }
 
     // Sort: earlier start first, longer span first within same start
     items.sort(
       (a, b) =>
-        a.startCol - b.startCol ||
-        b.endCol - b.startCol - (a.endCol - a.startCol),
+        a.fracStart - b.fracStart ||
+        b.fracEnd - b.fracStart - (a.fracEnd - a.fracStart),
     );
 
     // Greedy row assignment (non-overlapping spans share a row)
     const rowEnds: number[] = [];
-    const rowOf = items.map(({ startCol, endCol }) => {
-      let row = rowEnds.findIndex((end) => end < startCol);
+    const rowOf = items.map(({ fracStart, fracEnd }) => {
+      let row = rowEnds.findIndex((end) => end <= fracStart);
       if (row === -1) {
         row = rowEnds.length;
-        rowEnds.push(endCol);
-      } else rowEnds[row] = endCol;
+        rowEnds.push(fracEnd);
+      } else rowEnds[row] = fracEnd;
       return row;
     });
 
@@ -571,15 +579,15 @@ export class FocalCalendarView extends ItemView {
     const area = allDayRow.createDiv("focal-allday-area");
     area.style.height = `${areaH}px`;
 
-    // Column separator guides
+    // Column separator guides (at integer column boundaries)
     for (let i = 0; i < totalCols; i++) {
       const sep = area.createDiv("focal-allday-col-sep");
       sep.style.left = `${(i / totalCols) * 100}%`;
     }
 
-    // Render spanning chips
+    // Render spanning chips using fractional positions
     for (let i = 0; i < items.length; i++) {
-      const { ev, startCol, endCol } = items[i];
+      const { ev, fracStart, fracEnd } = items[i];
       const row = rowOf[i];
       const chip = area.createDiv("focal-allday-chip");
       chip.setAttribute("title", ev.title);
@@ -593,9 +601,9 @@ export class FocalCalendarView extends ItemView {
       if (ev.isRecurring) chip.addClass("focal-allday-chip--recurring");
       if (ev.isCancelled) chip.addClass("focal-allday-chip--cancelled");
 
-      chip.style.left = `calc(${(startCol / totalCols) * 100}% + 3px)`;
+      chip.style.left = `calc(${(fracStart / totalCols) * 100}% + 3px)`;
       chip.style.top = `${row * ROW_H + 2}px`;
-      chip.style.width = `calc(${((endCol - startCol + 1) / totalCols) * 100}% - 6px)`;
+      chip.style.width = `calc(${((fracEnd - fracStart) / totalCols) * 100}% - 6px)`;
       chip.setText(ev.title);
       chip.addEventListener("click", (e) =>
         this.openEvent(ev, ev.start.slice(0, 10), e.metaKey || e.ctrlKey),
