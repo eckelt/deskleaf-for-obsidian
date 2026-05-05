@@ -137,6 +137,8 @@ export class FocalCalendarView extends ItemView {
     onMove: (e: MouseEvent) => void;
     onUp: (e: MouseEvent) => void;
   } | null = null;
+  private hoverEl: HTMLElement | null = null;
+  private hoverTimer: number | null = null;
 
   constructor(leaf: WorkspaceLeaf, plugin: FocalPlugin) {
     super(leaf);
@@ -173,6 +175,7 @@ export class FocalCalendarView extends ItemView {
       this.nowTimer = null;
     }
     this.cancelDrag();
+    this.hideHoverPopover();
   }
 
   private initialScrollTop(): number {
@@ -591,7 +594,8 @@ export class FocalCalendarView extends ItemView {
       const { ev, fracStart, fracEnd } = items[i];
       const row = rowOf[i];
       const chip = area.createDiv("focal-allday-chip");
-      chip.setAttribute("title", ev.title);
+      chip.addEventListener("mouseenter", (e) => this.showHoverPopover(e, ev));
+      chip.addEventListener("mouseleave", () => this.hideHoverPopover());
       if (ev.id === this.selectedEventId)
         chip.addClass("focal-allday-chip--selected");
       else if (
@@ -671,7 +675,9 @@ export class FocalCalendarView extends ItemView {
     const heightPx = Math.min(gridBottom, rawBottom) - topPx - 1;
 
     const card = container.createDiv("focal-event-card");
-    card.setAttribute("title", event.title);
+    card.addEventListener("mouseenter", (e) => this.showHoverPopover(e, event));
+    card.addEventListener("mouseleave", () => this.hideHoverPopover());
+    card.addEventListener("mousedown", () => this.hideHoverPopover());
     if (event.id === this.selectedEventId)
       card.addClass("focal-event-card--selected");
     else if (
@@ -1167,6 +1173,59 @@ export class FocalCalendarView extends ItemView {
     root.querySelectorAll<HTMLElement>(".focal-now-line").forEach((el) => {
       el.style.top = `${topPx}px`;
     });
+  }
+
+  // ── Hover popover ────────────────────────────────────────────────
+
+  private showHoverPopover(e: MouseEvent, event: CalendarEvent) {
+    if (this.hoverTimer !== null) window.clearTimeout(this.hoverTimer);
+    this.hoverTimer = window.setTimeout(() => {
+      this.hoverTimer = null;
+      this.hideHoverPopover();
+
+      const el = document.body.createDiv("focal-hover-popover");
+      this.hoverEl = el;
+
+      el.createDiv({ cls: "focal-hover-title", text: event.title });
+
+      const timeStr = event.isAllDay
+        ? "Ganztägig"
+        : `${toTimeStr(event.start)} – ${toTimeStr(event.end)}`;
+      el.createDiv({ cls: "focal-hover-meta", text: timeStr });
+
+      if (event.location)
+        el.createDiv({ cls: "focal-hover-meta", text: event.location });
+      if (event.calendar)
+        el.createDiv({ cls: "focal-hover-meta focal-hover-calendar", text: event.calendar });
+      if ((event.numAttendees ?? 0) > 1)
+        el.createDiv({ cls: "focal-hover-meta", text: `${event.numAttendees} Teilnehmer` });
+      if (event.meetingPlatform)
+        el.createDiv({ cls: "focal-hover-meta", text: event.meetingPlatform });
+      if (this.plugin.noteManager.noteExists(event))
+        el.createDiv({ cls: "focal-hover-meta focal-hover-note", text: "Notiz verknüpft" });
+
+      el.style.left = `${e.clientX + 14}px`;
+      el.style.top = `${e.clientY - 12}px`;
+
+      requestAnimationFrame(() => {
+        const r = el.getBoundingClientRect();
+        if (r.right > window.innerWidth - 8)
+          el.style.left = `${e.clientX - r.width - 14}px`;
+        if (r.bottom > window.innerHeight - 8)
+          el.style.top = `${window.innerHeight - r.height - 8}px`;
+      });
+    }, 350);
+  }
+
+  private hideHoverPopover() {
+    if (this.hoverTimer !== null) {
+      window.clearTimeout(this.hoverTimer);
+      this.hoverTimer = null;
+    }
+    if (this.hoverEl) {
+      this.hoverEl.remove();
+      this.hoverEl = null;
+    }
   }
 
   // ── Context menu ────────────────────────────────────────────────
