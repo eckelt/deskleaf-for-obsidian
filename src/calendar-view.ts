@@ -6,6 +6,7 @@ import {
   Notice,
   Platform,
   MarkdownView,
+  Menu,
 } from "obsidian";
 import type FocalPlugin from "./main";
 import type { CalendarEvent } from "./types";
@@ -608,6 +609,9 @@ export class FocalCalendarView extends ItemView {
       chip.addEventListener("click", (e) =>
         this.openEvent(ev, ev.start.slice(0, 10), e.metaKey || e.ctrlKey),
       );
+      chip.addEventListener("contextmenu", (e) =>
+        this.showEventContextMenu(e, ev, ev.start.slice(0, 10)),
+      );
     }
   }
 
@@ -713,6 +717,11 @@ export class FocalCalendarView extends ItemView {
 
     const canEdit =
       event.isOrganizer && !event.isCancelled && !Platform.isMobile;
+
+    card.addEventListener("contextmenu", (e) => {
+      e.stopPropagation();
+      this.showEventContextMenu(e, event, date);
+    });
 
     if (canEdit) {
       // Resize handle at bottom edge
@@ -1152,6 +1161,56 @@ export class FocalCalendarView extends ItemView {
     root.querySelectorAll<HTMLElement>(".focal-now-line").forEach((el) => {
       el.style.top = `${topPx}px`;
     });
+  }
+
+  // ── Context menu ────────────────────────────────────────────────
+
+  private showEventContextMenu(e: MouseEvent, event: CalendarEvent, date: string) {
+    e.preventDefault();
+    const menu = new Menu();
+    const label = event.isOrganizer ? "Termin löschen" : "Einladung ablehnen";
+
+    if (event.isRecurring) {
+      menu.addItem((item) =>
+        item
+          .setTitle(`${label} (nur dieser Termin)`)
+          .setIcon("x")
+          .onClick(async () => {
+            try {
+              await this.plugin.calendarReader.cancelEvent(event.id, "this");
+            } catch (err: any) {
+              new Notice(`Fehler: ${err?.message ?? err}`);
+            }
+          }),
+      );
+      menu.addItem((item) =>
+        item
+          .setTitle(`${label} (dieser und alle folgenden)`)
+          .setIcon("x-circle")
+          .onClick(async () => {
+            try {
+              await this.plugin.calendarReader.cancelEvent(event.id, "future");
+            } catch (err: any) {
+              new Notice(`Fehler: ${err?.message ?? err}`);
+            }
+          }),
+      );
+    } else {
+      menu.addItem((item) =>
+        item
+          .setTitle(label)
+          .setIcon("x")
+          .onClick(async () => {
+            try {
+              await this.plugin.calendarReader.cancelEvent(event.id);
+            } catch (err: any) {
+              new Notice(`Fehler: ${err?.message ?? err}`);
+            }
+          }),
+      );
+    }
+
+    menu.showAtMouseEvent(e);
   }
 
   // ── Note opening ────────────────────────────────────────────────
