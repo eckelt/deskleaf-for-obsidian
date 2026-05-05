@@ -694,13 +694,19 @@ export class FocalCalendarView extends ItemView {
     card.style.left = `calc(${pct(col / totalCols)} + 1px)`;
     card.style.width = `calc(${pct(1 / totalCols)} - 3px)`;
 
-    const timeRow = card.createDiv("focal-event-time-row");
-    timeRow.createSpan({
-      cls: "focal-event-time",
-      text: toTimeStr(event.start),
-    });
-    if (event.isRecurring)
-      timeRow.createSpan({ cls: "focal-event-recurring-icon", text: "↻" });
+    if (noteFile) card.createDiv("focal-event-note-dot");
+
+    const short = heightPx < 30;
+
+    if (!short) {
+      const timeRow = card.createDiv("focal-event-time-row");
+      timeRow.createSpan({
+        cls: "focal-event-time",
+        text: toTimeStr(event.start),
+      });
+      if (event.isRecurring)
+        timeRow.createSpan({ cls: "focal-event-recurring-icon", text: "↻" });
+    }
 
     card.createDiv({ cls: "focal-event-title", text: event.title });
     if (event.location && heightPx > 42)
