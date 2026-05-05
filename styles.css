@@ -839,6 +839,22 @@
   min-height: 0;
 }
 
+.focal-todo-filter {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 3px 8px;
+  margin: 4px 0 6px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--background-modifier-border);
+  color: var(--text-normal);
+  font-size: 0.8em;
+  outline: none;
+}
+.focal-todo-filter::placeholder { color: var(--text-faint); }
+.focal-todo-filter:focus { border-bottom-color: var(--text-accent); }
+
 /* ── Todo Board ──────────────────────────────────────────────────── */
 
 

@@ -269,21 +269,45 @@ export class FocalSidebarView extends ItemView {
     const header = container.createDiv("focal-sidebar-section-header");
     header.createSpan({ text: "Todos" });
     header.createSpan({ cls: "focal-sidebar-count", text: String(openCount) });
+
+    const filterInput = container.createEl("input", {
+      type: "text",
+      cls: "focal-todo-filter",
+      placeholder: "Filtern …",
+    } as any) as HTMLInputElement;
+
     const labels: Record<TodoGroup, string> = {
       today: "Heute", week: "Diese Woche", later: "Später", undated: "Ohne Datum", past: "Früher",
     };
+    const sections: HTMLElement[] = [];
     for (const key of (["today", "week", "later", "undated", "past"] as TodoGroup[])) {
       const items = groups[key];
       if (items.length === 0) continue;
       const section = container.createDiv("focal-board-section");
+      sections.push(section);
       section.createDiv({ cls: "focal-board-group-label", text: labels[key] });
       for (const todo of items) await this.renderTodoItem(section, todo);
     }
+
+    filterInput.addEventListener("input", () => {
+      const q = filterInput.value.trim().toLowerCase();
+      for (const section of sections) {
+        let visible = 0;
+        section.querySelectorAll<HTMLElement>(".focal-todo-row").forEach((row) => {
+          const match = !q || (row.dataset.filter ?? "").includes(q);
+          row.style.display = match ? "" : "none";
+          if (match) visible++;
+        });
+        const lbl = section.querySelector<HTMLElement>(".focal-board-group-label");
+        if (lbl) lbl.style.display = visible === 0 ? "none" : "";
+      }
+    });
   }
 
 
   private async renderTodoItem(container: HTMLElement, todo: TodoItem) {
     const row = container.createDiv("focal-todo-row");
+    row.dataset.filter = `${todo.text} ${todo.noteTitle}`.toLowerCase();
     const checkbox = row.createEl("input", { type: "checkbox" } as any) as HTMLInputElement;
     checkbox.checked = todo.checked;
     checkbox.addEventListener("change", async () => {
