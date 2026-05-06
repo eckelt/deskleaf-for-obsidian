@@ -152,7 +152,7 @@ export class FocalCalendarView extends ItemView {
     return "Deskleaf";
   }
   getIcon() {
-    return "deskleaf";
+    return "focal-calendar";
   }
 
   async onOpen() {
@@ -356,9 +356,8 @@ export class FocalCalendarView extends ItemView {
         `<svg viewBox="0 0 16 16" fill="none" aria-hidden="true">` +
         `<rect x="1.5" y="1.5" width="13" height="13" rx="2.2" stroke="currentColor" stroke-width="1.2"/>` +
         `<line x1="1.5" y1="5.5" x2="14.5" y2="5.5" stroke="currentColor" stroke-width="1"/>` +
-        `<circle cx="8" cy="13" r="1.2" fill="currentColor"/>` +
-        `<line x1="8" y1="11.5" x2="8" y2="9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>` +
-        `<path d="M5.5 9 L8 7 L10.5 9" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>` +
+        `<circle cx="8" cy="8" r="1.2" fill="currentColor"/>` +
+        `<line x1="8" y1="9.3" x2="8" y2="12.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>` +
         `</svg>`;
       todayBtn.addEventListener("click", () => {
         this.anchor = new Date();
