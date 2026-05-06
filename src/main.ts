@@ -135,11 +135,10 @@ export default class FocalPlugin extends Plugin {
       const leaf = workspace.getLeaf(false);
       await leaf.setViewState({ type: VIEW_TYPE_FOCAL, active: true });
     } else {
-      // Re-apply view state so Obsidian refreshes the tab icon with the
-      // now-registered addIcon("deskleaf") — workspace restore can race
-      // ahead of icon registration on first paint.
-      const leaf = workspace.getLeavesOfType(VIEW_TYPE_FOCAL)[0];
-      await leaf.setViewState({ type: VIEW_TYPE_FOCAL, active: false });
+      // updateHeader() re-reads getIcon() and re-renders the tab icon.
+      // Needed because Obsidian can paint tab headers before addIcon()
+      // has been called during plugin load.
+      (workspace.getLeavesOfType(VIEW_TYPE_FOCAL)[0] as any).updateHeader?.();
     }
 
     // Create sidebar in left panel only if it doesn't already exist
@@ -147,8 +146,7 @@ export default class FocalPlugin extends Plugin {
       const leftLeaf = workspace.getLeftLeaf(false);
       if (leftLeaf) await leftLeaf.setViewState({ type: VIEW_TYPE_SIDEBAR, active: false });
     } else {
-      const leaf = workspace.getLeavesOfType(VIEW_TYPE_SIDEBAR)[0];
-      await leaf.setViewState({ type: VIEW_TYPE_SIDEBAR, active: false });
+      (workspace.getLeavesOfType(VIEW_TYPE_SIDEBAR)[0] as any).updateHeader?.();
     }
 
     workspace.revealLeaf(workspace.getLeavesOfType(VIEW_TYPE_FOCAL)[0]);
