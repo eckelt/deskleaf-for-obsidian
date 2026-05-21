@@ -2,7 +2,7 @@
 
 ## CalendarEvent (internal)
 
-The normalised shape used everywhere in the plugin. Produced directly by the `focal-cal`
+The normalised shape used everywhere in the plugin. Produced directly by the `deskleaf-calendar-sync`
 binary (Swift/EventKit) and passed as JSON.
 
 ```ts
@@ -50,7 +50,7 @@ _continuesAfter:  boolean  // event ends on a later day
 
 ## JSON input format
 
-A JSON array is emitted on stdout by `focal-cal export` and `focal-cal watch` (one JSON
+A JSON array is emitted on stdout by `deskleaf-calendar-sync export` and `deskleaf-calendar-sync watch` (one JSON
 line per output). The array contains objects matching the `CalendarEvent` interface above.
 
 All-day events use `YYYY-MM-DD` for `start`/`end`. Timed events use full ISO 8601 with
@@ -108,11 +108,11 @@ Topics are identified by file path. Display name = `file.basename`.
 
 ---
 
-## FocalSettings
+## DeskleafSettings
 
 ```ts
-interface FocalSettings {
-  binaryPath: string;         // empty = auto-detect focal-cal in plugin directory
+interface DeskleafSettings {
+  binaryPath: string;         // empty = auto-detect deskleaf-calendar-sync in plugin directory
   weekStartsOn: "monday";     // fixed, not user-configurable
   templateFolder: string;     // default: "templates"
   notesFolder: string;        // default: "notes"

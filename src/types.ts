@@ -34,8 +34,8 @@ export interface EventNoteFrontmatter {
 
 export type NoteType = "meeting" | "interview" | "recurring" | "task";
 
-export interface FocalSettings {
-  binaryPath: string;   // empty = auto-detect focal-cal in plugin directory
+export interface DeskleafSettings {
+  binaryPath: string;   // empty = auto-detect deskleaf-calendar-sync in plugin directory
   weekStartsOn: "monday";
   templateFolder: string;
   notesFolder: string;
@@ -43,7 +43,7 @@ export interface FocalSettings {
   topicsOrder: string[];
 }
 
-export const DEFAULT_SETTINGS: FocalSettings = {
+export const DEFAULT_SETTINGS: DeskleafSettings = {
   binaryPath: "",
   weekStartsOn: "monday",
   templateFolder: "templates",

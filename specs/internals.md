@@ -2,13 +2,13 @@
 
 ## CalendarReader
 
-Loads, parses, caches, and watches events via the `focal-cal` Swift binary (EventKit bridge).
+Loads, parses, caches, and watches events via the `deskleaf-calendar-sync` Swift binary (EventKit bridge).
 
 ### Binary path resolution
 
-- Empty string: auto-detect `focal-cal` in the plugin's own directory
-  (`<vault>/.obsidian/plugins/<plugin>/focal-cal`). Resolved in `main.ts` via
-  `(app.vault.adapter as any).basePath + manifest.dir + "/focal-cal"`.
+- Empty string: auto-detect `deskleaf-calendar-sync` in the plugin's own directory
+  (`<vault>/.obsidian/plugins/<plugin>/deskleaf-calendar-sync`). Resolved in `main.ts` via
+  `(app.vault.adapter as any).basePath + manifest.dir + "/deskleaf-calendar-sync"`.
 - Non-empty: used as-is (absolute path).
 - On mobile (iOS): Node.js `child_process` / `fs` unavailable — falls back to cache immediately.
 
@@ -16,14 +16,14 @@ Loads, parses, caches, and watches events via the `focal-cal` Swift binary (Even
 
 1. Try `require("child_process")` and `require("fs")`. If unavailable → set `loadError = "Mobiles Gerät"`, try cache, notify.
 2. Check `existsSync(binaryPath)`. If missing → set error, try cache, notify.
-3. Run `focal-cal export --days-back 90 --days-forward 365` (timeout: 15s) via `execFile`.
+3. Run `deskleaf-calendar-sync export --days-back 90 --days-forward 365` (timeout: 15s) via `execFile`.
 4. On error (non-zero exit): set `loadError`, try cache.
 5. On success: parse JSON via `handleLine`. If zero events → treat as calendar access denied, try cache.
 6. Notify all subscribers via `onChange` watchers.
 
 ### Watch process (`startWatching` / `stopWatching`)
 
-Spawns `focal-cal watch --days-back 90 --days-forward 365` as a long-lived child process.
+Spawns `deskleaf-calendar-sync watch --days-back 90 --days-forward 365` as a long-lived child process.
 The binary prints one JSON line per `EKEventStoreChanged` notification (and one immediately
 on startup). The reader buffers partial lines and calls `handleLine` per complete newline.
 
@@ -53,17 +53,17 @@ If no cache exists: `loadError` is the raw error; `events = []`.
 
 | Method | Binary command | Description |
 |---|---|---|
-| `createEvent(params)` | `focal-cal create --title … --start … --end … --calendar … [--notes …] [--location …]` | Creates a calendar event; returns the new `eventIdentifier` |
-| `moveEvent(id, newStart, newEnd)` | `focal-cal move --id … --start … --end …` | Moves/resizes an event |
-| `cancelEvent(id, span)` | `focal-cal cancel --id … --span this\|future` | Removes an event |
+| `createEvent(params)` | `deskleaf-calendar-sync create --title … --start … --end … --calendar … [--notes …] [--location …]` | Creates a calendar event; returns the new `eventIdentifier` |
+| `moveEvent(id, newStart, newEnd)` | `deskleaf-calendar-sync move --id … --start … --end …` | Moves/resizes an event |
+| `cancelEvent(id, span)` | `deskleaf-calendar-sync cancel --id … --span this\|future` | Removes an event |
 
 All write operations use `execFile` with a 10s timeout. Unavailable on mobile.
 
 ---
 
-## focal-cal binary (Swift)
+## deskleaf-calendar-sync binary (Swift)
 
-Source: `swift/Sources/FocalCal/main.swift`.
+Source: `swift/Sources/FocalCal/main.swift` (built to `deskleaf-calendar-sync` via `swift/build.sh`).
 
 Uses `EventKit` (`EKEventStore`) to read and write macOS Calendar events.
 
@@ -167,7 +167,7 @@ interface DayColumn {
 
 ## Search modal
 
-`FocalSearchModal` — opened via ribbon, command, or `Cmd+F`.
+`DeskleafSearchModal` — opened via ribbon, command, or `Cmd+F`.
 
 - **Default state**: lists the 6 most recently modified files in `notesFolder`, labelled
   "Zuletzt bearbeitet".

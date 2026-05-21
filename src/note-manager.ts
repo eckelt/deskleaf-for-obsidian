@@ -1,5 +1,5 @@
 import { App, TFile, normalizePath } from "obsidian";
-import type { CalendarEvent, NoteType, FocalSettings } from "./types";
+import type { CalendarEvent, NoteType, DeskleafSettings } from "./types";
 import { toDateStr, toTimeStr, parseDate, addDays } from "./date-utils";
 
 function toArray(raw: unknown): string[] {
@@ -24,7 +24,7 @@ function sanitizeFilename(s: string): string {
 }
 
 export class NoteManager {
-  constructor(private app: App, private settings: FocalSettings) {}
+  constructor(private app: App, private settings: DeskleafSettings) {}
 
   /**
    * Find an existing note for this event by scanning frontmatter event-id.
@@ -42,6 +42,21 @@ export class NoteManager {
       if (!titleDateMatch && fm.title === event.title && fm.date === date) titleDateMatch = f;
     }
     return titleDateMatch;
+  }
+
+  /**
+   * Build a snapshot Map<eventId, TFile> for the current render cycle.
+   * Callers that iterate over many events should use this once instead of
+   * calling noteExists() per event to avoid O(n²) vault scans.
+   */
+  buildNoteCache(): Map<string, TFile> {
+    const cache = new Map<string, TFile>();
+    for (const f of this.app.vault.getMarkdownFiles()) {
+      const fm = this.app.metadataCache.getFileCache(f)?.frontmatter;
+      if (!fm) continue;
+      for (const id of toArray(fm["event-id"])) cache.set(id, f);
+    }
+    return cache;
   }
 
   /** Open or create the note for the given event. Returns the file and whether it was just created. */

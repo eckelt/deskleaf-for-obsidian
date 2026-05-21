@@ -1,6 +1,6 @@
 # Sidebar View
 
-View type: `focal-sidebar`. Opened in the **left panel**. Icon: `focal-point` (custom SVG).
+View type: `deskleaf-sidebar`. Opened in the **left panel**. Icon: `dl-point` (custom SVG).
 Display text: `"Deskleaf"`.
 
 The sidebar combines two sections stacked vertically:

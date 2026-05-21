@@ -57,50 +57,50 @@ Defined on `:root`, overridden per theme.
 
 | Class | Element |
 |---|---|
-| `.focal-root` | Root container of any focal view |
-| `.focal-calendar-wrapper` | Flex column wrapper for nav + grid |
-| `.focal-cal-header` | Sticky nav bar |
-| `.focal-time-grid` | Grid container (flex column) |
-| `.focal-grid-header-row` | Sticky day-header row |
-| `.focal-day-header` | Single-day column header |
-| `.focal-day-header--double` | Sa|So header wrapper (flex row) |
-| `.focal-day-subheader` | Individual header within a double column |
-| `.focal-day-header--today` | Today modifier |
-| `.focal-day-header--selected` | Selected date modifier |
-| `.focal-allday-row` | All-day event strip |
-| `.focal-allday-chip` | All-day event pill |
-| `.focal-allday-chip--selected` | Selected state |
-| `.focal-allday-chip--series` | Series dim-highlight |
-| `.focal-grid-body-scroll` | Scrollable body container |
-| `.focal-day-body` | Single day column body |
-| `.focal-day-body--double` | Sa|So body wrapper |
-| `.focal-day-body--sub` | Individual body within a double column |
-| `.focal-day-body--today` | Today tint |
-| `.focal-day-body--selected` | Selected date tint |
-| `.focal-now-line` + `.focal-now-dot` | Current time indicator |
+| `.dl-root` | Root container of any focal view |
+| `.dl-calendar-wrapper` | Flex column wrapper for nav + grid |
+| `.dl-cal-header` | Sticky nav bar |
+| `.dl-time-grid` | Grid container (flex column) |
+| `.dl-grid-header-row` | Sticky day-header row |
+| `.dl-day-header` | Single-day column header |
+| `.dl-day-header--double` | Sa|So header wrapper (flex row) |
+| `.dl-day-subheader` | Individual header within a double column |
+| `.dl-day-header--today` | Today modifier |
+| `.dl-day-header--selected` | Selected date modifier |
+| `.dl-allday-row` | All-day event strip |
+| `.dl-allday-chip` | All-day event pill |
+| `.dl-allday-chip--selected` | Selected state |
+| `.dl-allday-chip--series` | Series dim-highlight |
+| `.dl-grid-body-scroll` | Scrollable body container |
+| `.dl-day-body` | Single day column body |
+| `.dl-day-body--double` | Sa|So body wrapper |
+| `.dl-day-body--sub` | Individual body within a double column |
+| `.dl-day-body--today` | Today tint |
+| `.dl-day-body--selected` | Selected date tint |
+| `.dl-now-line` + `.dl-now-dot` | Current time indicator |
 
 ### Event cards
 
 | Class | Meaning |
 |---|---|
-| `.focal-event-card` | Base event card |
-| `.focal-event-card--selected` | Active / highlighted event |
-| `.focal-event-card--series` | Dimmed series highlight |
-| `.focal-event-card--has-note` | Note exists (thicker left border) |
-| `.focal-event-card--recurring` | Recurring event |
-| `.focal-event-card--continues-before` | Multi-day continuation from earlier day |
-| `.focal-event-card--continues-after` | Multi-day continuation to later day |
+| `.dl-event-card` | Base event card |
+| `.dl-event-card--selected` | Active / highlighted event |
+| `.dl-event-card--series` | Dimmed series highlight |
+| `.dl-event-card--has-note` | Note exists (thicker left border) |
+| `.dl-event-card--recurring` | Recurring event |
+| `.dl-event-card--continues-before` | Multi-day continuation from earlier day |
+| `.dl-event-card--continues-after` | Multi-day continuation to later day |
 
 ### Sidebar
 
 | Class | Meaning |
 |---|---|
-| `.focal-sidebar-root` | Sidebar root |
-| `.focal-topic-row` | Topic list row |
-| `.focal-topic-row--active` | Active (currently open) topic |
-| `.focal-topic-row.focal-dragging` | Row being dragged |
-| `.focal-topic-row.focal-drop-before/after` | Drop insertion indicator |
-| `.focal-todo-row` | Todo item row |
+| `.dl-sidebar-root` | Sidebar root |
+| `.dl-topic-row` | Topic list row |
+| `.dl-topic-row--active` | Active (currently open) topic |
+| `.dl-topic-row.dl-dragging` | Row being dragged |
+| `.dl-topic-row.dl-drop-before/after` | Drop insertion indicator |
+| `.dl-todo-row` | Todo item row |
 
 ---
 
@@ -110,5 +110,5 @@ Shown below the nav bar when data has a problem:
 
 | Class | Condition |
 |---|---|
-| `.focal-status-bar--error` | File not found or parse error |
-| `.focal-status-bar--warn` | Showing cached data; or no events loaded |
+| `.dl-status-bar--error` | File not found or parse error |
+| `.dl-status-bar--warn` | Showing cached data; or no events loaded |

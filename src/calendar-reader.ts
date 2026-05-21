@@ -14,6 +14,7 @@ export class CalendarReader {
   private saveCache: ((events: CalendarEvent[], date: string) => Promise<void>) | null = null;
   private loadCacheFn: (() => Promise<{ events: CalendarEvent[]; date: string | null }>) | null = null;
 
+  private initialLoaded = false;
   private execFile: typeof ExecFile | null = null;
   private spawn: typeof Spawn | null = null;
   private existsSync: typeof ExistsSync | null = null;
@@ -92,7 +93,7 @@ export class CalendarReader {
     }
 
     if (!this.existsSync(this.binaryPath)) {
-      this.loadError = `focal-cal nicht gefunden: ${this.binaryPath} — bitte swift/build.sh ausführen`;
+      this.loadError = `deskleaf-calendar-sync nicht gefunden: ${this.binaryPath} — bitte swift/build.sh ausführen`;
       await this.tryLoadCache();
       this.notify();
       return;
@@ -105,12 +106,12 @@ export class CalendarReader {
         { timeout: 15_000 },
         async (err, stdout) => {
           if (err) {
-            this.loadError = `focal-cal Fehler: ${err.message}`;
+            this.loadError = `deskleaf-calendar-sync Fehler: ${err.message}`;
             await this.tryLoadCache();
           } else {
             this.handleLine(stdout.trim());
             if (this.events.length === 0 && !this.loadError) {
-              this.loadError = "focal-cal: keine Ausgabe (Kalenderzugriff verweigert?)";
+              this.loadError = "deskleaf-calendar-sync: keine Ausgabe (Kalenderzugriff verweigert?)";
               await this.tryLoadCache();
             }
           }
@@ -155,11 +156,11 @@ export class CalendarReader {
 
     proc.stderr.on("data", (chunk: Buffer) => {
       const msg = chunk.toString().trim();
-      if (msg) console.warn("[focal-cal]", msg);
+      if (msg) console.warn("[deskleaf-calendar-sync]", msg);
     });
 
     proc.on("error", async (err: Error) => {
-      this.loadError = `focal-cal konnte nicht gestartet werden: ${err.message}`;
+      this.loadError = `deskleaf-calendar-sync konnte nicht gestartet werden: ${err.message}`;
       this.process = null;
       await this.tryLoadCache();
       this.notify();
@@ -167,7 +168,7 @@ export class CalendarReader {
 
     proc.on("exit", async (code: number | null) => {
       if (code !== 0 && code !== null) {
-        this.loadError = `focal-cal beendet mit Code ${code}`;
+        this.loadError = `deskleaf-calendar-sync beendet mit Code ${code}`;
         if (this.events.length === 0) await this.tryLoadCache();
         this.notify();
       }
@@ -177,7 +178,7 @@ export class CalendarReader {
 
   private stopProcess(): void {
     if (this.process) {
-      this.process.kill();
+      this.process.kill("SIGKILL");
       this.process = null;
     }
   }
@@ -190,8 +191,11 @@ export class CalendarReader {
       this.loadError = null;
       this.cacheDate = new Date().toISOString();
       if (this.saveCache) this.saveCache(events, this.cacheDate);
-      new Notice(`Focal: ${events.length} Events geladen`, 2000);
-      console.log(`[Focal] ${events.length} events received from binary`);
+      if (!this.initialLoaded) {
+        new Notice(`Deskleaf: ${events.length} Events geladen`, 2000);
+        this.initialLoaded = true;
+      }
+      console.log(`[Deskleaf] ${events.length} events received from binary`);
       this.notify();
     } catch (e) {
       console.error("[Focal] Failed to parse events from binary:", e);

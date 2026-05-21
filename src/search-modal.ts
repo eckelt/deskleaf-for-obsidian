@@ -1,11 +1,11 @@
 import { App, Modal, TFile } from "obsidian";
-import type FocalPlugin from "./main";
+import type DeskleafPlugin from "./main";
 import { openFile } from "./open-file";
 
-export class FocalSearchModal extends Modal {
-  plugin: FocalPlugin;
+export class DeskleafSearchModal extends Modal {
+  plugin: DeskleafPlugin;
 
-  constructor(app: App, plugin: FocalPlugin) {
+  constructor(app: App, plugin: DeskleafPlugin) {
     super(app);
     this.plugin = plugin;
   }
@@ -13,15 +13,15 @@ export class FocalSearchModal extends Modal {
   onOpen() {
     const { contentEl } = this;
     contentEl.empty();
-    contentEl.addClass("focal-search-modal");
+    contentEl.addClass("dl-search-modal");
 
     const input = contentEl.createEl("input", {
       type: "text",
       placeholder: "Notizen durchsuchen…",
-      cls: "focal-search-input",
+      cls: "dl-search-input",
     });
 
-    const results = contentEl.createDiv("focal-search-results");
+    const results = contentEl.createDiv("dl-search-results");
     this.showRecentNotes(results);
 
     input.addEventListener("input", () => {
@@ -44,7 +44,7 @@ export class FocalSearchModal extends Modal {
 
   private showRecentNotes(container: HTMLElement) {
     container.empty();
-    container.createDiv({ cls: "focal-search-section-title", text: "Zuletzt bearbeitet" });
+    container.createDiv({ cls: "dl-search-section-title", text: "Zuletzt bearbeitet" });
 
     const files = this.getNotesFiles()
       .sort((a, b) => b.stat.mtime - a.stat.mtime)
@@ -57,7 +57,7 @@ export class FocalSearchModal extends Modal {
 
   private async showSearchResults(container: HTMLElement, query: string) {
     container.empty();
-    container.createDiv({ cls: "focal-search-section-title", text: `Ergebnisse für „${query}"` });
+    container.createDiv({ cls: "dl-search-section-title", text: `Ergebnisse für „${query}"` });
 
     const files = this.getNotesFiles();
 
@@ -80,7 +80,7 @@ export class FocalSearchModal extends Modal {
     }
 
     if (matches.length === 0) {
-      container.createDiv({ cls: "focal-search-empty", text: "Keine Treffer." });
+      container.createDiv({ cls: "dl-search-empty", text: "Keine Treffer." });
       return;
     }
 
@@ -90,20 +90,20 @@ export class FocalSearchModal extends Modal {
   }
 
   private renderResultRow(container: HTMLElement, file: TFile, snippet: string) {
-    const row = container.createDiv("focal-search-row");
+    const row = container.createDiv("dl-search-row");
 
     const cache = this.app.metadataCache.getFileCache(file);
     const title = cache?.frontmatter?.title ?? file.basename;
     const date = cache?.frontmatter?.date ?? "";
 
-    const titleEl = row.createEl("button", { cls: "focal-search-title", text: title });
+    const titleEl = row.createEl("button", { cls: "dl-search-title", text: title });
     titleEl.addEventListener("click", (e) => {
       openFile(this.app, file, e.metaKey || e.ctrlKey);
       this.close();
     });
 
-    if (date) row.createSpan({ cls: "focal-search-date", text: date });
-    if (snippet) row.createDiv({ cls: "focal-search-snippet", text: snippet });
+    if (date) row.createSpan({ cls: "dl-search-date", text: date });
+    if (snippet) row.createDiv({ cls: "dl-search-snippet", text: snippet });
   }
 
   onClose() {

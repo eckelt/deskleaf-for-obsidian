@@ -2,7 +2,7 @@
 set -e
 cd "$(dirname "$0")"
 
-echo "▶  Building focal-cal…"
+echo "▶  Building deskleaf-calendar-sync…"
 if swift build -c release --arch arm64 --arch x86_64 2>/dev/null; then
     BINARY=".build/apple/Products/Release/FocalCal"
 else
@@ -10,7 +10,7 @@ else
     swift build -c release
     BINARY=".build/release/FocalCal"
 fi
-DEST="../focal-cal"
+DEST="../deskleaf-calendar-sync"
 
 cp "$BINARY" "$DEST"
 chmod +x "$DEST"
@@ -18,7 +18,7 @@ codesign --force --sign - "$DEST"
 
 OBSIDIAN_PLUGIN="/Users/nils.eckelt/Library/Mobile Documents/iCloud~md~obsidian/Documents/Verknüpfungen/.obsidian/plugins/obs-focal"
 if [ -d "$OBSIDIAN_PLUGIN" ]; then
-    cp "$DEST" "$OBSIDIAN_PLUGIN/focal-cal"
+    cp "$DEST" "$OBSIDIAN_PLUGIN/deskleaf-calendar-sync"
     # Also deploy JS/CSS so the plugin is always in sync with the binary
     REPO="$(cd .. && pwd)"  # script already cd'd into swift/, so .. = repo root
     [ -f "$REPO/main.js"    ] && cp "$REPO/main.js"    "$OBSIDIAN_PLUGIN/main.js"
@@ -26,4 +26,4 @@ if [ -d "$OBSIDIAN_PLUGIN" ]; then
     echo "✓  Deployed to Obsidian plugin directory"
 fi
 
-echo "✓  Done: focal-cal"
+echo "✓  Done: deskleaf-calendar-sync"

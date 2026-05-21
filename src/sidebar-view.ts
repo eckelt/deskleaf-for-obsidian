@@ -1,9 +1,9 @@
 import { ItemView, WorkspaceLeaf, TFile, normalizePath, MarkdownRenderer } from "obsidian";
-import type FocalPlugin from "./main";
+import type DeskleafPlugin from "./main";
 import { toDateStr, addDays } from "./date-utils";
 import { openFile } from "./open-file";
 
-export const VIEW_TYPE_SIDEBAR = "focal-sidebar";
+export const VIEW_TYPE_SIDEBAR = "deskleaf-sidebar";
 
 interface TopicEntry { file: TFile; title: string; }
 interface TodoItem {
@@ -12,12 +12,12 @@ interface TodoItem {
 }
 type TodoGroup = "today" | "week" | "later" | "undated" | "past";
 
-export class FocalSidebarView extends ItemView {
-  plugin: FocalPlugin;
+export class DeskleafSidebarView extends ItemView {
+  plugin: DeskleafPlugin;
   private refreshTimer: number | null = null;
   private activeFilePath: string | null = null;
 
-  constructor(leaf: WorkspaceLeaf, plugin: FocalPlugin) {
+  constructor(leaf: WorkspaceLeaf, plugin: DeskleafPlugin) {
     super(leaf);
     this.plugin = plugin;
   }
@@ -61,8 +61,8 @@ export class FocalSidebarView extends ItemView {
 
   private highlightActiveTopic() {
     const root = this.containerEl.children[1] as HTMLElement;
-    root.querySelectorAll<HTMLElement>(".focal-topic-row[data-path]").forEach((row) => {
-      row.toggleClass("focal-topic-row--active", row.getAttribute("data-path") === this.activeFilePath);
+    root.querySelectorAll<HTMLElement>(".dl-topic-row[data-path]").forEach((row) => {
+      row.toggleClass("dl-topic-row--active", row.getAttribute("data-path") === this.activeFilePath);
     });
   }
 
@@ -79,14 +79,14 @@ export class FocalSidebarView extends ItemView {
   async render() {
     const root = this.containerEl.children[1] as HTMLElement;
     root.empty();
-    root.addClass("focal-sidebar-root");
+    root.addClass("dl-sidebar-root");
 
-    const topicsEl = root.createDiv("focal-sidebar-topics");
+    const topicsEl = root.createDiv("dl-sidebar-topics");
     await this.renderTopics(topicsEl);
 
-    root.createDiv("focal-sidebar-divider");
+    root.createDiv("dl-sidebar-divider");
 
-    const todosEl = root.createDiv("focal-sidebar-todos");
+    const todosEl = root.createDiv("dl-sidebar-todos");
     await this.renderTodos(todosEl);
 
     this.highlightActiveTopic();
@@ -124,22 +124,22 @@ export class FocalSidebarView extends ItemView {
   }
 
   private async renderTopics(container: HTMLElement) {
-    container.createDiv({ cls: "focal-sidebar-section-header", text: "Topics" });
+    container.createDiv({ cls: "dl-sidebar-section-header", text: "Topics" });
     const topics = this.getTopics();
-    const list = container.createDiv("focal-topics-list");
+    const list = container.createDiv("dl-topics-list");
     for (let i = 0; i < topics.length; i++) this.renderTopicRow(list, topics[i]);
     if (topics.length > 0) this.initDragDrop(list, topics);
     this.renderNewTopicRow(list);
   }
 
   private renderTopicRow(container: HTMLElement, topic: TopicEntry) {
-    const row = container.createDiv("focal-topic-row");
+    const row = container.createDiv("dl-topic-row");
     row.setAttribute("draggable", "true");
     row.setAttribute("data-path", topic.file.path);
-    row.createDiv({ cls: "focal-topic-handle", text: "⠿" });
+    row.createDiv({ cls: "dl-topic-handle", text: "⠿" });
 
-    const content = row.createDiv("focal-topic-content");
-    content.createEl("span", { cls: "focal-topic-title", text: topic.title })
+    const content = row.createDiv("dl-topic-content");
+    content.createEl("span", { cls: "dl-topic-title", text: topic.title })
       .addEventListener("click", (e) => this.openTopic(topic.file, e.metaKey || e.ctrlKey));
 
     const linkedEvents = this.plugin.calendarReader.getEvents().filter((e) => {
@@ -148,12 +148,12 @@ export class FocalSidebarView extends ItemView {
       return (this.app.metadataCache.getFileCache(nf)?.frontmatter?.topics ?? []).includes(topic.title);
     });
     if (linkedEvents.length > 0) {
-      const chips = content.createDiv("focal-topic-chips");
+      const chips = content.createDiv("dl-topic-chips");
       for (const ev of linkedEvents.slice(0, 6))
-        chips.createSpan({ cls: "focal-chip", text: ev.title });
+        chips.createSpan({ cls: "dl-chip", text: ev.title });
     }
 
-    const del = row.createEl("span", { cls: "focal-topic-delete", text: "✕" });
+    const del = row.createEl("span", { cls: "dl-topic-delete", text: "✕" });
     del.setAttribute("title", "Topic-Tag entfernen");
     del.addEventListener("click", async (e) => {
       e.stopPropagation();
@@ -164,13 +164,13 @@ export class FocalSidebarView extends ItemView {
   }
 
   private renderNewTopicRow(container: HTMLElement) {
-    const row = container.createDiv("focal-topic-new-row");
+    const row = container.createDiv("dl-topic-new-row");
     const activate = () => {
       row.empty();
-      row.addClass("focal-topic-new-row--active");
-      const input = row.createEl("input", { type: "text", placeholder: "Topic-Titel …", cls: "focal-topic-new-input" });
+      row.addClass("dl-topic-new-row--active");
+      const input = row.createEl("input", { type: "text", placeholder: "Topic-Titel …", cls: "dl-topic-new-input" });
       const cancel = () => {
-        row.removeClass("focal-topic-new-row--active");
+        row.removeClass("dl-topic-new-row--active");
         row.empty();
         row.addEventListener("click", activate, { once: true });
       };
@@ -220,16 +220,16 @@ export class FocalSidebarView extends ItemView {
   private initDragDrop(list: HTMLElement, topics: TopicEntry[]) {
     let dragSrcPath: string | null = null;
     const clearIndicators = () => {
-      list.querySelectorAll(".focal-dragging").forEach((el) => el.removeClass("focal-dragging"));
-      list.querySelectorAll(".focal-drop-before").forEach((el) => el.removeClass("focal-drop-before"));
-      list.querySelectorAll(".focal-drop-after").forEach((el) => el.removeClass("focal-drop-after"));
+      list.querySelectorAll(".dl-dragging").forEach((el) => el.removeClass("dl-dragging"));
+      list.querySelectorAll(".dl-drop-before").forEach((el) => el.removeClass("dl-drop-before"));
+      list.querySelectorAll(".dl-drop-after").forEach((el) => el.removeClass("dl-drop-after"));
     };
     list.addEventListener("dragstart", (e: DragEvent) => {
       const row = (e.target as HTMLElement).closest<HTMLElement>("[data-path]");
       if (!row) return;
       dragSrcPath = row.getAttribute("data-path");
       e.dataTransfer?.setData("text/plain", dragSrcPath ?? "");
-      setTimeout(() => row.addClass("focal-dragging"), 0);
+      setTimeout(() => row.addClass("dl-dragging"), 0);
     });
     list.addEventListener("dragend", () => { clearIndicators(); dragSrcPath = null; });
     list.addEventListener("dragover", (e: DragEvent) => {
@@ -238,9 +238,9 @@ export class FocalSidebarView extends ItemView {
       if (!row) return;
       clearIndicators();
       const rect = row.getBoundingClientRect();
-      row.addClass(e.clientY > rect.top + rect.height / 2 ? "focal-drop-after" : "focal-drop-before");
+      row.addClass(e.clientY > rect.top + rect.height / 2 ? "dl-drop-after" : "dl-drop-before");
     });
-    list.addEventListener("drop", async (e: DragEvent) => {
+    list.addEventListener("drop", (e: DragEvent) => {
       e.preventDefault();
       const targetRow = (e.target as HTMLElement).closest<HTMLElement>("[data-path]");
       if (!targetRow || !dragSrcPath) return;
@@ -254,8 +254,17 @@ export class FocalSidebarView extends ItemView {
       const ti = order.indexOf(targetPath);
       if (ti === -1) return;
       order.splice(insertAfter ? ti + 1 : ti, 0, dragSrcPath);
-      await this.saveOrder(order);
-      await this.render();
+
+      // Move row in DOM immediately for instant feedback
+      const srcRow = list.querySelector<HTMLElement>(`[data-path="${dragSrcPath.replace(/"/g, '\\"')}"]`);
+      if (srcRow) {
+        if (insertAfter) targetRow.after(srcRow);
+        else targetRow.before(srcRow);
+      }
+      clearIndicators();
+
+      // Persist and re-render in background
+      this.saveOrder(order).then(() => this.render());
     });
   }
 
@@ -266,13 +275,12 @@ export class FocalSidebarView extends ItemView {
     const groups = this.groupTodos(todos);
     const openCount = Object.values(groups).reduce((s, g) => s + g.length, 0);
 
-    const header = container.createDiv("focal-sidebar-section-header");
+    const header = container.createDiv("dl-sidebar-section-header dl-sidebar-todos-header");
     header.createSpan({ text: "Todos" });
-    header.createSpan({ cls: "focal-sidebar-count", text: String(openCount) });
-
-    const filterInput = container.createEl("input", {
+    header.createSpan({ cls: "dl-sidebar-count", text: String(openCount) });
+    const filterInput = header.createEl("input", {
       type: "text",
-      cls: "focal-todo-filter",
+      cls: "dl-todo-filter",
       placeholder: "Filtern …",
     } as any) as HTMLInputElement;
 
@@ -283,9 +291,9 @@ export class FocalSidebarView extends ItemView {
     for (const key of (["today", "week", "later", "undated", "past"] as TodoGroup[])) {
       const items = groups[key];
       if (items.length === 0) continue;
-      const section = container.createDiv("focal-board-section");
+      const section = container.createDiv("dl-board-section");
       sections.push(section);
-      section.createDiv({ cls: "focal-board-group-label", text: labels[key] });
+      section.createDiv({ cls: "dl-board-group-label", text: labels[key] });
       for (const todo of items) await this.renderTodoItem(section, todo);
     }
 
@@ -293,12 +301,12 @@ export class FocalSidebarView extends ItemView {
       const q = filterInput.value.trim().toLowerCase();
       for (const section of sections) {
         let visible = 0;
-        section.querySelectorAll<HTMLElement>(".focal-todo-row").forEach((row) => {
+        section.querySelectorAll<HTMLElement>(".dl-todo-row").forEach((row) => {
           const match = !q || (row.dataset.filter ?? "").includes(q);
           row.style.display = match ? "" : "none";
           if (match) visible++;
         });
-        const lbl = section.querySelector<HTMLElement>(".focal-board-group-label");
+        const lbl = section.querySelector<HTMLElement>(".dl-board-group-label");
         if (lbl) lbl.style.display = visible === 0 ? "none" : "";
       }
     });
@@ -306,7 +314,7 @@ export class FocalSidebarView extends ItemView {
 
 
   private async renderTodoItem(container: HTMLElement, todo: TodoItem) {
-    const row = container.createDiv("focal-todo-row");
+    const row = container.createDiv("dl-todo-row");
     row.dataset.filter = `${todo.text} ${todo.noteTitle}`.toLowerCase();
     const checkbox = row.createEl("input", { type: "checkbox" } as any) as HTMLInputElement;
     checkbox.checked = todo.checked;
@@ -314,11 +322,11 @@ export class FocalSidebarView extends ItemView {
       await this.toggleTodo(todo, checkbox.checked);
       await this.render();
     });
-    const content = row.createDiv("focal-todo-content");
-    const label = content.createSpan({ cls: "focal-todo-text" });
+    const content = row.createDiv("dl-todo-content");
+    const label = content.createSpan({ cls: "dl-todo-text" });
     await MarkdownRenderer.render(this.app, todo.text, label, todo.file.path, this);
     const chip = content.createEl("span", {
-      cls: "focal-todo-chip",
+      cls: "dl-todo-chip",
       text: `${todo.noteTitle}${todo.date ? " · " + todo.date : ""}`,
     });
     chip.addEventListener("click", (e) => {

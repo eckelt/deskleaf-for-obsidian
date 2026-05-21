@@ -145,7 +145,7 @@ func fetchAndPrint(daysBack: Int, daysForward: Int) {
 
 let cmdArgs = CommandLine.arguments
 guard cmdArgs.count > 1 else {
-    fputs("Usage: focal-cal <export|watch|create|cancel> [options]\n", stderr)
+    fputs("Usage: deskleaf-calendar-sync <export|watch|create|cancel> [options]\n", stderr)
     exit(1)
 }
 
@@ -175,6 +175,7 @@ Task {
         NotificationCenter.default.addObserver(
             forName: .EKEventStoreChanged, object: store, queue: .main
         ) { _ in
+            store.reset()
             fetchAndPrint(daysBack: daysBack, daysForward: daysForward)
         }
         // process kept alive by RunLoop.main.run() below

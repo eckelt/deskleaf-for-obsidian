@@ -1,6 +1,6 @@
 # Calendar View
 
-View type: `focal-calendar`. Opened in the main content area. Icon: `calendar-days`.
+View type: `deskleaf-calendar`. Opened in the main content area. Icon: `deskleaf-calendar`.
 Display text: `"Deskleaf"`.
 
 ---
@@ -78,19 +78,27 @@ Sa and So are **always** shown as a single merged double-column, regardless of v
 
 | State | CSS class | Appearance |
 |---|---|---|
-| Default | `focal-day-header` | Muted text |
-| Today | `focal-day-header--today` | Accent tint background |
-| Selected date | `focal-day-header--selected` | Full accent background, white text |
+| Default | `dl-day-header` | Muted text |
+| Today | `dl-day-header--today` | Accent tint background |
+| Selected date | `dl-day-header--selected` | Full accent background, white text |
 
-The Sa\|So slot uses `focal-day-header--double` with two `focal-day-subheader` children;
+Clicking a column header opens (or creates) the daily note for that date in
+`Journal/YYYY-MM-DD.md`. The header becomes `--selected` when the corresponding daily note
+is the active tab.
+
+The Sa\|So slot uses `dl-day-header--double` with two `dl-day-subheader` children;
 each sub-header gets the same `--today` / `--selected` modifiers independently.
 
 ### Day body
 
 | State | CSS class | Appearance |
 |---|---|---|
-| Today | `focal-day-body--today` | Light accent tint |
-| Selected date | `focal-day-body--selected` | Very light accent wash |
+| Today | `dl-day-body--today` | Light accent tint |
+| Selected date | `dl-day-body--selected` | Very light accent wash |
+
+`dl-day-body--selected` is applied only when the **daily note** for that date is the active
+tab. Event selection does **not** highlight the day body — only the event card itself gets
+`--selected`.
 
 A red "now line" with a circular dot is rendered in today's column at the current time.
 The now line is updated every 60 seconds via a repeating interval timer.
@@ -132,7 +140,7 @@ removal hint (`⏱ <date>`) if the linked note has `toBeRemoved: true`.
 
 - **Drag-to-move**: mousedown on card body → after 5px movement threshold, a ghost element
   appears and a landing indicator shows the target slot. On mouseup over a day column,
-  calls `calendarReader.moveEvent()` (→ `focal-cal move`).
+  calls `calendarReader.moveEvent()` (→ `deskleaf-calendar-sync move`).
 - **Drag-to-resize**: resize handle element at the card's bottom edge. Dragging changes the
   card height live. On mouseup, calls `calendarReader.moveEvent()` with the new end time.
 
@@ -147,12 +155,24 @@ Rendered in the all-day strip using a **spanning chip** layout:
 
 ---
 
-## Selection and series highlight
+## Selection model
+
+Selection state is a discriminated union:
+
+```ts
+type Selection =
+  | { kind: "event"; id: string; seriesTitle: string | null }
+  | { kind: "date"; date: string }
+  | null;
+```
+
+Private getters (`selectedEventId`, `selectedDate`, `selectedSeriesTitle`) derive their
+values from this single field. Only one kind of selection is active at a time.
 
 ### Series detection
 
 A "series" is detected by counting how many loaded events share the exact same title.
-If count > 1, `selectedSeriesTitle` is set to that title. This handles modified recurring
+If count > 1, `seriesTitle` is set to that title. This handles modified recurring
 instances that have `isRecurring: false`.
 
 ### Active tab → calendar highlight
@@ -166,14 +186,12 @@ The calendar listens to two events:
 
 When the active file changes:
 - `null` (non-file view like file explorer): keep existing highlight unchanged.
-- File has no `event-id` in frontmatter: clear selection.
-- File has `event-id` (string or array) matching a loaded event: apply selection and
-  re-render. Falls back to title+date match for legacy notes.
-
-`applySelection` sets:
-- `selectedEventId` — for the `--selected` card
-- `selectedDate` — for the highlighted column header + body
-- `selectedSeriesTitle` — for `--series` cards (null if event is unique by title)
+- File matches `Journal/YYYY-MM-DD.md`: set `selection = { kind: "date", date }`. Highlights
+  the corresponding day header (and day body) with `--selected`.
+- File has `event-id` in frontmatter matching a loaded event: set
+  `selection = { kind: "event", id, seriesTitle }`. Highlights the event card(s) only — the
+  day body is **not** highlighted for event selection.
+- File has no `event-id` and is not a daily note: clear selection.
 
 ---
 
@@ -184,7 +202,7 @@ Mousedown on an empty area in a day body starts a drag-to-create gesture:
 1. A ghost element appears, snapping start/end times to 15-minute intervals.
 2. On mouseup: a **popover** appears near the cursor with a title input field and
    Erstellen / Abbrechen buttons.
-3. On confirmation: calls `calendarReader.createEvent()` (→ `focal-cal create`).
+3. On confirmation: calls `calendarReader.createEvent()` (→ `deskleaf-calendar-sync create`).
 4. Pressing Escape or clicking outside the popover cancels without creating.
 
 ---
@@ -206,18 +224,18 @@ Shown above the time grid when data has a problem:
 
 | Class | Condition |
 |---|---|
-| `.focal-status-bar--error` | Binary not found, calendar access denied, or parse error |
-| `.focal-status-bar--warn` | Showing cached data (error + cache message); or no events loaded |
+| `.dl-status-bar--error` | Binary not found, calendar access denied, or parse error |
+| `.dl-status-bar--warn` | Showing cached data (error + cache message); or no events loaded |
 
 ---
 
 ## Note opening
 
-All click handlers on event cards and all-day chips call `openEvent(event, date, modifier)`.
+Click handlers on event cards and all-day chips call `openEvent(event, modifier)`.
 
 ```
-openEvent(event, date, modifier):
-  applySelection(event, date)
+openEvent(event, modifier):
+  applySelection(event)          // sets selection = { kind: "event", ... }
   render()
   { file, isNew } = noteManager.openOrCreate(event)
   openFile(app, file, modifier)
@@ -226,5 +244,20 @@ openEvent(event, date, modifier):
 
 - **Plain click**: switches to an existing open tab for the note, or opens in the current leaf.
 - **Cmd/Ctrl+click**: opens in a new vertical split.
+
+## Daily note opening
+
+Click handlers on day column headers call `openDailyNote(date)`.
+
+```
+openDailyNote(date):
+  path = "Journal/" + date + ".md"
+  if file doesn't exist:
+    create folder if needed
+    create file with "# YYYY-MM-DD\n" content
+  openFile(app, file, false)   // always opens in current leaf
+```
+
+The daily notes folder is the constant `DAILY_NOTES_FOLDER = "Journal"`.
 
 See `open-file.ts` in [internals.md](internals.md).

@@ -1,10 +1,10 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
-import type FocalPlugin from "./main";
+import type DeskleafPlugin from "./main";
 
-export class FocalSettingTab extends PluginSettingTab {
-  plugin: FocalPlugin;
+export class DeskleafSettingTab extends PluginSettingTab {
+  plugin: DeskleafPlugin;
 
-  constructor(app: App, plugin: FocalPlugin) {
+  constructor(app: App, plugin: DeskleafPlugin) {
     super(app, plugin);
     this.plugin = plugin;
   }
@@ -14,8 +14,8 @@ export class FocalSettingTab extends PluginSettingTab {
     containerEl.empty();
 
     new Setting(containerEl)
-      .setName("focal-cal binary")
-      .setDesc("Pfad zum focal-cal Binary (leer = automatisch im Plugin-Verzeichnis suchen). Einmalig mit swift/build.sh bauen.")
+      .setName("deskleaf-calendar-sync binary")
+      .setDesc("Pfad zum deskleaf-calendar-sync Binary (leer = automatisch im Plugin-Verzeichnis suchen). Einmalig mit swift/build.sh bauen.")
       .addText((text) =>
         text
           .setPlaceholder("(automatisch)")

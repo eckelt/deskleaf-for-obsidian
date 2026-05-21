@@ -1,14 +1,14 @@
 import { Plugin, WorkspaceLeaf, addIcon } from "obsidian";
-import { FocalSettingTab } from "./settings";
+import { DeskleafSettingTab } from "./settings";
 import { CalendarReader } from "./calendar-reader";
 import { NoteManager } from "./note-manager";
-import { FocalCalendarView, VIEW_TYPE_FOCAL } from "./calendar-view";
-import { FocalSidebarView, VIEW_TYPE_SIDEBAR } from "./sidebar-view";
-import { FocalSearchModal } from "./search-modal";
-import { DEFAULT_SETTINGS, type FocalSettings, type CalendarEvent } from "./types";
+import { DeskleafCalendarView, VIEW_TYPE_CALENDAR } from "./calendar-view";
+import { DeskleafSidebarView, VIEW_TYPE_SIDEBAR } from "./sidebar-view";
+import { DeskleafSearchModal } from "./search-modal";
+import { DEFAULT_SETTINGS, type DeskleafSettings, type CalendarEvent } from "./types";
 
-export default class FocalPlugin extends Plugin {
-  settings!: FocalSettings;
+export default class DeskleafPlugin extends Plugin {
+  settings!: DeskleafSettings;
   private calendarCache: CalendarEvent[] = [];
   private calendarCacheDate: string | null = null;
   calendarReader!: CalendarReader;
@@ -17,12 +17,12 @@ export default class FocalPlugin extends Plugin {
   private getBinaryPath(): string {
     if (this.settings.binaryPath) return this.settings.binaryPath;
     const basePath: string | undefined = (this.app.vault.adapter as any).basePath;
-    if (!basePath) return "focal-cal"; // iOS: no filesystem path; binary won't exist → cache fallback
-    return `${basePath}/${this.manifest.dir}/focal-cal`;
+    if (!basePath) return "deskleaf-calendar-sync"; // iOS: no filesystem path; binary won't exist → cache fallback
+    return `${basePath}/${this.manifest.dir}/deskleaf-calendar-sync`;
   }
 
   async onload() {
-    addIcon("focal-point", `
+    addIcon("dl-point", `
       <circle cx="50" cy="50" r="30" fill="none" stroke="currentColor" stroke-width="6"/>
       <line x1="50" y1="5"  x2="50" y2="16" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
       <line x1="50" y1="84" x2="50" y2="95" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
@@ -30,62 +30,18 @@ export default class FocalPlugin extends Plugin {
       <line x1="84" y1="50" x2="95" y2="50" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
     `);
 
-    addIcon("focal-calendar", `
+    addIcon("deskleaf-calendar", `
       <rect x="7" y="7" width="86" height="86" rx="8" fill="none" stroke="currentColor" stroke-width="7"/>
       <path fill="currentColor" d="M 15 7 Q 7 7 7 15 L 7 30 L 93 30 L 93 15 Q 93 7 85 7 Z"/>
-      <path fill="currentColor" transform="translate(12 26) scale(0.72)" d="
-        M 30.2 64.1
-        C 29.1 63.9 22.2 62.6 18.7 58.8
-        C 15.0 54.6 10.6 49.0 17.6 36.4
-        C 21.1 30.2 26.1 25.1 33.6 20.5
-        C 40.3 16.3 49.2 15.4 57.9 15.6
-        C 74.9 16.1 80.1 14.8 83.9 11.7
-        C 83.9 11.7 85.8 37.1 83.3 50.1
-        C 80.9 62.1 71.0 83.1 49.2 82.2
-        C 38.1 81.8 34.1 71.9 32.8 67.4
-        C 27.9 71.8 24.1 76.4 21.0 83.7
-        C 20.9 83.8 20.3 85.1 19.0 84.8
-        C 18.7 84.7 18.3 84.0 18.2 83.4
-        C 18.4 83.3 18.5 83.2 18.7 83.1
-        C 18.8 83.1 18.8 82.9 18.9 82.8
-        C 22.3 74.8 26.6 70.1 32.2 65.3
-        C 34.1 63.6 36.3 61.9 38.6 60.2
-        C 38.8 59.9 39.1 59.7 39.4 59.5
-        C 50.2 51.1 64.2 36.0 64.4 35.6
-        C 64.5 35.4 64.3 35.2 64.4 35.1
-        C 64.2 35.1 64.0 35.0 63.9 35.1
-        C 63.7 35.2 63.6 35.4 63.5 35.5
-        C 59.6 39.5 51.4 47.3 44.2 53.3
-        C 39.3 57.4 34.5 60.5 30.2 64.1 Z
-      "/>
+      <g transform="translate(12,26) scale(1.2) translate(0.414023,0.934705)" style="fill-rule:evenodd;clip-rule:evenodd">
+        <path fill="currentColor" d="M11.945,40.638C15.831,40.266 28.662,30.675 29.528,29.942C30.947,28.741 32.043,27.809 32.97,26.959C34.372,25.676 35.389,24.584 36.556,23.045C37.214,22.177 37.92,21.167 38.771,19.9C37.735,21.006 36.661,22.067 35.55,23.086C34.973,23.615 34.387,24.133 33.791,24.639C31.029,26.987 28.061,29.099 24.92,31.012C23.203,32.057 21.435,33.043 19.619,33.974C13.698,33 9.175,27.859 9.175,21.672C9.175,14.791 14.77,9.204 21.661,9.204L49.052,9.204L49.052,35.513C49.052,42.395 43.457,47.982 36.566,47.982C30.155,47.982 24.866,43.146 24.16,36.931L24.08,37.048C24.08,37.048 17.148,42.54 13.712,43.8C13.077,44.032 11.683,42.31 11.945,40.638Z"/>
+      </g>
     `);
 
     addIcon("deskleaf", `
-      <path fill="currentColor" d="
-        M 30.2 64.1
-        C 29.1 63.9 22.2 62.6 18.7 58.8
-        C 15.0 54.6 10.6 49.0 17.6 36.4
-        C 21.1 30.2 26.1 25.1 33.6 20.5
-        C 40.3 16.3 49.2 15.4 57.9 15.6
-        C 74.9 16.1 80.1 14.8 83.9 11.7
-        C 83.9 11.7 85.8 37.1 83.3 50.1
-        C 80.9 62.1 71.0 83.1 49.2 82.2
-        C 38.1 81.8 34.1 71.9 32.8 67.4
-        C 27.9 71.8 24.1 76.4 21.0 83.7
-        C 20.9 83.8 20.3 85.1 19.0 84.8
-        C 18.7 84.7 18.3 84.0 18.2 83.4
-        C 18.4 83.3 18.5 83.2 18.7 83.1
-        C 18.8 83.1 18.8 82.9 18.9 82.8
-        C 22.3 74.8 26.6 70.1 32.2 65.3
-        C 34.1 63.6 36.3 61.9 38.6 60.2
-        C 38.8 59.9 39.1 59.7 39.4 59.5
-        C 50.2 51.1 64.2 36.0 64.4 35.6
-        C 64.5 35.4 64.3 35.2 64.4 35.1
-        C 64.2 35.1 64.0 35.0 63.9 35.1
-        C 63.7 35.2 63.6 35.4 63.5 35.5
-        C 59.6 39.5 51.4 47.3 44.2 53.3
-        C 39.3 57.4 34.5 60.5 30.2 64.1 Z
-      "/>
+      <g transform="scale(1.6667) translate(0.414023,0.934705)" style="fill-rule:evenodd;clip-rule:evenodd">
+        <path fill="currentColor" d="M11.945,40.638C15.831,40.266 28.662,30.675 29.528,29.942C30.947,28.741 32.043,27.809 32.97,26.959C34.372,25.676 35.389,24.584 36.556,23.045C37.214,22.177 37.92,21.167 38.771,19.9C37.735,21.006 36.661,22.067 35.55,23.086C34.973,23.615 34.387,24.133 33.791,24.639C31.029,26.987 28.061,29.099 24.92,31.012C23.203,32.057 21.435,33.043 19.619,33.974C13.698,33 9.175,27.859 9.175,21.672C9.175,14.791 14.77,9.204 21.661,9.204L49.052,9.204L49.052,35.513C49.052,42.395 43.457,47.982 36.566,47.982C30.155,47.982 24.866,43.146 24.16,36.931L24.08,37.048C24.08,37.048 17.148,42.54 13.712,43.8C13.077,44.032 11.683,42.31 11.945,40.638Z"/>
+      </g>
     `);
 
     await this.loadSettings();
@@ -101,11 +57,9 @@ export default class FocalPlugin extends Plugin {
     );
     this.noteManager = new NoteManager(this.app, this.settings);
 
-    // Register views
-    this.registerView(VIEW_TYPE_FOCAL, (leaf) => new FocalCalendarView(leaf, this));
-    this.registerView(VIEW_TYPE_SIDEBAR, (leaf) => new FocalSidebarView(leaf, this));
+    this.registerView(VIEW_TYPE_CALENDAR, (leaf) => new DeskleafCalendarView(leaf, this));
+    this.registerView(VIEW_TYPE_SIDEBAR, (leaf) => new DeskleafSidebarView(leaf, this));
 
-    // Load calendar data and open views once the vault is ready
     this.app.workspace.onLayoutReady(async () => {
       await this.calendarReader.load();
       this.calendarReader.startWatching();
@@ -113,37 +67,39 @@ export default class FocalPlugin extends Plugin {
       await this.openDefaultViews();
     });
 
-    // Ribbon icons
-    this.addRibbonIcon("deskleaf", "Deskleaf: Kalender", () => this.activateView(VIEW_TYPE_FOCAL));
-    this.addRibbonIcon("focal-point", "Deskleaf: Sidebar", () => this.activateSidebar());
-    this.addRibbonIcon("search", "Deskleaf: Suche", () => new FocalSearchModal(this.app, this).open());
+    this.addRibbonIcon("deskleaf", "Deskleaf: Kalender", () => this.activateView(VIEW_TYPE_CALENDAR));
+    this.addRibbonIcon("dl-point", "Deskleaf: Sidebar", () => this.activateSidebar());
+    this.addRibbonIcon("search", "Deskleaf: Suche", () => new DeskleafSearchModal(this.app, this).open());
 
-    // Commands
     this.addCommand({
-      id: "focal-open-calendar",
+      id: "dl-open-calendar",
       name: "Kalender öffnen",
-      callback: () => this.activateView(VIEW_TYPE_FOCAL),
+      callback: () => this.activateView(VIEW_TYPE_CALENDAR),
     });
 
     this.addCommand({
-      id: "focal-open-sidebar",
+      id: "dl-open-sidebar",
       name: "Sidebar öffnen",
       callback: () => this.activateSidebar(),
     });
 
     this.addCommand({
-      id: "focal-search",
+      id: "dl-search",
       name: "Suche öffnen",
       hotkeys: [{ modifiers: ["Mod"], key: "f" }],
-      callback: () => new FocalSearchModal(this.app, this).open(),
+      callback: () => new DeskleafSearchModal(this.app, this).open(),
     });
 
-    this.addSettingTab(new FocalSettingTab(this.app, this));
+    this.addSettingTab(new DeskleafSettingTab(this.app, this));
+    window.addEventListener("beforeunload", this._beforeUnloadHandler);
   }
 
   onunload() {
+    window.removeEventListener("beforeunload", this._beforeUnloadHandler);
     this.calendarReader.stopWatching();
   }
+
+  private _beforeUnloadHandler = () => this.calendarReader.stopWatching();
 
   async loadSettings() {
     const data = (await this.loadData()) ?? {};
@@ -157,29 +113,27 @@ export default class FocalPlugin extends Plugin {
     await this.saveData({ ...this.settings, calendarCache: this.calendarCache, calendarCacheDate: this.calendarCacheDate });
   }
 
+  private async ensureView(
+    viewType: string,
+    getLeaf: () => WorkspaceLeaf | null,
+    active: boolean,
+  ) {
+    const { workspace } = this.app;
+    const leaves = workspace.getLeavesOfType(viewType);
+    if (leaves.length === 0) {
+      const leaf = getLeaf();
+      // updateHeader() re-reads getIcon() after addIcon() has been called.
+      if (leaf) await leaf.setViewState({ type: viewType, active });
+    } else {
+      (leaves[0] as any).updateHeader?.();
+    }
+  }
+
   private async openDefaultViews() {
     const { workspace } = this.app;
-
-    // Open calendar in main area if not already open
-    if (workspace.getLeavesOfType(VIEW_TYPE_FOCAL).length === 0) {
-      const leaf = workspace.getLeaf(false);
-      await leaf.setViewState({ type: VIEW_TYPE_FOCAL, active: true });
-    } else {
-      // updateHeader() re-reads getIcon() and re-renders the tab icon.
-      // Needed because Obsidian can paint tab headers before addIcon()
-      // has been called during plugin load.
-      (workspace.getLeavesOfType(VIEW_TYPE_FOCAL)[0] as any).updateHeader?.();
-    }
-
-    // Create sidebar in left panel only if it doesn't already exist
-    if (workspace.getLeavesOfType(VIEW_TYPE_SIDEBAR).length === 0) {
-      const leftLeaf = workspace.getLeftLeaf(false);
-      if (leftLeaf) await leftLeaf.setViewState({ type: VIEW_TYPE_SIDEBAR, active: false });
-    } else {
-      (workspace.getLeavesOfType(VIEW_TYPE_SIDEBAR)[0] as any).updateHeader?.();
-    }
-
-    workspace.revealLeaf(workspace.getLeavesOfType(VIEW_TYPE_FOCAL)[0]);
+    await this.ensureView(VIEW_TYPE_CALENDAR, () => workspace.getLeaf(false), true);
+    await this.ensureView(VIEW_TYPE_SIDEBAR, () => workspace.getLeftLeaf(false), false);
+    workspace.revealLeaf(workspace.getLeavesOfType(VIEW_TYPE_CALENDAR)[0]);
   }
 
   private async activateSidebar() {
