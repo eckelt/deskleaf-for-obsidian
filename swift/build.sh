@@ -4,11 +4,11 @@ cd "$(dirname "$0")"
 
 echo "▶  Building deskleaf-calendar-sync…"
 if swift build -c release --arch arm64 --arch x86_64 2>/dev/null; then
-    BINARY=".build/apple/Products/Release/FocalCal"
+    BINARY=".build/apple/Products/Release/DeskleafCalendarSync"
 else
     echo "   (universal build unavailable, building for current arch)"
     swift build -c release
-    BINARY=".build/release/FocalCal"
+    BINARY=".build/release/DeskleafCalendarSync"
 fi
 DEST="../deskleaf-calendar-sync"
 

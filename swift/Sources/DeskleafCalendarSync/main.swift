@@ -1,5 +1,6 @@
 import EventKit
 import Foundation
+import DeskleafCore
 
 // MARK: - Date formatters
 
@@ -18,7 +19,7 @@ private let isoDate: DateFormatter = {
 
 // MARK: - Data model
 
-struct FocalEvent: Encodable {
+struct DeskleafEvent: Encodable {
     let id: String
     let title: String
     let start: String
@@ -67,12 +68,7 @@ struct FocalEvent: Encodable {
 
         let haystack = [ev.notes, ev.url?.absoluteString, ev.location]
             .compactMap { $0 }.joined(separator: " ").lowercased()
-        if      haystack.contains("zoom.us")               { meetingPlatform = "zoom" }
-        else if haystack.contains("teams.microsoft.com") ||
-                haystack.contains("teams.live.com")        { meetingPlatform = "teams" }
-        else if haystack.contains("meet.google.com")       { meetingPlatform = "meet" }
-        else if haystack.contains("webex.com")             { meetingPlatform = "webex" }
-        else                                               { meetingPlatform = nil }
+        meetingPlatform = detectMeetingPlatform(haystack)
     }
 }
 
@@ -80,16 +76,6 @@ struct FocalEvent: Encodable {
 
 let store   = EKEventStore()
 let encoder = JSONEncoder()
-
-func strArg(_ name: String, default def: String = "") -> String {
-    let a = CommandLine.arguments
-    guard let i = a.firstIndex(of: name), i + 1 < a.count else { return def }
-    return a[i + 1]
-}
-
-func intArg(_ name: String, default def: Int) -> Int {
-    Int(strArg(name, default: "\(def)")) ?? def
-}
 
 // Find a specific EKEvent by the plugin id (may be "baseId|YYYY-MM-DD" for recurring occurrences)
 func findEvent(_ eid: String) -> EKEvent? {
@@ -104,17 +90,6 @@ func findEvent(_ eid: String) -> EKEvent? {
         return store.events(matching: pred).first { $0.eventIdentifier == baseId }
     }
     return store.event(withIdentifier: eid)
-}
-
-func parseDate(_ s: String) -> Date? {
-    // Try with timezone (e.g. 2026-05-04T14:00:00+02:00)
-    let iso = ISO8601DateFormatter()
-    if let d = iso.date(from: s) { return d }
-    // Try without timezone — treat as local time (e.g. 2026-05-04T14:00:00)
-    let local = DateFormatter()
-    local.locale = Locale(identifier: "en_US_POSIX")
-    local.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
-    return local.date(from: s)
 }
 
 func requestAccess() async -> Bool {
@@ -135,7 +110,7 @@ func fetchAndPrint(daysBack: Int, daysForward: Int) {
     let from = cal.date(byAdding: .day, value: -daysBack,   to: now)!
     let to   = cal.date(byAdding: .day, value: daysForward, to: now)!
     let pred = store.predicateForEvents(withStart: from, end: to, calendars: nil)
-    let evs  = store.events(matching: pred).map { FocalEvent(from: $0) }
+    let evs  = store.events(matching: pred).map { DeskleafEvent(from: $0) }
     guard let data = try? encoder.encode(evs) else { return }
     FileHandle.standardOutput.write(data)
     FileHandle.standardOutput.write(Data([UInt8(ascii: "\n")]))

@@ -1,27 +1,7 @@
 import { App, TFile, normalizePath } from "obsidian";
 import type { CalendarEvent, NoteType, DeskleafSettings } from "./types";
 import { toDateStr, toTimeStr, parseDate, addDays } from "./date-utils";
-
-function toArray(raw: unknown): string[] {
-  if (Array.isArray(raw)) return raw.map(String);
-  return raw ? [String(raw)] : [];
-}
-
-function normalizeAttendee(name: string): string {
-  const comma = name.indexOf(",");
-  if (comma === -1) return name;
-  const last  = name.slice(0, comma).trim();
-  const first = name.slice(comma + 1).trim();
-  return first ? `${first} ${last}` : last;
-}
-
-function sanitizeFilename(s: string): string {
-  return s
-    .replace(/[\\/:*?"<>|#^[\]]/g, "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 100);
-}
+import { toArray, normalizeAttendee, sanitizeFilename, cleanBody } from "./note-utils";
 
 export class NoteManager {
   constructor(private app: App, private settings: DeskleafSettings) {}
@@ -70,7 +50,7 @@ export class NoteManager {
   }
 
   private async patchDescription(file: TFile, event: CalendarEvent): Promise<void> {
-    const cleaned = this.cleanBody(event.body);
+    const cleaned = cleanBody(event.body);
     if (!cleaned) return;
     const content = await this.app.vault.read(file);
     if (content.includes("## Beschreibung")) return; // already patched
@@ -128,7 +108,7 @@ export class NoteManager {
   }
 
   private buildBodySection(event: CalendarEvent): string {
-    const cleaned = this.cleanBody(event.body);
+    const cleaned = cleanBody(event.body);
     return cleaned ? `## Beschreibung\n${cleaned}\n\n` : "";
   }
 
@@ -145,14 +125,6 @@ export class NoteManager {
       .replace(/\{\{carried_todos\}\}/g, this.buildCarriedTodosQuery(event));
 
     return `${frontmatter}\n${body}`;
-  }
-
-  private cleanBody(raw: string | null | undefined): string {
-    if (!raw) return "";
-    const normalized = raw.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-    const lines = normalized.split("\n");
-    const cutAt = lines.findIndex((l) => /^_{3,}\s*$/.test(l));
-    return (cutAt === -1 ? lines : lines.slice(0, cutAt)).join("\n").trim();
   }
 
   /**

@@ -26,6 +26,16 @@ import {
 } from "./date-utils";
 import type { DayColumn } from "./date-utils";
 import { openFile } from "./open-file";
+import {
+  HOUR_PX,
+  assignColumns,
+  topFromISO,
+  heightFromISO,
+  snapMins,
+  minsToTimeStr,
+  minsToISO,
+} from "./event-layout";
+import type { EventLayout } from "./event-layout";
 
 export const VIEW_TYPE_CALENDAR = "deskleaf-calendar";
 
@@ -90,7 +100,6 @@ function teamsIconSvg(size: number): string {
 }
 
 // ── Time grid constants ──────────────────────────────────────────────
-const HOUR_PX = 64;
 const DAY_START = 0;
 const DAY_END = 24;
 const TOTAL_HOURS = DAY_END - DAY_START;
@@ -101,73 +110,6 @@ const GUTTER_W = 44;
 
 // All-day row: max visible height (≈1.5 event rows), then scroll
 const ALLDAY_MAX_H = 30;
-
-function topFromISO(iso: string): number {
-  const d = new Date(iso);
-  return (((d.getHours() - DAY_START) * 60 + d.getMinutes()) / 60) * HOUR_PX;
-}
-
-function heightFromISO(start: string, end: string): number {
-  const mins = (new Date(end).getTime() - new Date(start).getTime()) / 60000;
-  return Math.max(20, (mins / 60) * HOUR_PX);
-}
-
-// ── Drag-to-create helpers ───────────────────────────────────────────
-function snapMins(mins: number): number {
-  return Math.round(mins / 15) * 15;
-}
-function minsToTimeStr(mins: number): string {
-  return `${String(Math.floor(mins / 60)).padStart(2, "0")}:${String(mins % 60).padStart(2, "0")}`;
-}
-function minsToISO(date: string, mins: number): string {
-  const offset = -new Date().getTimezoneOffset();
-  const sign = offset >= 0 ? "+" : "-";
-  const abs = Math.abs(offset);
-  const tz = `${sign}${String(Math.floor(abs / 60)).padStart(2, "0")}:${String(abs % 60).padStart(2, "0")}`;
-  return `${date}T${minsToTimeStr(mins)}:00${tz}`;
-}
-
-interface EventLayout {
-  event: CalendarEvent;
-  col: number;
-  totalCols: number;
-}
-
-function assignColumns(events: CalendarEvent[]): EventLayout[] {
-  if (events.length === 0) return [];
-  const sorted = [...events].sort((a, b) => a.start.localeCompare(b.start));
-  const result: EventLayout[] = [];
-
-  let i = 0;
-  while (i < sorted.length) {
-    const cluster: CalendarEvent[] = [sorted[i]];
-    let clusterEnd = sorted[i].end;
-    let j = i + 1;
-    while (j < sorted.length && sorted[j].start < clusterEnd) {
-      cluster.push(sorted[j]);
-      if (sorted[j].end > clusterEnd) clusterEnd = sorted[j].end;
-      j++;
-    }
-
-    const colEnds: string[] = [];
-    const layouts: EventLayout[] = [];
-    for (const ev of cluster) {
-      let col = colEnds.findIndex((end) => end <= ev.start);
-      if (col === -1) {
-        col = colEnds.length;
-        colEnds.push(ev.end);
-      } else colEnds[col] = ev.end;
-      layouts.push({ event: ev, col, totalCols: 0 });
-    }
-    const totalCols = Math.max(1, colEnds.length);
-    for (const l of layouts) {
-      l.totalCols = totalCols;
-      result.push(l);
-    }
-    i = j;
-  }
-  return result;
-}
 
 // ── View ─────────────────────────────────────────────────────────────
 

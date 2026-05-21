@@ -2,9 +2,37 @@
 import PackageDescription
 
 let package = Package(
-    name: "FocalCal",
-    platforms: [.macOS(.v13)],
+    name: "DeskleafCalendarSync",
+    platforms: [.macOS(.v14)],
     targets: [
-        .executableTarget(name: "FocalCal", path: "Sources/FocalCal")
+        .target(
+            name: "DeskleafCore",
+            path: "Sources/DeskleafCore"
+        ),
+        .executableTarget(
+            name: "DeskleafCalendarSync",
+            dependencies: ["DeskleafCore"],
+            path: "Sources/DeskleafCalendarSync"
+        ),
+        .testTarget(
+            name: "DeskleafCoreTests",
+            dependencies: ["DeskleafCore"],
+            path: "Tests/DeskleafCoreTests",
+            swiftSettings: [
+                .unsafeFlags([
+                    "-F", "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",
+                ]),
+            ],
+            linkerSettings: [
+                .unsafeFlags([
+                    "-F", "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",
+                    "-framework", "Testing",
+                    "-Xlinker", "-rpath",
+                    "-Xlinker", "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",
+                    "-Xlinker", "-rpath",
+                    "-Xlinker", "/Library/Developer/CommandLineTools/Library/Developer/usr/lib",
+                ]),
+            ]
+        ),
     ]
 )
