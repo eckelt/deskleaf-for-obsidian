@@ -421,13 +421,19 @@
   font-size: 0.72em;
   padding: 1px 5px;
   border-radius: 3px;
-  background: var(--f-event-bg);
-  border-left: 3px solid var(--f-event-border);
+  background: hsl(var(--cal-h, var(--accent-h)), 50%, 91%);
+  border-left: 3px solid hsl(var(--cal-h, var(--accent-h)), 45%, 55%);
   color: var(--f-event-fg);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   cursor: pointer;
+}
+
+.theme-dark .dl-allday-chip {
+  background: hsl(var(--cal-h, var(--accent-h)), 18%, 22%);
+  border-left-color: hsl(var(--cal-h, var(--accent-h)), 32%, 40%);
+  color: hsl(var(--cal-h, var(--accent-h)), 15%, 86%);
 }
 
 .dl-allday-chip:hover { filter: brightness(0.94); }
@@ -439,8 +445,8 @@
 }
 
 .dl-allday-chip--series {
-  background: var(--f-event-series-bg);
-  border-left-color: var(--f-event-series-border);
+  background: hsl(var(--cal-h, var(--accent-h)), 50%, 78%);
+  border-left-color: hsl(var(--cal-h, var(--accent-h)), 48%, 52%);
 }
 
 /* Scrollable body */
@@ -544,9 +550,9 @@
 .dl-event-card {
   position: absolute;
   box-sizing: border-box;
-  background: var(--f-event-bg);
-  border: 1px solid var(--f-event-border);
-  border-left: 3px solid var(--f-event-border);
+  background: hsl(var(--cal-h, var(--accent-h)), 50%, 91%);
+  border: 1px solid hsl(var(--cal-h, var(--accent-h)), 45%, 62%);
+  border-left: 3px solid hsl(var(--cal-h, var(--accent-h)), 45%, 55%);
   color: var(--f-event-fg);
   padding: 2px 5px;
   cursor: pointer;
@@ -555,6 +561,12 @@
   margin: 0 2px;
   z-index: 2;
   transition: filter 80ms;
+}
+
+.theme-dark .dl-event-card {
+  background: hsl(var(--cal-h, var(--accent-h)), 18%, 22%);
+  border-color: hsl(var(--cal-h, var(--accent-h)), 32%, 40%);
+  color: hsl(var(--cal-h, var(--accent-h)), 15%, 86%);
 }
 
 .dl-event-card:hover {
@@ -570,8 +582,13 @@
 }
 
 .dl-event-card--series {
-  background: var(--f-event-series-bg);
-  border-color: var(--f-event-series-border);
+  background: hsl(var(--cal-h, var(--accent-h)), 50%, 78%);
+  border-color: hsl(var(--cal-h, var(--accent-h)), 48%, 52%);
+}
+
+.theme-dark .dl-event-card--series {
+  background: hsl(var(--cal-h, var(--accent-h)), 38%, 35%);
+  border-color: hsl(var(--cal-h, var(--accent-h)), 45%, 50%);
 }
 
 .dl-event-card--cancelled {

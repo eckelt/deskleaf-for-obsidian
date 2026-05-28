@@ -115,6 +115,8 @@ export default class DeskleafPlugin extends Plugin {
   async loadSettings() {
     const data = (await this.loadData()) ?? {};
     this.settings = Object.assign({}, DEFAULT_SETTINGS, data);
+    // Deep-merge caldav so new sub-fields (selectedCalendars, discoveredCalendars) always exist
+    this.settings.caldav = Object.assign({}, DEFAULT_SETTINGS.caldav, data.caldav ?? {});
     this.calendarCache = data.calendarCache ?? [];
     this.calendarCacheDate = data.calendarCacheDate ?? null;
   }

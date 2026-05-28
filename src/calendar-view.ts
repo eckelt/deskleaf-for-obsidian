@@ -41,6 +41,15 @@ import type { EventLayout } from "./event-layout";
 
 export const VIEW_TYPE_CALENDAR = "deskleaf-calendar";
 
+// Spread 12 hues evenly around the wheel; skip the 50–80° range (yellow/green clash)
+const CAL_HUES = [0, 20, 160, 190, 210, 230, 250, 270, 290, 310, 330, 350];
+
+function calendarHue(name: string): number {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return CAL_HUES[h % CAL_HUES.length];
+}
+
 interface DailyNoteConfig {
   folder: string;
   template: string;
@@ -842,6 +851,7 @@ export class DeskleafCalendarView extends ItemView {
       const { ev, fracStart, fracEnd } = items[i];
       const row = rowOf[i];
       const chip = area.createDiv("dl-allday-chip");
+      chip.style.setProperty("--cal-h", String(calendarHue(ev.calendar ?? "")));
       chip.addEventListener("mouseenter", (e) => this.showHoverPopover(e, ev));
       chip.addEventListener("mouseleave", () => this.hideHoverPopover());
       if (ev.id === this.selectedEventId) chip.addClass("dl-allday-chip--selected");
@@ -923,6 +933,7 @@ export class DeskleafCalendarView extends ItemView {
     const heightPx = Math.min(gridBottom, rawBottom) - topPx - 1;
 
     const card = container.createDiv("dl-event-card");
+    card.style.setProperty("--cal-h", String(calendarHue(event.calendar ?? "")));
     card.addEventListener("mouseenter", (e) => this.showHoverPopover(e, event));
     card.addEventListener("mouseleave", () => this.hideHoverPopover());
     card.addEventListener("mousedown", () => this.hideHoverPopover());
