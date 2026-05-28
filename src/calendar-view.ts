@@ -720,11 +720,6 @@ export class DeskleafCalendarView extends ItemView {
       });
     }
 
-    if (Platform.isMobile && toDateStr(this.anchor) !== today) {
-      const fab = grid.createDiv("dl-today-fab");
-      fab.innerHTML = todayIconSvg(22);
-      fab.addEventListener("click", () => { this.anchor = new Date(); this.render(); });
-    }
   }
 
   private setupSwipeGestures(el: HTMLElement, scrollEl: HTMLElement) {
@@ -1353,6 +1348,15 @@ export class DeskleafCalendarView extends ItemView {
   // ── Mini month ───────────────────────────────────────────────────
 
   private buildMiniMonth(container: HTMLElement) {
+    const today = toDateStr(new Date());
+    const overlay = container.createDiv("dl-overlay");
+
+    if (Platform.isMobile && toDateStr(this.anchor) !== today) {
+      const fab = overlay.createDiv("dl-today-fab");
+      fab.innerHTML = todayIconSvg(22);
+      fab.addEventListener("click", () => { this.anchor = new Date(); this.render(); });
+    }
+
     const year = this.anchor.getFullYear();
     const month = this.anchor.getMonth();
     const monthNames = [
@@ -1370,7 +1374,7 @@ export class DeskleafCalendarView extends ItemView {
       "Dez",
     ];
 
-    const mini = container.createDiv("dl-mini-month");
+    const mini = overlay.createDiv("dl-mini-month");
     mini.createDiv({
       cls: "dl-mini-month-header",
       text: `${monthNames[month]} ${year}`,
@@ -1387,7 +1391,6 @@ export class DeskleafCalendarView extends ItemView {
     const leadingEmpty = firstDow === 0 ? 6 : firstDow - 1;
     const totalDays = new Date(year, month + 1, 0).getDate();
     const totalRows = Math.ceil((leadingEmpty + totalDays) / 7);
-    const today = toDateStr(new Date());
     const anchorStr = toDateStr(this.anchor);
 
     for (let row = 0; row < totalRows; row++) {
