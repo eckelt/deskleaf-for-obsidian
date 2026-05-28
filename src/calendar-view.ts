@@ -1,4 +1,5 @@
 import {
+  App,
   ItemView,
   WorkspaceLeaf,
   TFile,
@@ -7,6 +8,7 @@ import {
   Platform,
   MarkdownView,
   Menu,
+  normalizePath,
 } from "obsidian";
 import type DeskleafPlugin from "./main";
 import type { CalendarEvent } from "./types";
@@ -39,8 +41,55 @@ import type { EventLayout } from "./event-layout";
 
 export const VIEW_TYPE_CALENDAR = "deskleaf-calendar";
 
-const DAILY_NOTES_FOLDER = "Journal";
-const DAILY_NOTE_RE = /^Journal\/(\d{4}-\d{2}-\d{2})\.md$/;
+interface DailyNoteConfig {
+  folder: string;
+  template: string;
+  format: string;
+}
+
+function getDailyNoteConfig(app: App): DailyNoteConfig {
+  const pn = (app as any).plugins?.getPlugin?.("periodic-notes");
+  const pnDaily = pn?.settings?.daily;
+  if (pnDaily?.enabled) {
+    return {
+      folder: (pnDaily.folder ?? "").replace(/\/+$/, ""),
+      template: pnDaily.template ?? "",
+      format: pnDaily.format || "YYYY-MM-DD",
+    };
+  }
+  const dn = (app as any).internalPlugins?.getPluginById?.("daily-notes");
+  if (dn?.enabled) {
+    const o = dn.instance?.options ?? {};
+    return {
+      folder: (o.folder ?? "").replace(/\/+$/, ""),
+      template: o.template ?? "",
+      format: o.format || "YYYY-MM-DD",
+    };
+  }
+  return { folder: "Journal", template: "", format: "YYYY-MM-DD" };
+}
+
+async function applyDailyTemplate(
+  app: App,
+  templatePath: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  m: any,
+): Promise<string> {
+  if (!templatePath) return "";
+  const p = normalizePath(templatePath.endsWith(".md") ? templatePath : `${templatePath}.md`);
+  const f = app.vault.getAbstractFileByPath(p);
+  if (!(f instanceof TFile)) return "";
+  let content = await app.vault.read(f);
+  content = content.replace(/\{\{date(?::([^}]*))?\}\}/g, (_: string, fmt: string) =>
+    m.format(fmt || "YYYY-MM-DD"),
+  );
+  content = content.replace(/\{\{title\}\}/g, m.format("YYYY-MM-DD"));
+  content = content.replace(
+    /\{\{time\}\}/g,
+    (window as any).moment().format("HH:mm"),
+  );
+  return content;
+}
 
 type Selection =
   | { kind: "event"; id: string; seriesTitle: string | null }
@@ -292,14 +341,18 @@ export class DeskleafCalendarView extends ItemView {
     // null = non-file view (file explorer, calendar itself, etc.) — keep existing highlight
     if (!file) return;
 
-    const dailyMatch = DAILY_NOTE_RE.exec(file.path);
-    if (dailyMatch) {
-      const date = dailyMatch[1];
-      if (this.selection?.kind !== "date" || this.selection.date !== date) {
-        this.selection = { kind: "date", date };
-        this.render();
+    const config = getDailyNoteConfig(this.app);
+    const folderPrefix = config.folder ? config.folder + "/" : "";
+    if (!folderPrefix || file.path.startsWith(folderPrefix)) {
+      const m = (window as any).moment(file.basename, config.format, true);
+      if (m.isValid()) {
+        const date: string = m.format("YYYY-MM-DD");
+        if (this.selection?.kind !== "date" || this.selection.date !== date) {
+          this.selection = { kind: "date", date };
+          this.render();
+        }
+        return;
       }
-      return;
     }
 
     const fm = this.app.metadataCache.getFileCache(file)?.frontmatter;
@@ -487,12 +540,19 @@ export class DeskleafCalendarView extends ItemView {
   }
 
   private async openDailyNote(date: string) {
-    const path = `${DAILY_NOTES_FOLDER}/${date}.md`;
+    const config = getDailyNoteConfig(this.app);
+    const m = (window as any).moment(date, "YYYY-MM-DD");
+    const filename = m.format(config.format);
+    const path = config.folder
+      ? normalizePath(`${config.folder}/${filename}.md`)
+      : `${filename}.md`;
+
     let file = this.app.vault.getAbstractFileByPath(path);
     if (!(file instanceof TFile)) {
-      if (!this.app.vault.getAbstractFileByPath(DAILY_NOTES_FOLDER))
-        await this.app.vault.createFolder(DAILY_NOTES_FOLDER);
-      file = await this.app.vault.create(path, `# ${date}\n`);
+      if (config.folder && !this.app.vault.getAbstractFileByPath(config.folder))
+        await this.app.vault.createFolder(config.folder);
+      const content = await applyDailyTemplate(this.app, config.template, m);
+      file = await this.app.vault.create(path, content);
     }
     await openFile(this.app, file as TFile, false);
   }
