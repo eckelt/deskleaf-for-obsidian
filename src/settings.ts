@@ -73,10 +73,8 @@ export class DeskleafSettingTab extends PluginSettingTab {
             const principalPath = `/dav/principals/user/${encodeURIComponent(caldav.username)}/`;
             const cals = await client.discoverCalendars(principalPath);
             this.plugin.settings.caldav.discoveredCalendars = cals;
-            // Entferne gespeicherte Selektionen für nicht mehr vorhandene Kalender
-            const hrefs = new Set(cals.map(c => c.href));
-            this.plugin.settings.caldav.selectedCalendars =
-              this.plugin.settings.caldav.selectedCalendars.filter(h => hrefs.has(h));
+            // Alle neu entdeckten Kalender aktivieren (überschreibt ggf. kaputten Zustand)
+            this.plugin.settings.caldav.selectedCalendars = cals.map(c => c.href);
             await this.plugin.saveSettings();
             btn.setButtonText(`✓ ${cals.length} Kalender`).setDisabled(false);
             calendarSection.empty();
@@ -151,7 +149,7 @@ export class DeskleafSettingTab extends PluginSettingTab {
     if (discoveredCalendars.length === 0) return;
 
     el.createEl("p", {
-      text: "Kalender auswählen (leer = alle):",
+      text: "Kalender auswählen. Farben werden automatisch je Kalender vergeben.",
       cls: "setting-item-description",
     });
 
@@ -162,7 +160,12 @@ export class DeskleafSettingTab extends PluginSettingTab {
           toggle
             .setValue(selectedCalendars.length === 0 || selectedCalendars.includes(cal.href))
             .onChange(async checked => {
-              const sel = this.plugin.settings.caldav.selectedCalendars;
+              let sel = this.plugin.settings.caldav.selectedCalendars;
+              // Wenn leer = "alle implizit aktiv", erst materialisieren
+              if (sel.length === 0) {
+                sel = discoveredCalendars.map(c => c.href);
+                this.plugin.settings.caldav.selectedCalendars = sel;
+              }
               if (checked) {
                 if (!sel.includes(cal.href)) sel.push(cal.href);
               } else {

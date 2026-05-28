@@ -88,6 +88,10 @@ export class CalDAVReader {
     }
   }
 
+  refresh(): void {
+    void this.fetchAll();
+  }
+
   // ── Core fetch ────────────────────────────────────────────────
 
   private async fetchAll(): Promise<void> {

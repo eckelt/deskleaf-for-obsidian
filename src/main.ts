@@ -127,6 +127,7 @@ export default class DeskleafPlugin extends Plugin {
       if (this.calendarReader instanceof CalDAVReader) {
         this.calendarReader.updateCredentials(caldav.url, caldav.username, caldav.password);
         this.calendarReader.selectedCalendars = caldav.selectedCalendars ?? [];
+        this.calendarReader.refresh();
       } else {
         this.calendarReader.stopWatching();
         this.calendarReader = this.makeReader();
