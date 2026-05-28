@@ -34,6 +34,12 @@ export interface EventNoteFrontmatter {
 
 export type NoteType = "meeting" | "interview" | "recurring" | "task";
 
+export interface CalDAVSettings {
+  url: string;
+  username: string;
+  password: string;
+}
+
 export interface DeskleafSettings {
   binaryPath: string;   // empty = auto-detect deskleaf-calendar-sync in plugin directory
   weekStartsOn: "monday";
@@ -41,6 +47,7 @@ export interface DeskleafSettings {
   notesFolder: string;
   topicsFolder: string;
   topicsOrder: string[];
+  caldav: CalDAVSettings;
 }
 
 export const DEFAULT_SETTINGS: DeskleafSettings = {
@@ -50,4 +57,5 @@ export const DEFAULT_SETTINGS: DeskleafSettings = {
   notesFolder: "notes",
   topicsFolder: "topics",
   topicsOrder: [],
+  caldav: { url: "https://caldav.fastmail.com", username: "", password: "" },
 };

@@ -1,6 +1,7 @@
 import { Plugin, WorkspaceLeaf, addIcon } from "obsidian";
 import { DeskleafSettingTab } from "./settings";
 import { CalendarReader } from "./calendar-reader";
+import { CalDAVReader } from "./caldav-reader";
 import { NoteManager } from "./note-manager";
 import { DeskleafCalendarView, VIEW_TYPE_CALENDAR } from "./calendar-view";
 import { DeskleafSidebarView, VIEW_TYPE_SIDEBAR } from "./sidebar-view";
@@ -11,8 +12,16 @@ export default class DeskleafPlugin extends Plugin {
   settings!: DeskleafSettings;
   private calendarCache: CalendarEvent[] = [];
   private calendarCacheDate: string | null = null;
-  calendarReader!: CalendarReader;
+  calendarReader!: CalendarReader | CalDAVReader;
   noteManager!: NoteManager;
+
+  private makeReader(): CalendarReader | CalDAVReader {
+    const { caldav } = this.settings;
+    if (caldav.username && caldav.password) {
+      return new CalDAVReader(caldav.url || "https://caldav.fastmail.com", caldav.username, caldav.password);
+    }
+    return new CalendarReader(this.getBinaryPath());
+  }
 
   private getBinaryPath(): string {
     if (this.settings.binaryPath) return this.settings.binaryPath;
@@ -46,7 +55,7 @@ export default class DeskleafPlugin extends Plugin {
 
     await this.loadSettings();
 
-    this.calendarReader = new CalendarReader(this.getBinaryPath());
+    this.calendarReader = this.makeReader();
     this.calendarReader.setCacheCallbacks(
       async (events, date) => {
         this.calendarCache = events;
@@ -109,7 +118,27 @@ export default class DeskleafPlugin extends Plugin {
   }
 
   async saveSettings() {
-    this.calendarReader?.setBinaryPath(this.getBinaryPath());
+    const { caldav } = this.settings;
+    if (caldav.username && caldav.password) {
+      if (this.calendarReader instanceof CalDAVReader) {
+        this.calendarReader.updateCredentials(caldav.url, caldav.username, caldav.password);
+      } else {
+        this.calendarReader.stopWatching();
+        this.calendarReader = this.makeReader();
+        this.calendarReader.setCacheCallbacks(
+          async (events, date) => {
+            this.calendarCache = events;
+            this.calendarCacheDate = date;
+            await this.saveData({ ...this.settings, calendarCache: events, calendarCacheDate: date });
+          },
+          async () => ({ events: this.calendarCache, date: this.calendarCacheDate }),
+        );
+        await this.calendarReader.load();
+        this.calendarReader.startWatching();
+      }
+    } else {
+      this.calendarReader.setBinaryPath(this.getBinaryPath());
+    }
     await this.saveData({ ...this.settings, calendarCache: this.calendarCache, calendarCacheDate: this.calendarCacheDate });
   }
 
