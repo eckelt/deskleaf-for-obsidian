@@ -1,3 +1,5 @@
+import { requestUrl } from "obsidian";
+
 export interface CalDAVCalendar {
   href: string;
   displayName: string;
@@ -17,7 +19,7 @@ export class CalDAVClient {
     url: string,
     body?: string,
     extraHeaders?: Record<string, string>,
-  ): Promise<Response> {
+  ): Promise<{ status: number; text: string }> {
     const headers: Record<string, string> = {
       Authorization: this.authHeader,
       ...extraHeaders,
@@ -25,11 +27,22 @@ export class CalDAVClient {
     if (body && !headers["Content-Type"]) {
       headers["Content-Type"] = "application/xml; charset=utf-8";
     }
-    return fetch(this.abs(url), { method, headers, body });
+    const resp = await requestUrl({
+      url: this.abs(url),
+      method,
+      headers,
+      body,
+      throw: false,
+    });
+    return { status: resp.status, text: resp.text };
   }
 
   private abs(href: string): string {
     return href.startsWith("http") ? href : `${this.baseUrl}${href}`;
+  }
+
+  private parse(xml: string): Document {
+    return new DOMParser().parseFromString(xml, "application/xml");
   }
 
   // ── Discovery ─────────────────────────────────────────────────
@@ -45,9 +58,9 @@ export class CalDAVClient {
   <D:prop><C:calendar-home-set/></D:prop>
 </D:propfind>`;
     const resp = await this.req("PROPFIND", principalPath, xml, { Depth: "0" });
-    const doc = new DOMParser().parseFromString(await resp.text(), "application/xml");
-    const href = doc.querySelector("calendar-home-set href")?.textContent?.trim();
-    if (!href) throw new Error("Kein calendar-home-set gefunden — Zugangsdaten prüfen");
+    if (resp.status >= 400) throw new Error(`HTTP ${resp.status} — Zugangsdaten oder URL prüfen`);
+    const href = this.parse(resp.text).querySelector("calendar-home-set href")?.textContent?.trim();
+    if (!href) throw new Error("Kein calendar-home-set gefunden");
     return href;
   }
 
@@ -57,12 +70,12 @@ export class CalDAVClient {
   <D:prop><D:displayname/><D:resourcetype/></D:prop>
 </D:propfind>`;
     const resp = await this.req("PROPFIND", homeHref, xml, { Depth: "1" });
-    const doc = new DOMParser().parseFromString(await resp.text(), "application/xml");
+    const doc = this.parse(resp.text);
     const calendars: CalDAVCalendar[] = [];
-    for (const response of Array.from(doc.querySelectorAll("response"))) {
-      const href = response.querySelector("href")?.textContent?.trim();
-      const isCalendar = response.querySelector("calendar") !== null;
-      const displayName = response.querySelector("displayname")?.textContent?.trim() ?? href ?? "";
+    for (const r of Array.from(doc.querySelectorAll("response"))) {
+      const href = r.querySelector("href")?.textContent?.trim();
+      const isCalendar = r.querySelector("calendar") !== null;
+      const displayName = r.querySelector("displayname")?.textContent?.trim() ?? href ?? "";
       if (href && isCalendar && href !== homeHref) {
         calendars.push({ href, displayName });
       }
@@ -77,9 +90,7 @@ export class CalDAVClient {
     from: Date,
     to: Date,
   ): Promise<Array<{ href: string; ical: string }>> {
-    const fmt = (d: Date) =>
-      d.toISOString().replace(/[-:]/g, "").replace(".000", "");
-
+    const fmt = (d: Date) => d.toISOString().replace(/[-:]/g, "").replace(".000", "");
     const xml = `<?xml version="1.0" encoding="utf-8"?>
 <C:calendar-query xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
   <D:prop><D:getetag/><C:calendar-data/></D:prop>
@@ -93,13 +104,10 @@ export class CalDAVClient {
 </C:calendar-query>`;
 
     const resp = await this.req("REPORT", calendarHref, xml, { Depth: "1" });
-    if (!resp.ok && resp.status !== 207) {
-      throw new Error(`CalDAV REPORT ${resp.status}: ${resp.statusText}`);
-    }
+    if (resp.status >= 400) throw new Error(`CalDAV REPORT ${resp.status}`);
 
-    const doc = new DOMParser().parseFromString(await resp.text(), "application/xml");
     const results: Array<{ href: string; ical: string }> = [];
-    for (const r of Array.from(doc.querySelectorAll("response"))) {
+    for (const r of Array.from(this.parse(resp.text).querySelectorAll("response"))) {
       const href = r.querySelector("href")?.textContent?.trim();
       const ical = r.querySelector("calendar-data")?.textContent;
       if (href && ical) results.push({ href, ical });
@@ -108,11 +116,9 @@ export class CalDAVClient {
   }
 
   async getEvent(href: string): Promise<string> {
-    const resp = await this.req("GET", href, undefined, {
-      Accept: "text/calendar",
-    });
-    if (!resp.ok) throw new Error(`CalDAV GET ${resp.status}`);
-    return resp.text();
+    const resp = await this.req("GET", href, undefined, { Accept: "text/calendar" });
+    if (resp.status >= 400) throw new Error(`CalDAV GET ${resp.status}`);
+    return resp.text;
   }
 
   // ── Write ─────────────────────────────────────────────────────
@@ -122,19 +128,16 @@ export class CalDAVClient {
       "Content-Type": "text/calendar; charset=utf-8",
       ...(create ? { "If-None-Match": "*" } : {}),
     });
-    if (!resp.ok) throw new Error(`CalDAV PUT ${resp.status}: ${resp.statusText}`);
+    if (resp.status >= 400) throw new Error(`CalDAV PUT ${resp.status}`);
   }
 
   async deleteEvent(href: string): Promise<void> {
     const resp = await this.req("DELETE", href);
-    if (!resp.ok && resp.status !== 404) {
-      throw new Error(`CalDAV DELETE ${resp.status}`);
-    }
+    if (resp.status >= 400 && resp.status !== 404) throw new Error(`CalDAV DELETE ${resp.status}`);
   }
 
   hrefForEvent(calendarHref: string, uid: string): string {
-    const base = calendarHref.endsWith("/") ? calendarHref : calendarHref + "/";
-    const absBase = this.abs(base);
-    return `${absBase}${uid}.ics`;
+    const base = this.abs(calendarHref.endsWith("/") ? calendarHref : calendarHref + "/");
+    return `${base}${uid}.ics`;
   }
 }
