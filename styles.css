@@ -796,6 +796,29 @@
   max-width: calc(100vw - 32px);
 }
 
+.dl-color-swatches {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  margin-right: 8px;
+}
+
+.dl-color-swatch {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid transparent;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  transition: transform 0.1s;
+}
+.dl-color-swatch:hover { transform: scale(1.25); }
+.dl-color-swatch--active {
+  border-color: var(--text-normal);
+  transform: scale(1.15);
+}
+
 .dl-create-select {
   width: 100%;
   font-size: 0.84em;

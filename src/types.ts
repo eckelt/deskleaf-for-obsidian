@@ -34,6 +34,9 @@ export interface EventNoteFrontmatter {
 
 export type NoteType = "meeting" | "interview" | "recurring" | "task";
 
+// 8 wählbare Farbtöne (Hue-Werte) für Kalender
+export const CAL_COLOR_PALETTE = [0, 25, 160, 185, 210, 245, 275, 325] as const;
+
 export interface CalDAVSettings {
   url: string;
   username: string;
@@ -42,6 +45,8 @@ export interface CalDAVSettings {
   selectedCalendars: string[];
   /** zuletzt entdeckte Kalender für die Settings-UI */
   discoveredCalendars: Array<{ href: string; displayName: string }>;
+  /** displayName → Hue-Wert aus CAL_COLOR_PALETTE */
+  calendarColors: Record<string, number>;
 }
 
 export interface DeskleafSettings {
@@ -61,5 +66,5 @@ export const DEFAULT_SETTINGS: DeskleafSettings = {
   notesFolder: "notes",
   topicsFolder: "topics",
   topicsOrder: [],
-  caldav: { url: "https://caldav.fastmail.com", username: "", password: "", selectedCalendars: [], discoveredCalendars: [] },
+  caldav: { url: "https://caldav.fastmail.com", username: "", password: "", selectedCalendars: [], discoveredCalendars: [], calendarColors: {} },
 };

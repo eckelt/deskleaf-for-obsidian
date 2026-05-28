@@ -1,6 +1,7 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
 import type DeskleafPlugin from "./main";
 import { CalDAVClient } from "./caldav-client";
+import { CAL_COLOR_PALETTE } from "./types";
 
 export class DeskleafSettingTab extends PluginSettingTab {
   plugin: DeskleafPlugin;
@@ -154,14 +155,13 @@ export class DeskleafSettingTab extends PluginSettingTab {
     });
 
     for (const cal of discoveredCalendars) {
-      new Setting(el)
+      const setting = new Setting(el)
         .setName(cal.displayName || cal.href)
         .addToggle(toggle =>
           toggle
             .setValue(selectedCalendars.length === 0 || selectedCalendars.includes(cal.href))
             .onChange(async checked => {
               let sel = this.plugin.settings.caldav.selectedCalendars;
-              // Wenn leer = "alle implizit aktiv", erst materialisieren
               if (sel.length === 0) {
                 sel = discoveredCalendars.map(c => c.href);
                 this.plugin.settings.caldav.selectedCalendars = sel;
@@ -175,6 +175,24 @@ export class DeskleafSettingTab extends PluginSettingTab {
               await this.plugin.saveSettings();
             })
         );
+
+      // Farbwahl: 8 Swatches vor dem Toggle
+      const swatches = setting.controlEl.createDiv("dl-color-swatches");
+      swatches.style.order = "-1";
+      const savedHue = this.plugin.settings.caldav.calendarColors?.[cal.displayName];
+      for (const hue of CAL_COLOR_PALETTE) {
+        const sw = swatches.createDiv("dl-color-swatch");
+        sw.style.background = `hsl(${hue}, 50%, 55%)`;
+        sw.title = `${hue}°`;
+        if (savedHue === hue) sw.addClass("dl-color-swatch--active");
+        sw.addEventListener("click", async () => {
+          this.plugin.settings.caldav.calendarColors ??= {};
+          this.plugin.settings.caldav.calendarColors[cal.displayName] = hue;
+          swatches.querySelectorAll(".dl-color-swatch--active").forEach(s => s.removeClass("dl-color-swatch--active"));
+          sw.addClass("dl-color-swatch--active");
+          await this.plugin.saveSettings();
+        });
+      }
     }
   }
 }
