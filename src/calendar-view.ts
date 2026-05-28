@@ -907,7 +907,9 @@ export class DeskleafCalendarView extends ItemView {
       this.buildEventCard(el, layout.event, layout.col, layout.totalCols, date);
     }
 
-    if (!Platform.isMobile)
+    if (Platform.isMobile)
+      el.addEventListener("touchstart", (e) => this.onDayTouchStart(e, el, date), { passive: true });
+    else
       el.addEventListener("mousedown", (e) => this.onDayMouseDown(e, el, date));
   }
 
@@ -1105,87 +1107,167 @@ export class DeskleafCalendarView extends ItemView {
     date: string,
     startMin: number,
     endMin: number,
-    e: MouseEvent,
+    pos: { clientX: number; clientY: number },
   ) {
-    this.containerEl.querySelector(".dl-create-popover")?.remove();
+    document.querySelector(".dl-create-popover")?.remove();
 
     const popover = document.body.createDiv("dl-create-popover");
+    const parseTime = (s: string) => { const [h, m] = s.split(":").map(Number); return (h || 0) * 60 + (m || 0); };
 
-    popover.createDiv({
-      cls: "dl-create-time",
-      text: `${minsToTimeStr(startMin)} – ${minsToTimeStr(endMin)}`,
-    });
+    // Calendar selector
+    const { discoveredCalendars, selectedCalendars } = this.plugin.settings.caldav;
+    const activeCals = discoveredCalendars.filter(c => selectedCalendars.length === 0 || selectedCalendars.includes(c.href));
+    let calName = activeCals[0]?.displayName ?? "";
+    if (activeCals.length > 1) {
+      const sel = popover.createEl("select", { cls: "dl-create-select" } as any) as HTMLSelectElement;
+      for (const c of activeCals) {
+        const opt = sel.createEl("option", { text: c.displayName } as any) as HTMLOptionElement;
+        opt.value = c.displayName;
+      }
+      sel.addEventListener("change", () => { calName = sel.value; });
+    }
 
-    const input = popover.createEl("input", {
-      type: "text",
-      cls: "dl-create-input",
-      placeholder: "Titel eingeben…",
+    // Title
+    const titleInput = popover.createEl("input", {
+      type: "text", cls: "dl-create-input", placeholder: "Titel…",
     } as any) as HTMLInputElement;
 
+    // Time row
+    const timeRow = popover.createDiv("dl-create-time-row");
+    const startInput = timeRow.createEl("input", { type: "time", cls: "dl-create-time-input" } as any) as HTMLInputElement;
+    startInput.step = "900";
+    startInput.value = minsToTimeStr(startMin);
+    timeRow.createSpan({ cls: "dl-create-time-sep", text: "–" });
+    const endInput = timeRow.createEl("input", { type: "time", cls: "dl-create-time-input" } as any) as HTMLInputElement;
+    endInput.step = "900";
+    endInput.value = minsToTimeStr(endMin);
+
+    // Description
+    const descInput = popover.createEl("textarea", {
+      cls: "dl-create-desc", placeholder: "Beschreibung (optional)",
+    } as any) as HTMLTextAreaElement;
+
+    // Actions
     const actions = popover.createDiv("dl-create-actions");
+    const cancelBtn = actions.createEl("button", { cls: "dl-create-btn", text: "Abbrechen" });
+    const createBtn = actions.createEl("button", { cls: "dl-create-btn dl-create-btn--primary", text: "Erstellen" });
 
     const confirm = async () => {
-      const title = input.value.trim();
-      if (!title) {
-        input.focus();
-        return;
-      }
+      const title = titleInput.value.trim();
+      if (!title) { titleInput.focus(); return; }
+      const s = parseTime(startInput.value);
+      const e = parseTime(endInput.value);
+      if (e <= s) { endInput.style.borderColor = "var(--color-red)"; return; }
       popover.remove();
+      cleanup();
       try {
         await this.plugin.calendarReader.createEvent({
           title,
-          start: minsToISO(date, startMin),
-          end: minsToISO(date, endMin),
+          start: minsToISO(date, s),
+          end: minsToISO(date, e),
+          ...(calName ? { calendar: calName } : {}),
+          ...(descInput.value.trim() ? { notes: descInput.value.trim() } : {}),
         });
       } catch (err: any) {
         new Notice(`Fehler beim Erstellen: ${err?.message ?? err}`);
       }
     };
-    const cancel = () => popover.remove();
+    const cancel = () => { popover.remove(); cleanup(); };
 
-    const createBtn = actions.createEl("button", {
-      cls: "dl-create-btn dl-create-btn--primary",
-      text: "Erstellen",
-    });
-    const cancelBtn = actions.createEl("button", {
-      cls: "dl-create-btn",
-      text: "Abbrechen",
-    });
-
-    // Prevent input blur when clicking buttons
     createBtn.addEventListener("mousedown", (ev) => ev.preventDefault());
     cancelBtn.addEventListener("mousedown", (ev) => ev.preventDefault());
     createBtn.addEventListener("click", confirm);
     cancelBtn.addEventListener("click", cancel);
 
-    input.addEventListener("keydown", (ev) => {
-      if (ev.key === "Enter") {
-        ev.preventDefault();
-        confirm();
-      }
+    titleInput.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter") { ev.preventDefault(); confirm(); }
       if (ev.key === "Escape") cancel();
     });
 
-    // Dismiss when clicking outside
-    const onOutside = (ev: MouseEvent) => {
-      if (!popover.contains(ev.target as Node)) {
-        popover.remove();
-        document.removeEventListener("mousedown", onOutside);
-      }
+    const onOutside = (ev: Event) => {
+      if (!popover.contains(ev.target as Node)) { popover.remove(); cleanup(); }
     };
-    setTimeout(() => document.addEventListener("mousedown", onOutside), 0);
-
-    // Position: right of cursor, clamped to viewport
-    popover.style.left = `${e.clientX + 12}px`;
-    popover.style.top = `${e.clientY - 24}px`;
+    const cleanup = () => {
+      document.removeEventListener("mousedown", onOutside);
+      document.removeEventListener("touchstart", onOutside);
+    };
     setTimeout(() => {
-      const r = popover.getBoundingClientRect();
-      if (r.right > window.innerWidth - 8)
-        popover.style.left = `${e.clientX - r.width - 12}px`;
-      if (r.bottom > window.innerHeight - 8)
-        popover.style.top = `${window.innerHeight - r.height - 8}px`;
-      input.focus();
+      document.addEventListener("mousedown", onOutside);
+      document.addEventListener("touchstart", onOutside);
     }, 0);
+
+    // Positioning
+    if (Platform.isMobile) {
+      popover.addClass("dl-create-popover--mobile");
+      popover.style.left = "50%";
+      popover.style.transform = "translateX(-50%)";
+      popover.style.top = "12%";
+    } else {
+      popover.style.left = `${pos.clientX + 12}px`;
+      popover.style.top = `${pos.clientY - 24}px`;
+    }
+    setTimeout(() => {
+      if (!Platform.isMobile) {
+        const r = popover.getBoundingClientRect();
+        if (r.right > window.innerWidth - 8) popover.style.left = `${pos.clientX - r.width - 12}px`;
+        if (r.bottom > window.innerHeight - 8) popover.style.top = `${window.innerHeight - r.height - 8}px`;
+      }
+      titleInput.focus();
+    }, 0);
+  }
+
+  private onDayTouchStart(e: TouchEvent, dayEl: HTMLElement, date: string) {
+    if ((e.target as HTMLElement).closest(".dl-event-card, .dl-resize-handle")) return;
+
+    const touch = e.touches[0];
+    const rect = dayEl.getBoundingClientRect();
+    const startMin = Math.max(0, Math.min(23 * 60, snapMins(((touch.clientY - rect.top) / HOUR_PX) * 60)));
+    let endMin = Math.min(24 * 60, startMin + 30);
+    const startX = touch.clientX;
+    const startY = touch.clientY;
+    let holdActive = false;
+    let ghost: HTMLElement | null = null;
+
+    const cleanup = () => {
+      window.clearTimeout(timer);
+      ghost?.remove();
+      ghost = null;
+      dayEl.removeEventListener("touchmove", onMove);
+      dayEl.removeEventListener("touchend", onEnd);
+      dayEl.removeEventListener("touchcancel", onEnd);
+    };
+
+    const timer = window.setTimeout(() => {
+      holdActive = true;
+      if ((navigator as any).vibrate) (navigator as any).vibrate(10);
+      ghost = dayEl.createDiv("dl-ghost-event");
+      this.refreshGhost(ghost, startMin, endMin);
+    }, 350);
+
+    const onMove = (ev: TouchEvent) => {
+      const t = ev.touches[0];
+      if (!holdActive) {
+        if (Math.abs(t.clientX - startX) > 10 || Math.abs(t.clientY - startY) > 10) cleanup();
+        return;
+      }
+      ev.preventDefault();
+      ev.stopPropagation();
+      const rawMins = snapMins(((t.clientY - dayEl.getBoundingClientRect().top) / HOUR_PX) * 60);
+      endMin = Math.max(startMin + 15, Math.min(24 * 60, rawMins));
+      if (ghost) this.refreshGhost(ghost, startMin, endMin);
+    };
+
+    const onEnd = (ev: TouchEvent) => {
+      const wasActive = holdActive;
+      const t = ev.changedTouches[0];
+      cleanup();
+      if (!wasActive) return;
+      this.showCreatePopover(date, startMin, endMin, t);
+    };
+
+    dayEl.addEventListener("touchmove", onMove, { passive: false });
+    dayEl.addEventListener("touchend", onEnd);
+    dayEl.addEventListener("touchcancel", onEnd);
   }
 
   // ── Drag-to-move / Drag-to-resize ───────────────────────────────
