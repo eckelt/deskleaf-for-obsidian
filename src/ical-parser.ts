@@ -174,6 +174,8 @@ export function parseICalendar(icalText: string, calendarName = ""): CalendarEve
   return events;
 }
 
+const fmtDT = (d: Date) => d.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+
 export function buildVEvent(params: {
   uid: string;
   summary: string;
@@ -182,34 +184,24 @@ export function buildVEvent(params: {
   description?: string;
   location?: string;
 }): string {
-  const toICalDT = (iso: string): string => {
-    if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
-      return `DTSTART;VALUE=DATE:${iso.replace(/-/g, "")}`;
-    }
-    const d = new Date(iso);
-    const s = d.toISOString().replace(/[-:]/g, "").replace(".000", "");
-    return `${s}`;
-  };
-
   const start = params.dtstart;
   const end = params.dtend;
   const isAllDay = /^\d{4}-\d{2}-\d{2}$/.test(start);
 
   const dtStartLine = isAllDay
     ? `DTSTART;VALUE=DATE:${start.replace(/-/g, "")}`
-    : `DTSTART:${new Date(start).toISOString().replace(/[-:]/g, "").replace(".000", "")}`;
+    : `DTSTART:${fmtDT(new Date(start))}`;
   const dtEndLine = isAllDay
     ? `DTEND;VALUE=DATE:${end.replace(/-/g, "")}`
-    : `DTEND:${new Date(end).toISOString().replace(/[-:]/g, "").replace(".000", "")}`;
+    : `DTEND:${fmtDT(new Date(end))}`;
 
-  const now = new Date().toISOString().replace(/[-:]/g, "").replace(".000", "");
   const lines = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
     "PRODID:-//Deskleaf//Deskleaf//EN",
     "BEGIN:VEVENT",
     `UID:${params.uid}`,
-    `DTSTAMP:${now}`,
+    `DTSTAMP:${fmtDT(new Date())}`,
     dtStartLine,
     dtEndLine,
     `SUMMARY:${(params.summary ?? "").replace(/\n/g, "\\n")}`,
@@ -225,10 +217,10 @@ export function updateVEventTimes(icalText: string, newStart: string, newEnd: st
   const isAllDay = /^\d{4}-\d{2}-\d{2}$/.test(newStart);
   const dtStartLine = isAllDay
     ? `DTSTART;VALUE=DATE:${newStart.replace(/-/g, "")}`
-    : `DTSTART:${new Date(newStart).toISOString().replace(/[-:]/g, "").replace(".000", "")}`;
+    : `DTSTART:${fmtDT(new Date(newStart))}`;
   const dtEndLine = isAllDay
     ? `DTEND;VALUE=DATE:${newEnd.replace(/-/g, "")}`
-    : `DTEND:${new Date(newEnd).toISOString().replace(/[-:]/g, "").replace(".000", "")}`;
+    : `DTEND:${fmtDT(new Date(newEnd))}`;
 
   return icalText
     .replace(/^DTSTART[^\r\n]*/m, dtStartLine)

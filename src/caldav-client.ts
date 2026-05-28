@@ -128,7 +128,7 @@ export class CalDAVClient {
       "Content-Type": "text/calendar; charset=utf-8",
       ...(create ? { "If-None-Match": "*" } : {}),
     });
-    if (resp.status >= 400) throw new Error(`CalDAV PUT ${resp.status}`);
+    if (resp.status >= 400) throw new Error(`CalDAV PUT ${resp.status}: ${resp.text.slice(0, 300)}`);
   }
 
   async deleteEvent(href: string): Promise<void> {
