@@ -18,7 +18,9 @@ export default class DeskleafPlugin extends Plugin {
   private makeReader(): CalendarReader | CalDAVReader {
     const { caldav } = this.settings;
     if (caldav.username && caldav.password) {
-      return new CalDAVReader(caldav.url || "https://caldav.fastmail.com", caldav.username, caldav.password);
+      const reader = new CalDAVReader(caldav.url || "https://caldav.fastmail.com", caldav.username, caldav.password);
+      reader.selectedCalendars = caldav.selectedCalendars ?? [];
+      return reader;
     }
     return new CalendarReader(this.getBinaryPath());
   }
@@ -122,6 +124,7 @@ export default class DeskleafPlugin extends Plugin {
     if (caldav.username && caldav.password) {
       if (this.calendarReader instanceof CalDAVReader) {
         this.calendarReader.updateCredentials(caldav.url, caldav.username, caldav.password);
+        this.calendarReader.selectedCalendars = caldav.selectedCalendars ?? [];
       } else {
         this.calendarReader.stopWatching();
         this.calendarReader = this.makeReader();

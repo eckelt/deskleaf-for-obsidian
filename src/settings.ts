@@ -1,6 +1,6 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
 import type DeskleafPlugin from "./main";
-import { CalDAVReader } from "./caldav-reader";
+import { CalDAVClient } from "./caldav-client";
 
 export class DeskleafSettingTab extends PluginSettingTab {
   plugin: DeskleafPlugin;
@@ -57,19 +57,30 @@ export class DeskleafSettingTab extends PluginSettingTab {
           });
       });
 
+    // Testknopf + Kalender-Checkboxen
+    const calendarSection = containerEl.createDiv();
+    this.renderCalendarList(calendarSection);
+
     new Setting(containerEl)
-      .setName("Verbindung testen")
-      .setDesc("Prüft Zugangsdaten und zeigt gefundene Kalender.")
+      .setName("Kalender neu laden")
+      .setDesc("Verbindung prüfen und Kalenderliste aktualisieren.")
       .addButton(btn =>
-        btn.setButtonText("Testen").onClick(async () => {
+        btn.setButtonText("Neu laden").onClick(async () => {
           btn.setButtonText("…").setDisabled(true);
           try {
             const { caldav } = this.plugin.settings;
-            const reader = new CalDAVReader(caldav.url, caldav.username, caldav.password);
-            const cals = await (reader as any).client.discoverCalendars(
-              `/dav/principals/user/${encodeURIComponent(caldav.username)}/`
-            );
-            btn.setButtonText(`✓ ${cals.length} Kalender gefunden`).setDisabled(false);
+            const client = new CalDAVClient(caldav.url, caldav.username, caldav.password);
+            const principalPath = `/dav/principals/user/${encodeURIComponent(caldav.username)}/`;
+            const cals = await client.discoverCalendars(principalPath);
+            this.plugin.settings.caldav.discoveredCalendars = cals;
+            // Entferne gespeicherte Selektionen für nicht mehr vorhandene Kalender
+            const hrefs = new Set(cals.map(c => c.href));
+            this.plugin.settings.caldav.selectedCalendars =
+              this.plugin.settings.caldav.selectedCalendars.filter(h => hrefs.has(h));
+            await this.plugin.saveSettings();
+            btn.setButtonText(`✓ ${cals.length} Kalender`).setDisabled(false);
+            calendarSection.empty();
+            this.renderCalendarList(calendarSection);
           } catch (err) {
             btn.setButtonText(`✗ ${(err as Error).message}`).setDisabled(false);
           }
@@ -133,5 +144,34 @@ export class DeskleafSettingTab extends PluginSettingTab {
             await this.plugin.saveSettings();
           })
       );
+  }
+
+  private renderCalendarList(el: HTMLElement): void {
+    const { discoveredCalendars, selectedCalendars } = this.plugin.settings.caldav;
+    if (discoveredCalendars.length === 0) return;
+
+    el.createEl("p", {
+      text: "Kalender auswählen (leer = alle):",
+      cls: "setting-item-description",
+    });
+
+    for (const cal of discoveredCalendars) {
+      new Setting(el)
+        .setName(cal.displayName || cal.href)
+        .addToggle(toggle =>
+          toggle
+            .setValue(selectedCalendars.length === 0 || selectedCalendars.includes(cal.href))
+            .onChange(async checked => {
+              const sel = this.plugin.settings.caldav.selectedCalendars;
+              if (checked) {
+                if (!sel.includes(cal.href)) sel.push(cal.href);
+              } else {
+                const idx = sel.indexOf(cal.href);
+                if (idx !== -1) sel.splice(idx, 1);
+              }
+              await this.plugin.saveSettings();
+            })
+        );
+    }
   }
 }

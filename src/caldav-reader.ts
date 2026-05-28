@@ -18,6 +18,7 @@ export class CalDAVReader {
   private watchers: Array<() => void> = [];
   private pollTimer: ReturnType<typeof setInterval> | null = null;
   private calendars: CalDAVCalendar[] = [];
+  selectedCalendars: string[] = []; // hrefs; leer = alle
   // uid → absolute href, populated during fetch
   private hrefMap = new Map<string, string>();
   private initialLoaded = false;
@@ -95,6 +96,11 @@ export class CalDAVReader {
         this.calendars = await this.client.discoverCalendars(this.principalPath);
       }
 
+      const selected = this.selectedCalendars;
+      const active = selected.length > 0
+        ? this.calendars.filter(c => selected.includes(c.href))
+        : this.calendars;
+
       const now = new Date();
       const from = new Date(now);
       from.setDate(from.getDate() - DAYS_BACK);
@@ -104,14 +110,18 @@ export class CalDAVReader {
       const allEvents: CalendarEvent[] = [];
       this.hrefMap.clear();
 
-      for (const calendar of this.calendars) {
-        const results = await this.client.fetchEvents(calendar.href, from, to);
-        for (const { href, ical } of results) {
-          const parsed = parseICalendar(ical, calendar.displayName);
-          for (const ev of parsed) {
-            allEvents.push(ev);
-            this.hrefMap.set(ev.id, href);
+      for (const calendar of active) {
+        try {
+          const results = await this.client.fetchEvents(calendar.href, from, to);
+          for (const { href, ical } of results) {
+            const parsed = parseICalendar(ical, calendar.displayName);
+            for (const ev of parsed) {
+              allEvents.push(ev);
+              this.hrefMap.set(ev.id, href);
+            }
           }
+        } catch (err) {
+          console.warn(`[Deskleaf] Kalender übersprungen (${calendar.displayName}):`, (err as Error).message);
         }
       }
 

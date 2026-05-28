@@ -38,6 +38,10 @@ export interface CalDAVSettings {
   url: string;
   username: string;
   password: string;
+  /** hrefs der ausgewählten Kalender; leer = alle */
+  selectedCalendars: string[];
+  /** zuletzt entdeckte Kalender für die Settings-UI */
+  discoveredCalendars: Array<{ href: string; displayName: string }>;
 }
 
 export interface DeskleafSettings {
@@ -57,5 +61,5 @@ export const DEFAULT_SETTINGS: DeskleafSettings = {
   notesFolder: "notes",
   topicsFolder: "topics",
   topicsOrder: [],
-  caldav: { url: "https://caldav.fastmail.com", username: "", password: "" },
+  caldav: { url: "https://caldav.fastmail.com", username: "", password: "", selectedCalendars: [], discoveredCalendars: [] },
 };
