@@ -90,7 +90,7 @@ export class CalDAVClient {
     from: Date,
     to: Date,
   ): Promise<Array<{ href: string; ical: string }>> {
-    const fmt = (d: Date) => d.toISOString().replace(/[-:]/g, "").replace(".000", "");
+    const fmt = (d: Date) => d.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
     const xml = `<?xml version="1.0" encoding="utf-8"?>
 <C:calendar-query xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
   <D:prop><D:getetag/><C:calendar-data/></D:prop>

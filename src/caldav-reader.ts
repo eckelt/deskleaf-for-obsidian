@@ -114,6 +114,7 @@ export class CalDAVReader {
       const allEvents: CalendarEvent[] = [];
       this.hrefMap.clear();
 
+      const skipped: string[] = [];
       for (const calendar of active) {
         try {
           const results = await this.client.fetchEvents(calendar.href, from, to);
@@ -125,12 +126,15 @@ export class CalDAVReader {
             }
           }
         } catch (err) {
+          skipped.push(`${calendar.displayName} (${(err as Error).message})`);
           console.warn(`[Deskleaf] Kalender übersprungen (${calendar.displayName}):`, (err as Error).message);
         }
       }
 
       this.events = allEvents;
-      this.loadError = null;
+      this.loadError = skipped.length > 0 && allEvents.length === 0
+        ? `Alle Kalender fehlerhaft: ${skipped.join("; ")}`
+        : null;
       this.cacheDate = new Date().toISOString();
       if (this.saveCache) await this.saveCache(allEvents, this.cacheDate);
 
