@@ -182,7 +182,7 @@ export class DeskleafSettingTab extends PluginSettingTab {
       const savedHue = this.plugin.settings.caldav.calendarColors?.[cal.displayName];
       for (const hue of CAL_COLOR_PALETTE) {
         const sw = swatches.createDiv("dl-color-swatch");
-        sw.style.background = `hsl(${hue}, 50%, 55%)`;
+        sw.style.background = `hsl(${hue}, 78%, 50%)`;
         sw.title = `${hue}°`;
         if (savedHue === hue) sw.addClass("dl-color-swatch--active");
         sw.addEventListener("click", async () => {
@@ -190,7 +190,7 @@ export class DeskleafSettingTab extends PluginSettingTab {
           this.plugin.settings.caldav.calendarColors[cal.displayName] = hue;
           swatches.querySelectorAll(".dl-color-swatch--active").forEach(s => s.removeClass("dl-color-swatch--active"));
           sw.addClass("dl-color-swatch--active");
-          await this.plugin.saveSettings();
+          await this.plugin.saveSettingsQuiet();
         });
       }
     }

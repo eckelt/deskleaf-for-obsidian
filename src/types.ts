@@ -35,7 +35,7 @@ export interface EventNoteFrontmatter {
 export type NoteType = "meeting" | "interview" | "recurring" | "task";
 
 // 8 wählbare Farbtöne (Hue-Werte) für Kalender
-export const CAL_COLOR_PALETTE = [0, 25, 160, 185, 210, 245, 275, 325] as const;
+export const CAL_COLOR_PALETTE = [0, 28, 55, 128, 185, 212, 270, 325] as const;
 
 export interface CalDAVSettings {
   url: string;
