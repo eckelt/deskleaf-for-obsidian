@@ -35,9 +35,9 @@ export function weekStart(d: Date): Date {
   return addDays(d, diff);
 }
 
-/** Format a Date as a short human label, e.g. "Mo 21.04." */
+/** Format a Date as a short human label, e.g. "Do – 28. Mai" */
 export function shortDayLabel(d: Date): string {
-  return `${DAYS[d.getDay()]} ${d.getDate()}.${String(d.getMonth() + 1).padStart(2, "0")}.`;
+  return `${DAYS[d.getDay()]} – ${d.getDate()}. ${MONTHS[d.getMonth()]}`;
 }
 
 /**
@@ -100,20 +100,26 @@ export function getNDayColumns(anchor: Date, n: number): DayColumn[] {
 /** Format e.g. "Mo 20. – Fr 24. April 2026" for multi-day range nav label */
 export function rangeHeaderLabel(start: Date, end: Date): string {
   const s = `${DAYS[start.getDay()]} ${start.getDate()}.`;
-  const e = `${DAYS[end.getDay()]} ${end.getDate()}. ${MONTHS[end.getMonth()]} ${end.getFullYear()}`;
+  const yr = end.getFullYear();
+  const yearStr = yr === new Date().getFullYear() ? "" : ` ${yr}`;
+  const e = `${DAYS[end.getDay()]} ${end.getDate()}. ${MONTHS[end.getMonth()]}${yearStr}`;
   return `${s} – ${e}`;
 }
 
 /** Format e.g. "Di, 22. April 2026" for single-day nav label */
 export function dayHeaderLabel(anchor: Date): string {
-  return `${DAYS[anchor.getDay()]}, ${anchor.getDate()}. ${MONTHS[anchor.getMonth()]} ${anchor.getFullYear()}`;
+  const yr = anchor.getFullYear();
+  const yearStr = yr === new Date().getFullYear() ? "" : ` ${yr}`;
+  return `${DAYS[anchor.getDay()]}, ${anchor.getDate()}. ${MONTHS[anchor.getMonth()]}${yearStr}`;
 }
 
 /** Format e.g. "KW 17 · April 2026" */
 export function weekHeaderLabel(anchor: Date): string {
   const mon = weekStart(anchor);
   const kw = getWeekNumber(mon);
-  return `KW ${kw} · ${MONTHS[mon.getMonth()]} ${mon.getFullYear()}`;
+  const yr = mon.getFullYear();
+  const yearStr = yr === new Date().getFullYear() ? "" : ` ${yr}`;
+  return `KW ${kw} · ${MONTHS[mon.getMonth()]}${yearStr}`;
 }
 
 export function getWeekNumber(d: Date): number {

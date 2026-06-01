@@ -182,7 +182,7 @@ export class DeskleafSettingTab extends PluginSettingTab {
       const savedHue = this.plugin.settings.caldav.calendarColors?.[cal.displayName];
       for (const hue of CAL_COLOR_PALETTE) {
         const sw = swatches.createDiv("dl-color-swatch");
-        const swatchL = (hue >= 38 && hue <= 65) ? 55 : 50;
+        const swatchL = (hue >= 28 && hue <= 65) ? 55 : 50;
         sw.style.background = `hsl(${hue}, 92%, ${swatchL}%)`;
         sw.title = `${hue}°`;
         if (savedHue === hue) sw.addClass("dl-color-swatch--active");

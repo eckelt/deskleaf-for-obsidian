@@ -1,4 +1,4 @@
-import { Plugin, WorkspaceLeaf, addIcon } from "obsidian";
+import { Plugin, WorkspaceLeaf, addIcon, normalizePath } from "obsidian";
 import { DeskleafSettingTab } from "./settings";
 import { CalendarReader } from "./calendar-reader";
 import { CalDAVReader } from "./caldav-reader";
@@ -56,6 +56,7 @@ export default class DeskleafPlugin extends Plugin {
     `);
 
     await this.loadSettings();
+    await this.restoreCalendarColors();
 
     this.calendarReader = this.makeReader();
     this.calendarReader.setCacheCallbacks(
@@ -146,6 +147,36 @@ export default class DeskleafPlugin extends Plugin {
       this.calendarReader.setBinaryPath(this.getBinaryPath());
     }
     await this.saveData({ ...this.settings, calendarCache: this.calendarCache, calendarCacheDate: this.calendarCacheDate });
+  }
+
+  async saveSettingsQuiet() {
+    await this.saveData({ ...this.settings, calendarCache: this.calendarCache, calendarCacheDate: this.calendarCacheDate });
+    await this.persistCalendarColors();
+  }
+
+  private colorsPath(): string {
+    return normalizePath(`${this.manifest.dir}/calendar-colors.json`);
+  }
+
+  private async restoreCalendarColors(): Promise<void> {
+    try {
+      const raw = await this.app.vault.adapter.read(this.colorsPath());
+      const saved = JSON.parse(raw) as Record<string, number>;
+      if (Object.keys(saved).length > 0) {
+        this.settings.caldav.calendarColors = {
+          ...this.settings.caldav.calendarColors,
+          ...saved,
+        };
+      }
+    } catch { /* file doesn't exist yet */ }
+  }
+
+  private async persistCalendarColors(): Promise<void> {
+    const colors = this.settings.caldav.calendarColors ?? {};
+    if (Object.keys(colors).length === 0) return;
+    try {
+      await this.app.vault.adapter.write(this.colorsPath(), JSON.stringify(colors));
+    } catch { /* ignore */ }
   }
 
   private async ensureView(

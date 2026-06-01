@@ -3,7 +3,7 @@ export interface CalendarEvent {
   id: string;
   title: string;
   start: string; // ISO8601
-  end: string;   // ISO8601
+  end: string; // ISO8601
   location?: string | null;
   attendees?: string[];
   body?: string | null;
@@ -21,9 +21,9 @@ export interface CalendarEvent {
 export interface EventNoteFrontmatter {
   "event-id": string;
   title: string;
-  date: string;       // YYYY-MM-DD
-  start: string;      // HH:MM
-  end: string;        // HH:MM
+  date: string; // YYYY-MM-DD
+  start: string; // HH:MM
+  end: string; // HH:MM
   location: string;
   attendees: string[];
   type: NoteType;
@@ -35,7 +35,7 @@ export interface EventNoteFrontmatter {
 export type NoteType = "meeting" | "interview" | "recurring" | "task";
 
 // 8 wählbare Farbtöne (Hue-Werte) für Kalender
-export const CAL_COLOR_PALETTE = [4, 26, 38, 130, 183, 210, 268, 322] as const;
+export const CAL_COLOR_PALETTE = [4, 28, 42, 130, 183, 210, 268, 322] as const;
 
 export interface CalDAVSettings {
   url: string;
@@ -50,7 +50,7 @@ export interface CalDAVSettings {
 }
 
 export interface DeskleafSettings {
-  binaryPath: string;   // empty = auto-detect deskleaf-calendar-sync in plugin directory
+  binaryPath: string; // empty = auto-detect deskleaf-calendar-sync in plugin directory
   weekStartsOn: "monday";
   templateFolder: string;
   notesFolder: string;
@@ -66,5 +66,12 @@ export const DEFAULT_SETTINGS: DeskleafSettings = {
   notesFolder: "notes",
   topicsFolder: "topics",
   topicsOrder: [],
-  caldav: { url: "https://caldav.fastmail.com", username: "", password: "", selectedCalendars: [], discoveredCalendars: [], calendarColors: {} },
+  caldav: {
+    url: "https://caldav.fastmail.com",
+    username: "",
+    password: "",
+    selectedCalendars: [],
+    discoveredCalendars: [],
+    calendarColors: {},
+  },
 };

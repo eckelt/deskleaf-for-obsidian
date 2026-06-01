@@ -157,6 +157,7 @@ export class CalDAVReader {
     if (cached.events.length > 0) {
       this.events = cached.events;
       this.cacheDate = cached.date;
+      this.notify();
     }
   }
 

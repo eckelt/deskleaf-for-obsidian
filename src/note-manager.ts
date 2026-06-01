@@ -120,7 +120,7 @@ export class NoteManager {
       .replace(/\{\{title\}\}/g, event.title)
       .replace(/\{\{date\}\}/g, event.start.slice(0, 10))
       .replace(/\{\{attendees\}\}/g, this.buildAttendeesList(event))
-      .replace(/\{\{location\}\}/g, event.location ?? "")
+      .replace(/\{\{location\}\}/g, (event.location ?? "").replace(/\n/g, ", "))
       .replace(/\{\{body\}\}/g, this.buildBodySection(event))
       .replace(/\{\{carried_todos\}\}/g, this.buildCarriedTodosQuery(event));
 
@@ -157,7 +157,7 @@ export class NoteManager {
       `date: "${date}"`,
       `start: "${toTimeStr(event.start)}"`,
       `end: "${toTimeStr(event.end)}"`,
-      `location: "${(event.location ?? "").replace(/"/g, '\\"')}"`,
+      `location: "${(event.location ?? "").replace(/\n/g, ", ").replace(/"/g, '\\"')}"`,
       `attendees: [${attendees.map((a) => `"[[${normalizeAttendee(a)}]]"`).join(", ")}]`,
       `type: ${type}`,
       `toBeRemoved: false`,

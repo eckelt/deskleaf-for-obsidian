@@ -113,6 +113,9 @@ function buildEvent(props: ICalProp[], calendarName: string): CalendarEvent | nu
   const dtstart = first("DTSTART");
   if (!uid || !dtstart) return null;
 
+  const recurrenceId = first("RECURRENCE-ID");
+  const id = recurrenceId ? `${uid}_${recurrenceId.value}` : uid;
+
   const dtend = first("DTEND");
   const start = parseICalDateTime(dtstart.value, dtstart.params);
   const end = dtend ? parseICalDateTime(dtend.value, dtend.params) : start;
@@ -134,7 +137,7 @@ function buildEvent(props: ICalProp[], calendarName: string): CalendarEvent | nu
   const haystack = [description, url, location].filter(Boolean).join(" ").toLowerCase();
 
   return {
-    id: uid,
+    id,
     title: unescape(first("SUMMARY")?.value ?? null) ?? "(no title)",
     start,
     end,
@@ -144,7 +147,7 @@ function buildEvent(props: ICalProp[], calendarName: string): CalendarEvent | nu
     attendees,
     numAttendees: attendeeProps.length,
     organizer,
-    isRecurring: !!first("RRULE"),
+    isRecurring: !!first("RRULE") || !!first("RECURRENCE-ID"),
     isCancelled: first("STATUS")?.value?.toUpperCase() === "CANCELLED",
     isOrganizer: false,
     meetingPlatform: detectMeetingPlatform(haystack),

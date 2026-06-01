@@ -200,6 +200,8 @@ export class DeskleafCalendarView extends ItemView {
   private carouselTracks: HTMLElement[] = [];
   private slideDir: number = 0;
   private desktopSlideZone: HTMLElement | null = null;
+  private preserveScrollForNextRender: number | null = null;
+  private mobileEdit: { event: CalendarEvent; cleanup: () => void } | null = null;
 
   constructor(leaf: WorkspaceLeaf, plugin: DeskleafPlugin) {
     super(leaf);
@@ -228,6 +230,11 @@ export class DeskleafCalendarView extends ItemView {
     this.unsubscribeData = this.plugin.calendarReader.onChange(() =>
       this.render(),
     );
+    // addAction fügt einen Header-Button ein – funktioniert auf Desktop und iOS
+    this.addAction("crosshair", "Heute", () => {
+      this.anchor = new Date();
+      this.animatedRender(0);
+    });
     this.buildNavBar(this.containerEl.children[0] as HTMLElement);
     this.setupResizeObserver();
     this.setupActiveLeafTracking();
@@ -245,6 +252,7 @@ export class DeskleafCalendarView extends ItemView {
     }
     this.cancelDrag();
     this.hideHoverPopover();
+    this.exitMobileEditMode();
   }
 
   private computeInitialScroll(): { top: number; hasEvents: boolean } {
@@ -274,10 +282,12 @@ export class DeskleafCalendarView extends ItemView {
 
     // Only preserve user scroll position once we've scrolled to the first event
     const shouldPreserveScroll = this.initialScrollDone && !rangeChanged;
-    const prevScroll = shouldPreserveScroll
-      ? (this.containerEl.querySelector<HTMLElement>(".dl-grid-body-scroll")
-          ?.scrollTop ?? null)
-      : null;
+    const swipeScroll = this.preserveScrollForNextRender;
+    this.preserveScrollForNextRender = null;
+    const prevScroll = swipeScroll !== null ? swipeScroll
+      : shouldPreserveScroll
+        ? (this.containerEl.querySelector<HTMLElement>(".dl-grid-body-scroll")?.scrollTop ?? null)
+        : null;
 
     this.noteCache = this.plugin.noteManager.buildNoteCache();
     this.updateNavLabel();
@@ -410,38 +420,40 @@ export class DeskleafCalendarView extends ItemView {
   // ── Nav bar ──────────────────────────────────────────────────────
 
   private buildNavBar(header: HTMLElement) {
-    const navBtns = header.querySelector<HTMLElement>(
-      ".view-header-nav-buttons",
-    );
+    const addBtn = (parent: HTMLElement, label: string, icon: string | null, svgHtml: string | null, cb: () => void) => {
+      const btn = parent.createEl("button", { cls: "clickable-icon view-header-nav-button" });
+      btn.setAttribute("aria-label", label);
+      if (svgHtml) btn.createEl("span").innerHTML = svgHtml;
+      else if (icon) setIcon(btn, icon);
+      btn.addEventListener("click", cb);
+      return btn;
+    };
+
+    const navBtns = header.querySelector<HTMLElement>(".view-header-nav-buttons");
     if (navBtns) {
       navBtns.empty();
-
-      const todayBtn = navBtns.createEl("button", {
-        cls: "clickable-icon view-header-nav-button",
-      });
-      todayBtn.setAttribute("aria-label", "Heute");
-      todayBtn.createEl("span").innerHTML = todayIconSvg(16);
-      todayBtn.addEventListener("click", () => {
+      addBtn(navBtns, "Heute", null, todayIconSvg(16), () => {
         const today = new Date();
         const dir = toDateStr(today) === toDateStr(this.anchor) ? 0
           : today > this.anchor ? 1 : -1;
         this.anchor = today;
         this.animatedRender(dir);
       });
+      addBtn(navBtns, "Zurück", "arrow-left", null, () => this.navigate(-1));
+      addBtn(navBtns, "Weiter", "arrow-right", null, () => this.navigate(1));
+    }
 
-      const prev = navBtns.createEl("button", {
-        cls: "clickable-icon view-header-nav-button",
-      });
-      setIcon(prev, "arrow-left");
-      prev.setAttribute("aria-label", "Zurück");
-      prev.addEventListener("click", () => this.navigate(-1));
-
-      const next = navBtns.createEl("button", {
-        cls: "clickable-icon view-header-nav-button",
-      });
-      setIcon(next, "arrow-right");
-      next.setAttribute("aria-label", "Weiter");
-      next.addEventListener("click", () => this.navigate(1));
+    // Mobil: Obsidian zeigt view-header-nav-buttons manchmal nicht an —
+    // dann werden die Buttons direkt neben dem Titel eingefügt.
+    if (Platform.isMobile && !navBtns) {
+      const titleEl = header.querySelector<HTMLElement>(".view-header-title-container") ?? header;
+      const bar = titleEl.createDiv("dl-mobile-nav-bar");
+      addBtn(bar, "Zurück", "arrow-left", null, () => this.navigate(-1));
+      this.navLabelEl = bar.createEl("span", { cls: "dl-mobile-nav-label" });
+      addBtn(bar, "Heute", null, todayIconSvg(14), () => { this.anchor = new Date(); this.render(); });
+      addBtn(bar, "Weiter", "arrow-right", null, () => this.navigate(1));
+      this.updateNavLabel();
+      return;
     }
 
     this.navLabelEl = header.querySelector<HTMLElement>(".view-header-title");
@@ -480,9 +492,35 @@ export class DeskleafCalendarView extends ItemView {
   }
 
   private navigate(dir: number) {
-    const step = this.visibleDays === 6 ? 7 : this.visibleDays;
-    this.anchor = addDays(this.anchor, dir * step);
-    this.animatedRender(dir);
+    if (Platform.isMobile && this.visibleDays <= 3) {
+      this.anchor = dir > 0 ? this.mobileNext(this.anchor) : this.mobilePrev(this.anchor);
+      this.render();
+    } else {
+      const step = this.visibleDays === 6 ? 7 : this.visibleDays;
+      this.anchor = addDays(this.anchor, dir * step);
+      this.animatedRender(dir);
+    }
+  }
+
+  // Vorwärts: Sa → Mo (+2), sonst +1
+  private mobileNext(a: Date): Date {
+    return a.getDay() === 6 ? addDays(a, 2) : addDays(a, 1);
+  }
+  // Rückwärts: Mo → Sa (−2), sonst −1
+  private mobilePrev(a: Date): Date {
+    return a.getDay() === 1 ? addDays(a, -2) : addDays(a, -1);
+  }
+
+  // Spaltenfolge für Mobile-Carousel: N = visibleDays + 2, jeweils 1 DayColumn
+  private mobileColSequence(): DayColumn[] {
+    const N = this.visibleDays + 2;
+    const seq: DayColumn[] = [];
+    let cur = this.mobilePrev(this.anchor);
+    for (let i = 0; i < N; i++) {
+      seq.push(getNDayColumns(cur, 1)[0]);
+      cur = this.mobileNext(cur);
+    }
+    return seq;
   }
 
   private animatedRender(dir: number) {
@@ -594,51 +632,69 @@ export class DeskleafCalendarView extends ItemView {
 
     const grid = el.createDiv("dl-time-grid");
 
-    if (Platform.isMobile) {
+    if (Platform.isMobile && this.visibleDays <= 3) {
       this.carouselTracks = [];
-      const colsByOffset = ([-1, 0, 1] as const).map(o => this.getColumnsForOffset(o));
 
-      // ── Header row with carousel ───────────────────────────────
+      // Spalten-basierter Carousel: N = visibleDays + 2 Spalten
+      // Jede Spalte ist 1/visibleDays der Viewport-Breite.
+      // Kein Tag erscheint doppelt während der Animation.
+      const N = this.visibleDays + 2;
+      const colPct = 100 / N;               // % des Tracks pro Spalte
+      const trackW = `${(N / this.visibleDays) * 100}%`;
+      const CENTER = `translateX(-${colPct}%)`;
+
+      const colSeq = this.mobileColSequence(); // N DayColumns
+      const currentDates = colSeq.slice(1, this.visibleDays + 1).flatMap(c => c.dates);
+
+      // Erstellt einen Track mit N Spalten-Slots
+      const makeColTrack = (viewport: HTMLElement): HTMLElement => {
+        viewport.addClass("dl-carousel-viewport");
+        const track = viewport.createDiv("dl-carousel-track");
+        track.style.width = trackW;
+        track.style.transform = CENTER;
+        for (let i = 0; i < N; i++) {
+          const col = track.createDiv("dl-carousel-col");
+          col.style.width = `${colPct}%`;
+        }
+        return track;
+      };
+
+      // ── Header row ─────────────────────────────────────────────
       const headerRow = grid.createDiv("dl-grid-header-row");
-      headerRow.createDiv("dl-time-gutter");
-      const headerTrack = this.makeCarouselTrack(headerRow.createDiv());
+      const mobileHeaderGutter = headerRow.createDiv("dl-time-gutter");
+      mobileHeaderGutter.createDiv({
+        cls: "dl-gutter-kw",
+        text: `KW ${getWeekNumber(parseDate(colSeq[1].dates[0]))}`,
+      });
+      const headerTrack = makeColTrack(headerRow.createDiv());
       this.carouselTracks.push(headerTrack);
-      for (let i = 0; i < 3; i++) {
-        this.buildHeadersInto(headerTrack.children[i] as HTMLElement, colsByOffset[i], today);
+      for (let i = 0; i < N; i++) {
+        this.buildHeadersInto(headerTrack.children[i] as HTMLElement, [colSeq[i]], today);
       }
 
-      // ── All-day rows (one per panel) ───────────────────────────
-      const hasAllDayByOffset = colsByOffset.map(cols =>
-        cols.flatMap(c => c.dates).some(d => this.plugin.calendarReader.getAllDayEventsForDate(d).length > 0)
+      // ── All-day row ────────────────────────────────────────────
+      const hasAnyAllDay = colSeq.some(col =>
+        col.dates.some(d => this.plugin.calendarReader.getAllDayEventsForDate(d).length > 0)
       );
-      if (hasAllDayByOffset.some(Boolean)) {
+      if (hasAnyAllDay) {
         const alldayRow = grid.createDiv("dl-allday-row");
         alldayRow.createDiv("dl-time-gutter dl-allday-label").setText("ganztägig");
-        const alldayTrack = this.makeCarouselTrack(alldayRow.createDiv());
+        const alldayTrack = makeColTrack(alldayRow.createDiv());
         this.carouselTracks.push(alldayTrack);
-        // Calculate max area height across all panels so the row stays stable
-        const heights = colsByOffset.map((cols, i) => {
-          if (!hasAllDayByOffset[i]) return 20;
-          const tmpArea = document.createElement("div");
-          return this.buildAllDayAreaInto(tmpArea, cols, cols.flatMap(c => c.dates));
+        const heights = colSeq.map(col => {
+          const tmp = document.createElement("div");
+          return this.buildAllDayAreaInto(tmp, [col], col.dates);
         });
-        const maxH = Math.max(...heights);
-        const cappedH = Math.min(maxH, ALLDAY_MAX_H);
-        for (let i = 0; i < 3; i++) {
-          const panel = alldayTrack.children[i] as HTMLElement;
-          panel.style.height = `${cappedH}px`;
-          const scroll = panel.createDiv("dl-allday-scroll");
-          const area = scroll.createDiv("dl-allday-area");
-          if (hasAllDayByOffset[i]) {
-            const cols = colsByOffset[i];
-            this.buildAllDayAreaInto(area, cols, cols.flatMap(c => c.dates));
-          } else {
-            area.style.height = "20px";
-          }
+        const cappedH = Math.min(Math.max(...heights, 20), ALLDAY_MAX_H);
+        for (let i = 0; i < N; i++) {
+          const colEl = alldayTrack.children[i] as HTMLElement;
+          colEl.style.height = `${cappedH}px`;
+          const area = colEl.createDiv("dl-allday-scroll").createDiv("dl-allday-area");
+          this.buildAllDayAreaInto(area, [colSeq[i]], colSeq[i].dates);
         }
       }
 
-      // ── Body with carousel ─────────────────────────────────────
+      // ── Body ───────────────────────────────────────────────────
       const bodyScroll = grid.createDiv("dl-grid-body-scroll");
       const bodyInner = bodyScroll.createDiv("dl-grid-body-inner");
 
@@ -649,16 +705,22 @@ export class DeskleafCalendarView extends ItemView {
         lbl.style.top = `${(h - DAY_START) * HOUR_PX}px`;
         lbl.setText(`${String(h).padStart(2, "0")}:00`);
       }
-
-      const bodyTrack = this.makeCarouselTrack(bodyInner.createDiv());
-      this.carouselTracks.push(bodyTrack);
-      for (let i = 0; i < 3; i++) {
-        const panel = bodyTrack.children[i] as HTMLElement;
-        panel.style.height = `${gridHeight}px`;
-        this.buildBodiesInto(panel, colsByOffset[i], gridHeight, today);
+      if (currentDates.includes(today)) {
+        const nowLbl = gutter.createDiv("dl-now-label");
+        const nowD = new Date();
+        nowLbl.textContent = `${String(nowD.getHours()).padStart(2,"0")}:${String(nowD.getMinutes()).padStart(2,"0")}`;
+        nowLbl.style.top = `${(((nowD.getHours() - DAY_START) * 60 + nowD.getMinutes()) / 60) * HOUR_PX}px`;
       }
 
-      this.setupSwipeGestures(grid, bodyScroll);
+      const bodyTrack = makeColTrack(bodyInner.createDiv());
+      this.carouselTracks.push(bodyTrack);
+      for (let i = 0; i < N; i++) {
+        const colEl = bodyTrack.children[i] as HTMLElement;
+        colEl.style.height = `${gridHeight}px`;
+        this.buildBodiesInto(colEl, [colSeq[i]], gridHeight, today);
+      }
+
+      this.setupSwipeGestures(grid, bodyScroll, colPct);
 
     } else {
       // ── Desktop: CSS-Grid — gutter col (fixed) + slide zone (animates) ──
@@ -672,6 +734,10 @@ export class DeskleafCalendarView extends ItemView {
       // Left column: always-visible gutter (not part of the slide animation)
       const gutterCol = grid.createDiv("dl-gutter-col");
       const gutterHeaderSpacer = gutterCol.createDiv("dl-gutter-header-spacer");
+      gutterHeaderSpacer.createDiv({
+        cls: "dl-gutter-kw",
+        text: `KW ${getWeekNumber(parseDate(columns[0].dates[0]))}`,
+      });
       let gutterAlldaySpacer: HTMLElement | null = null;
       if (hasAllDay) {
         gutterAlldaySpacer = gutterCol.createDiv("dl-gutter-allday-spacer dl-allday-label");
@@ -684,6 +750,12 @@ export class DeskleafCalendarView extends ItemView {
         const lbl = gutterLabels.createDiv("dl-time-label");
         lbl.style.top = `${(h - DAY_START) * HOUR_PX}px`;
         lbl.setText(`${String(h).padStart(2, "0")}:00`);
+      }
+      if (allDates.includes(today)) {
+        const nowLabelEl = gutterLabels.createDiv("dl-now-label");
+        const nowD = new Date();
+        nowLabelEl.textContent = `${String(nowD.getHours()).padStart(2,"0")}:${String(nowD.getMinutes()).padStart(2,"0")}`;
+        nowLabelEl.style.top = `${(((nowD.getHours() - DAY_START) * 60 + nowD.getMinutes()) / 60) * HOUR_PX}px`;
       }
 
       // Right column: content that slides on navigation
@@ -723,9 +795,9 @@ export class DeskleafCalendarView extends ItemView {
 
   }
 
-  private setupSwipeGestures(el: HTMLElement, scrollEl: HTMLElement) {
-    const EDGE_ZONE = 60;
-    const THRESHOLD = 50;
+  private setupSwipeGestures(el: HTMLElement, scrollEl: HTMLElement, colPct = 100 / 3) {
+    const EDGE_ZONE = 80;
+    const THRESHOLD = 40;
     let startX = 0, startY = 0;
     let interior = false;
     let claimedH = false;
@@ -737,17 +809,17 @@ export class DeskleafCalendarView extends ItemView {
       });
     };
 
-    // Centre = -33.333% shows the middle panel
-    const CENTER = "translateX(-33.333%)";
+    const CENTER = `translateX(-${colPct}%)`;
 
+    // capture:true → feuert auch wenn eine Event-Card stopPropagation aufruft
     el.addEventListener("touchstart", (e) => {
       const t = e.touches[0];
       startX = t.clientX;
       startY = t.clientY;
       interior = startX >= EDGE_ZONE && startX <= window.innerWidth - EDGE_ZONE;
       claimedH = false;
-      setTracks(CENTER); // ensure clean start
-    }, { passive: true });
+      setTracks(CENTER);
+    }, { passive: true, capture: true });
 
     el.addEventListener("touchmove", (e) => {
       if (!interior || e.touches.length !== 1) return;
@@ -759,8 +831,7 @@ export class DeskleafCalendarView extends ItemView {
       if (claimedH) {
         e.stopPropagation();
         e.preventDefault();
-        // Move tracks: -33.333% + finger offset (track is 300% wide so divide by 3)
-        setTracks(`translateX(calc(-33.333% + ${dx}px))`);
+        setTracks(`translateX(calc(-${colPct}% + ${dx}px))`);
       }
     }, { passive: false });
 
@@ -769,22 +840,15 @@ export class DeskleafCalendarView extends ItemView {
       const dx = e.changedTouches[0].clientX - startX;
       if (claimedH && Math.abs(dx) > THRESHOLD) {
         e.stopPropagation();
-        const dir = dx < 0 ? 1 : -1; // 1 = forward, -1 = back
-        // Animate to adjacent panel
-        const target = dir > 0 ? "translateX(-66.666%)" : "translateX(0%)";
-        setTracks(target, "transform 280ms cubic-bezier(0.25,0.46,0.45,0.94)");
+        const dir = dx < 0 ? 1 : -1;
+        const target = dir > 0 ? `translateX(-${2 * colPct}%)` : `translateX(0%)`;
+        setTracks(target, "transform 260ms cubic-bezier(0.25,0.46,0.45,0.94)");
         setTimeout(() => {
-          const savedScroll = scrollEl.scrollTop;
-          this.navigate(dir); // triggers render(), builds new carousel at CENTER
-          // Restore scroll position in new body
-          requestAnimationFrame(() => {
-            const newScroll = this.containerEl.querySelector<HTMLElement>(".dl-grid-body-scroll");
-            if (newScroll) newScroll.scrollTop = savedScroll;
-          });
-        }, 280);
+          this.preserveScrollForNextRender = scrollEl.scrollTop;
+          this.navigate(dir);
+        }, 260);
       } else {
-        // Snap back to centre
-        setTracks(CENTER, "transform 220ms cubic-bezier(0.25,0.46,0.45,0.94)");
+        setTracks(CENTER, "transform 200ms cubic-bezier(0.25,0.46,0.45,0.94)");
       }
       interior = false;
       claimedH = false;
@@ -898,7 +962,6 @@ export class DeskleafCalendarView extends ItemView {
       if (topPx >= 0 && topPx <= gridHeight) {
         const nowLine = el.createDiv("dl-now-line");
         nowLine.style.top = `${topPx}px`;
-        nowLine.createDiv("dl-now-dot");
       }
     }
 
@@ -959,29 +1022,31 @@ export class DeskleafCalendarView extends ItemView {
 
     if (noteFile) card.createDiv("dl-event-note-dot");
 
-    const short = heightPx < 30;
-
-    if (!short) {
-      const timeRow = card.createDiv("dl-event-time-row");
-      timeRow.createSpan({
-        cls: "dl-event-time",
-        text: toTimeStr(event.start),
-      });
-      if (event.isRecurring)
-        timeRow.createSpan({ cls: "dl-event-recurring-icon", text: "↻" });
-    }
-
+    // 1. Title — always first
     card.createDiv({ cls: "dl-event-title", text: event.title });
-    if (heightPx > 42) {
+
+    // 2. Location — second (if enough space)
+    if (heightPx > 40) {
       const isTeamsCard =
         event.meetingPlatform?.toLowerCase().includes("teams") ||
         event.location?.toLowerCase().includes("teams");
       if (isTeamsCard) {
         const loc = card.createDiv({ cls: "dl-event-location dl-event-location--teams" });
-        loc.innerHTML = teamsIconSvg(11);
+        loc.innerHTML = teamsIconSvg(10);
       } else if (event.location) {
-        card.createDiv({ cls: "dl-event-location", text: event.location });
+        card.createDiv({ cls: "dl-event-location", text: event.location.replace(/\n/g, ", ") });
       }
+    }
+
+    // 3. Time — third (start – end, if enough space)
+    if (heightPx >= 26) {
+      const timeRow = card.createDiv("dl-event-time-row");
+      timeRow.createSpan({
+        cls: "dl-event-time",
+        text: `${toTimeStr(event.start)} – ${toTimeStr(event.end)}`,
+      });
+      if (event.isRecurring)
+        timeRow.createSpan({ cls: "dl-event-recurring-icon", text: " ↻" });
     }
 
     if (noteFile) {
@@ -993,15 +1058,20 @@ export class DeskleafCalendarView extends ItemView {
         });
     }
 
-    const canEdit =
-      event.isOrganizer && !event.isCancelled && !Platform.isMobile;
+    const canEdit = !event.isCancelled && !Platform.isMobile;
 
     card.addEventListener("contextmenu", (e) => {
       e.stopPropagation();
       this.showEventContextMenu(e, event, date);
     });
 
-    if (canEdit) {
+    if (Platform.isMobile) {
+      this.addEventLongPress(card, event, date);
+      card.addEventListener("click", (e) => {
+        e.stopPropagation();
+        this.openEvent(event, false);
+      });
+    } else if (canEdit) {
       // Resize handle at bottom edge
       const resizeHandle = card.createDiv("dl-resize-handle");
       resizeHandle.addEventListener("mousedown", (e) => {
@@ -1028,12 +1098,227 @@ export class DeskleafCalendarView extends ItemView {
         }
         this.openEvent(event, e.metaKey || e.ctrlKey);
       });
-    } else {
+    } else if (!Platform.isMobile) {
       card.addEventListener("click", (e) => {
         e.stopPropagation();
         this.openEvent(event, e.metaKey || e.ctrlKey);
       });
     }
+  }
+
+  // ── Mobile edit mode ─────────────────────────────────────────────
+
+  private addEventLongPress(cardEl: HTMLElement, event: CalendarEvent, date: string) {
+    cardEl.addEventListener("touchstart", (e: TouchEvent) => {
+      e.stopPropagation();
+      const startX = e.touches[0].clientX;
+      const startY = e.touches[0].clientY;
+      let fired = false;
+
+      const timer = window.setTimeout(() => {
+        fired = true;
+        if ((navigator as any).vibrate) (navigator as any).vibrate(12);
+        this.enterMobileEditMode(event, date, cardEl);
+      }, 350);
+
+      const onMove = (ev: TouchEvent) => {
+        const t = ev.touches[0];
+        if (Math.abs(t.clientX - startX) > 8 || Math.abs(t.clientY - startY) > 8) {
+          window.clearTimeout(timer);
+          cardEl.removeEventListener("touchmove", onMove);
+        }
+      };
+      const onEnd = () => {
+        window.clearTimeout(timer);
+        cardEl.removeEventListener("touchmove", onMove);
+        cardEl.removeEventListener("touchend", onEnd);
+        cardEl.removeEventListener("touchcancel", onEnd);
+        if (fired) {
+          cardEl.addEventListener("click", (ev) => { ev.stopPropagation(); ev.preventDefault(); }, { once: true, capture: true });
+        }
+      };
+
+      cardEl.addEventListener("touchmove", onMove, { passive: true });
+      cardEl.addEventListener("touchend", onEnd);
+      cardEl.addEventListener("touchcancel", onEnd);
+    }, { passive: true });
+  }
+
+  private enterMobileEditMode(event: CalendarEvent, date: string, cardEl: HTMLElement) {
+    this.exitMobileEditMode();
+
+    const startMin = new Date(event.start).getHours() * 60 + new Date(event.start).getMinutes();
+    const endMin   = new Date(event.end).getHours()   * 60 + new Date(event.end).getMinutes();
+    let curStart = startMin;
+    let curEnd   = endMin;
+    let curDate  = date;
+
+    cardEl.addClass("dl-event-card--editing");
+    const topHandle    = cardEl.createDiv("dl-edit-handle dl-edit-handle--top");
+    const bottomHandle = cardEl.createDiv("dl-edit-handle dl-edit-handle--bottom");
+
+    const barEl     = document.body.createDiv("dl-mobile-edit-bar");
+    const timeLabel = barEl.createDiv("dl-edit-bar-time");
+    const actionsEl = barEl.createDiv("dl-edit-bar-actions");
+
+    const updateBar = () => {
+      timeLabel.textContent = `${minsToTimeStr(curStart)} – ${minsToTimeStr(curEnd)}`;
+    };
+    updateBar();
+
+    // Action buttons
+    const closeBtn  = actionsEl.createEl("button", { cls: "dl-edit-bar-btn", text: "✕" });
+    if (!event.isCancelled) {
+      const deleteBtn = actionsEl.createEl("button", {
+        cls: "dl-edit-bar-btn dl-edit-bar-btn--danger",
+        text: event.isOrganizer ? "Löschen" : "Ablehnen",
+      });
+      deleteBtn.addEventListener("click", async () => {
+        cleanup();
+        try { await this.plugin.calendarReader.cancelEvent(event.id); }
+        catch (err: any) { new Notice(`Fehler: ${err?.message ?? err}`); }
+      });
+    }
+    closeBtn.addEventListener("click", () => cleanup());
+
+    // Refresh card geometry from curStart/curEnd
+    const refreshCard = () => {
+      cardEl.style.top    = `${(curStart / 60) * HOUR_PX + 1}px`;
+      cardEl.style.height = `${Math.max(14, ((curEnd - curStart) / 60) * HOUR_PX) - 1}px`;
+    };
+
+    // ── Top handle: adjust start time ────────────────────────────
+    const onTopMove = (ev: TouchEvent) => {
+      ev.preventDefault();
+      const dayEl = cardEl.closest<HTMLElement>(".dl-day-body");
+      if (!dayEl) return;
+      const raw = snapMins(((ev.touches[0].clientY - dayEl.getBoundingClientRect().top) / HOUR_PX) * 60);
+      curStart = Math.max(0, Math.min(curEnd - 15, raw));
+      refreshCard(); updateBar();
+    };
+    const onTopEnd = async () => {
+      topHandle.removeEventListener("touchmove", onTopMove);
+      topHandle.removeEventListener("touchend",  onTopEnd);
+      topHandle.removeEventListener("touchcancel", onTopEnd);
+      if (curStart !== startMin || curEnd !== endMin) {
+        try { await this.plugin.calendarReader.moveEvent(event.id, minsToISO(curDate, curStart), minsToISO(curDate, curEnd)); }
+        catch (err: any) { new Notice(`Fehler: ${err?.message ?? err}`); }
+      }
+      cleanup();
+    };
+    topHandle.addEventListener("touchmove", onTopMove, { passive: false });
+    topHandle.addEventListener("touchend",  onTopEnd);
+    topHandle.addEventListener("touchcancel", onTopEnd);
+
+    // ── Bottom handle: adjust end time ───────────────────────────
+    const onBottomMove = (ev: TouchEvent) => {
+      ev.preventDefault();
+      const dayEl = cardEl.closest<HTMLElement>(".dl-day-body");
+      if (!dayEl) return;
+      const raw = snapMins(((ev.touches[0].clientY - dayEl.getBoundingClientRect().top) / HOUR_PX) * 60);
+      curEnd = Math.max(curStart + 15, Math.min(24 * 60, raw));
+      refreshCard(); updateBar();
+    };
+    const onBottomEnd = async () => {
+      bottomHandle.removeEventListener("touchmove", onBottomMove);
+      bottomHandle.removeEventListener("touchend",  onBottomEnd);
+      bottomHandle.removeEventListener("touchcancel", onBottomEnd);
+      if (curStart !== startMin || curEnd !== endMin) {
+        try { await this.plugin.calendarReader.moveEvent(event.id, minsToISO(curDate, curStart), minsToISO(curDate, curEnd)); }
+        catch (err: any) { new Notice(`Fehler: ${err?.message ?? err}`); }
+      }
+      cleanup();
+    };
+    bottomHandle.addEventListener("touchmove", onBottomMove, { passive: false });
+    bottomHandle.addEventListener("touchend",  onBottomEnd);
+    bottomHandle.addEventListener("touchcancel", onBottomEnd);
+
+    // ── Card body: drag to move ───────────────────────────────────
+    let isDragging = false;
+    let dragOffsetMins = 0;
+    let dragGhost: HTMLElement | null = null;
+    const cardRect = cardEl.getBoundingClientRect();
+
+    const onBodyStart = (ev: TouchEvent) => {
+      if ((ev.target as HTMLElement).closest(".dl-edit-handle")) return;
+      dragOffsetMins = Math.round(((ev.touches[0].clientY - cardRect.top) / HOUR_PX) * 60);
+      isDragging = false;
+      cardEl.addEventListener("touchmove", onBodyMove, { passive: false });
+      cardEl.addEventListener("touchend",  onBodyEnd);
+      cardEl.addEventListener("touchcancel", onBodyEnd);
+    };
+    const onBodyMove = (ev: TouchEvent) => {
+      ev.preventDefault();
+      const t = ev.touches[0];
+      if (!isDragging) {
+        isDragging = true;
+        dragGhost = document.body.createDiv("dl-drag-ghost");
+        dragGhost.style.cssText = `display:block;width:${cardRect.width}px;height:${cardRect.height}px;left:${cardRect.left}px;top:${cardRect.top}px`;
+        dragGhost.createDiv({ cls: "dl-event-title", text: event.title });
+      }
+      if (dragGhost) {
+        dragGhost.style.left = `${t.clientX - cardRect.width / 2}px`;
+        dragGhost.style.top  = `${t.clientY - (dragOffsetMins / 60) * HOUR_PX}px`;
+      }
+      const hit = this.findDayBodyAt(t.clientX, t.clientY);
+      if (hit) {
+        const raw = snapMins(((t.clientY - hit.el.getBoundingClientRect().top) / HOUR_PX) * 60 - dragOffsetMins);
+        curStart = Math.max(0, Math.min(23 * 60, raw));
+        curEnd   = curStart + (endMin - startMin);
+        curDate  = hit.date;
+        updateBar();
+      }
+    };
+    const onBodyEnd = async () => {
+      cardEl.removeEventListener("touchmove", onBodyMove);
+      cardEl.removeEventListener("touchend",  onBodyEnd);
+      cardEl.removeEventListener("touchcancel", onBodyEnd);
+      dragGhost?.remove(); dragGhost = null;
+      if (!isDragging) return;
+      isDragging = false;
+      if (curStart !== startMin || curEnd !== endMin || curDate !== date) {
+        try { await this.plugin.calendarReader.moveEvent(event.id, minsToISO(curDate, curStart), minsToISO(curDate, curEnd)); }
+        catch (err: any) { new Notice(`Fehler: ${err?.message ?? err}`); }
+      }
+      cleanup();
+    };
+    cardEl.addEventListener("touchstart", onBodyStart, { passive: true });
+
+    // Outside tap dismisses
+    const onOutside = (ev: TouchEvent) => {
+      if (!cardEl.contains(ev.target as Node) && !barEl.contains(ev.target as Node))
+        cleanup();
+    };
+    setTimeout(() => document.addEventListener("touchstart", onOutside, { passive: true }), 0);
+
+    let cleaned = false;
+    const cleanup = () => {
+      if (cleaned) return;
+      cleaned = true;
+      this.mobileEdit = null;
+      topHandle.removeEventListener("touchmove", onTopMove);
+      topHandle.removeEventListener("touchend",  onTopEnd);
+      topHandle.removeEventListener("touchcancel", onTopEnd);
+      bottomHandle.removeEventListener("touchmove", onBottomMove);
+      bottomHandle.removeEventListener("touchend",  onBottomEnd);
+      bottomHandle.removeEventListener("touchcancel", onBottomEnd);
+      cardEl.removeEventListener("touchstart", onBodyStart);
+      cardEl.removeEventListener("touchmove",  onBodyMove);
+      cardEl.removeEventListener("touchend",   onBodyEnd);
+      cardEl.removeEventListener("touchcancel", onBodyEnd);
+      document.removeEventListener("touchstart", onOutside);
+      dragGhost?.remove(); dragGhost = null;
+      topHandle.remove();
+      bottomHandle.remove();
+      barEl.remove();
+      cardEl.removeClass("dl-event-card--editing");
+    };
+
+    this.mobileEdit = { event, cleanup };
+  }
+
+  private exitMobileEditMode() {
+    this.mobileEdit?.cleanup();
   }
 
   // ── Drag-to-create ───────────────────────────────────────────────
@@ -1115,18 +1400,10 @@ export class DeskleafCalendarView extends ItemView {
     const popover = document.body.createDiv("dl-create-popover");
     const parseTime = (s: string) => { const [h, m] = s.split(":").map(Number); return (h || 0) * 60 + (m || 0); };
 
-    // Calendar selector
+    // Calendar
     const { discoveredCalendars, selectedCalendars } = this.plugin.settings.caldav;
     const activeCals = discoveredCalendars.filter(c => selectedCalendars.length === 0 || selectedCalendars.includes(c.href));
     let calName = activeCals[0]?.displayName ?? "";
-    if (activeCals.length > 1) {
-      const sel = popover.createEl("select", { cls: "dl-create-select" } as any) as HTMLSelectElement;
-      for (const c of activeCals) {
-        const opt = sel.createEl("option", { text: c.displayName } as any) as HTMLOptionElement;
-        opt.value = c.displayName;
-      }
-      sel.addEventListener("change", () => { calName = sel.value; });
-    }
 
     // Title
     const titleInput = popover.createEl("input", {
@@ -1147,6 +1424,23 @@ export class DeskleafCalendarView extends ItemView {
     const descInput = popover.createEl("textarea", {
       cls: "dl-create-desc", placeholder: "Beschreibung (optional)",
     } as any) as HTMLTextAreaElement;
+
+    // Calendar chips (only when multiple calendars active)
+    if (activeCals.length > 1) {
+      const calRow = popover.createDiv("dl-create-cal-row");
+      for (const c of activeCals) {
+        const chip = calRow.createDiv("dl-create-cal-chip");
+        if (c.displayName === calName) chip.addClass("dl-create-cal-chip--active");
+        const dot = chip.createDiv("dl-create-cal-dot");
+        dot.style.background = `hsl(${this.calendarHue(c.displayName)}, 50%, 55%)`;
+        chip.createSpan({ text: c.displayName });
+        chip.addEventListener("click", () => {
+          calName = c.displayName;
+          calRow.querySelectorAll(".dl-create-cal-chip--active").forEach(el => el.removeClass("dl-create-cal-chip--active"));
+          chip.addClass("dl-create-cal-chip--active");
+        });
+      }
+    }
 
     // Actions
     const actions = popover.createDiv("dl-create-actions");
@@ -1218,7 +1512,7 @@ export class DeskleafCalendarView extends ItemView {
   }
 
   private onDayTouchStart(e: TouchEvent, dayEl: HTMLElement, date: string) {
-    if ((e.target as HTMLElement).closest(".dl-event-card, .dl-resize-handle")) return;
+    if ((e.target as HTMLElement).closest(".dl-event-card, .dl-resize-handle, .dl-edit-handle")) return;
 
     const touch = e.touches[0];
     const rect = dayEl.getBoundingClientRect();
@@ -1434,12 +1728,6 @@ export class DeskleafCalendarView extends ItemView {
     const today = toDateStr(new Date());
     const overlay = container.createDiv("dl-overlay");
 
-    if (Platform.isMobile && toDateStr(this.anchor) !== today) {
-      const fab = overlay.createDiv("dl-today-fab");
-      fab.innerHTML = todayIconSvg(22);
-      fab.addEventListener("click", () => { this.anchor = new Date(); this.render(); });
-    }
-
     const year = this.anchor.getFullYear();
     const month = this.anchor.getMonth();
     const monthNames = [
@@ -1522,11 +1810,13 @@ export class DeskleafCalendarView extends ItemView {
 
   private tickNowLine() {
     const now = new Date();
-    const topPx =
-      (((now.getHours() - DAY_START) * 60 + now.getMinutes()) / 60) * HOUR_PX;
+    const topPx = (((now.getHours() - DAY_START) * 60 + now.getMinutes()) / 60) * HOUR_PX;
+    const timeStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
     const root = this.containerEl.children[1] as HTMLElement;
-    root.querySelectorAll<HTMLElement>(".dl-now-line").forEach((el) => {
+    root.querySelectorAll<HTMLElement>(".dl-now-line").forEach(el => { el.style.top = `${topPx}px`; });
+    root.querySelectorAll<HTMLElement>(".dl-now-label").forEach(el => {
       el.style.top = `${topPx}px`;
+      el.textContent = timeStr;
     });
   }
 
@@ -1556,7 +1846,9 @@ export class DeskleafCalendarView extends ItemView {
         const row = el.createDiv({ cls: "dl-hover-meta dl-hover-teams" });
         row.innerHTML = teamsIconSvg(14) + `<span style="margin-left:4px">Microsoft Teams</span>`;
       } else if (event.location) {
-        el.createDiv({ cls: "dl-hover-meta", text: event.location });
+        const locEl = el.createDiv({ cls: "dl-hover-meta" });
+        locEl.style.whiteSpace = "pre-line";
+        locEl.textContent = event.location;
       }
 
       if (event.calendar)
