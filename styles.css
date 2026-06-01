@@ -492,7 +492,7 @@
   border-radius: 3px;
   background: hsl(var(--cal-h, var(--accent-h)), 72%, 86%);
   border-left: 4px solid hsl(var(--cal-h, var(--accent-h)), 84%, 38%);
-  color: hsl(var(--cal-h, var(--accent-h)), 65%, 18%);
+  color: hsl(var(--cal-h, var(--accent-h)), 84%, 34%);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -502,7 +502,7 @@
 .theme-dark .dl-allday-chip {
   background: hsl(var(--cal-h, var(--accent-h)), 52%, 20%);
   border-left-color: hsl(var(--cal-h, var(--accent-h)), 84%, 56%);
-  color: hsl(var(--cal-h, var(--accent-h)), 55%, 84%);
+  color: hsl(var(--cal-h, var(--accent-h)), 84%, 58%);
 }
 
 .dl-allday-chip:hover { filter: brightness(0.94); }
@@ -644,7 +644,7 @@
   background: hsl(var(--cal-h, var(--accent-h)), 72%, 86%);
   border: none;
   border-left: 4px solid hsl(var(--cal-h, var(--accent-h)), 84%, 38%);
-  color: hsl(var(--cal-h, var(--accent-h)), 65%, 18%);
+  color: hsl(var(--cal-h, var(--accent-h)), 84%, 34%);
   padding: 4px 6px 3px;
   cursor: pointer;
   overflow: hidden;
@@ -657,7 +657,7 @@
 .theme-dark .dl-event-card {
   background: hsl(var(--cal-h, var(--accent-h)), 52%, 20%);
   border-left: 4px solid hsl(var(--cal-h, var(--accent-h)), 84%, 56%);
-  color: hsl(var(--cal-h, var(--accent-h)), 55%, 84%);
+  color: hsl(var(--cal-h, var(--accent-h)), 84%, 58%);
 }
 
 .dl-event-card:hover {
