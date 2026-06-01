@@ -547,7 +547,7 @@
     padding: 2px 6px;
     border-radius: 3px;
     background: hsl(var(--cal-h, var(--accent-h)), 80%, 86%);
-    border-left: 4px solid hsl(var(--cal-h, var(--accent-h)), 100%, 32%);
+    border-left: 4px solid hsl(var(--cal-h, var(--accent-h)), 100%, 44%);
     color: hsl(var(--cal-h, var(--accent-h)), 100%, 28%);
     white-space: nowrap;
     overflow: hidden;
@@ -701,7 +701,7 @@
     box-sizing: border-box;
     background: hsl(var(--cal-h, var(--accent-h)), 80%, 86%);
     border: none;
-    border-left: 4px solid hsl(var(--cal-h, var(--accent-h)), 100%, 32%);
+    border-left: 4px solid hsl(var(--cal-h, var(--accent-h)), 100%, 44%);
     color: hsl(var(--cal-h, var(--accent-h)), 100%, 28%);
     padding: 4px 6px 3px;
     cursor: pointer;
