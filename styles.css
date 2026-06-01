@@ -490,9 +490,9 @@
   font-weight: 700;
   padding: 2px 6px;
   border-radius: 3px;
-  background: hsl(var(--cal-h, var(--accent-h)), 90%, 68%);
-  border-left: 4px solid hsl(var(--cal-h, var(--accent-h)), 96%, 26%);
-  color: hsl(var(--cal-h, var(--accent-h)), 96%, 22%);
+  background: hsl(var(--cal-h, var(--accent-h)), 100%, 75%);
+  border-left: 4px solid hsl(var(--cal-h, var(--accent-h)), 100%, 30%);
+  color: hsl(var(--cal-h, var(--accent-h)), 100%, 26%);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -641,10 +641,10 @@
 .dl-event-card {
   position: absolute;
   box-sizing: border-box;
-  background: hsl(var(--cal-h, var(--accent-h)), 90%, 68%);
+  background: hsl(var(--cal-h, var(--accent-h)), 100%, 75%);
   border: none;
-  border-left: 4px solid hsl(var(--cal-h, var(--accent-h)), 96%, 26%);
-  color: hsl(var(--cal-h, var(--accent-h)), 96%, 22%);
+  border-left: 4px solid hsl(var(--cal-h, var(--accent-h)), 100%, 30%);
+  color: hsl(var(--cal-h, var(--accent-h)), 100%, 26%);
   padding: 4px 6px 3px;
   cursor: pointer;
   overflow: hidden;
