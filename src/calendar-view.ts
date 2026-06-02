@@ -41,7 +41,7 @@ import type { EventLayout } from "./event-layout";
 
 export const VIEW_TYPE_CALENDAR = "deskleaf-calendar";
 
-const CAL_HUES = [0, 20, 160, 190, 210, 230, 250, 270, 290, 310, 330, 350];
+const CAL_HUES = [346, 21, 48, 96, 188, 252];
 
 interface DailyNoteConfig {
   folder: string;
@@ -1432,7 +1432,7 @@ export class DeskleafCalendarView extends ItemView {
         const chip = calRow.createDiv("dl-create-cal-chip");
         if (c.displayName === calName) chip.addClass("dl-create-cal-chip--active");
         const dot = chip.createDiv("dl-create-cal-dot");
-        dot.style.background = `hsl(${this.calendarHue(c.displayName)}, 50%, 55%)`;
+        dot.style.background = `hsl(${this.calendarHue(c.displayName)}, 65%, 52%)`;
         chip.createSpan({ text: c.displayName });
         chip.addEventListener("click", () => {
           calName = c.displayName;

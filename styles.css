@@ -46,12 +46,13 @@
 }
 
 :root {
-    --f-bg: #f7f6f3;
+    /* Light mode — warm off-white, Monokai-inspired */
+    --f-bg: #f9f7f5;
     --f-bg-col: #ffffff;
-    --f-fg: #1e1e1e;
-    --f-muted: #8a8a85;
-    --f-border: #e0deda;
-    --f-border-dark: #c8c5be;
+    --f-fg: #2d2a2e;
+    --f-muted: #a09c98;
+    --f-border: #e6e2dd;
+    --f-border-dark: #cdc9c3;
     --f-today-bg: hsla(var(--accent-h), var(--accent-s), var(--accent-l), 0.06);
     --f-today-header: hsla(
         var(--accent-h),
@@ -60,17 +61,17 @@
         0.12
     );
 
-    /* Event cards — light mode: soft pastel surface */
-    --f-event-bg: hsl(var(--accent-h), 55%, 91%);
-    --f-event-border: hsl(var(--accent-h), 50%, 55%);
+    /* Event cards — light mode: soft earthy palette */
+    --f-event-bg: hsl(var(--accent-h), 52%, 91%);
+    --f-event-border: hsl(var(--accent-h), 58%, 47%);
     --f-event-fg: var(--f-fg);
-    --f-event-sel-bg: var(--interactive-accent);
-    --f-event-sel-border: var(--interactive-accent);
-    --f-event-sel-fg: var(--text-on-accent, #fff);
-    --f-event-series-bg: hsl(var(--accent-h), 62%, 62%);
-    --f-event-series-border: hsl(var(--accent-h), 58%, 46%);
+    --f-event-sel-bg: hsl(var(--accent-h), 65%, 38%);
+    --f-event-sel-border: hsl(var(--accent-h), 65%, 26%);
+    --f-event-sel-fg: #fff;
+    --f-event-series-bg: hsl(var(--accent-h), 52%, 82%);
+    --f-event-series-border: hsl(var(--accent-h), 60%, 44%);
 
-    --f-now-color: var(--interactive-accent);
+    --f-now-color: #ff6188;
 
     --f-gutter: 44px;
 
@@ -80,13 +81,13 @@
 
 .theme-light {
     /* Repeat light-mode event card vars so --accent-h resolves at body level */
-    --f-event-bg: hsl(var(--accent-h), 55%, 91%);
-    --f-event-border: hsl(var(--accent-h), 50%, 55%);
-    --f-event-sel-bg: hsl(var(--accent-h), 55%, 48%);
-    --f-event-sel-border: hsl(var(--accent-h), 55%, 38%);
+    --f-event-bg: hsl(var(--accent-h), 52%, 91%);
+    --f-event-border: hsl(var(--accent-h), 58%, 47%);
+    --f-event-sel-bg: hsl(var(--accent-h), 65%, 38%);
+    --f-event-sel-border: hsl(var(--accent-h), 65%, 26%);
     --f-event-sel-fg: #fff;
-    --f-event-series-bg: hsl(var(--accent-h), 55%, 74%);
-    --f-event-series-border: hsl(var(--accent-h), 52%, 50%);
+    --f-event-series-bg: hsl(var(--accent-h), 52%, 82%);
+    --f-event-series-border: hsl(var(--accent-h), 60%, 44%);
     --f-today-bg: hsla(var(--accent-h), var(--accent-s), var(--accent-l), 0.06);
     --f-today-header: hsla(
         var(--accent-h),
@@ -97,29 +98,30 @@
 }
 
 .theme-dark {
-    --f-bg: #1e1e1e;
-    --f-bg-col: #252525;
-    --f-fg: #d8d5ce;
-    --f-muted: #706e68;
-    --f-border: #333330;
-    --f-border-dark: #484540;
+    /* Monokai Pro dark theme chrome */
+    --f-bg: #2d2a2e;
+    --f-bg-col: #221f22;
+    --f-fg: #fcfcfa;
+    --f-muted: #727072;
+    --f-border: #3e3b3f;
+    --f-border-dark: #5b595c;
     --f-today-bg: hsla(var(--accent-h), var(--accent-s), var(--accent-l), 0.07);
     --f-today-header: hsla(
         var(--accent-h),
         var(--accent-s),
         var(--accent-l),
-        0.13
+        0.14
     );
 
-    /* Event cards — dark mode: accent-hued surface, low saturation */
-    --f-event-bg: hsl(var(--accent-h), 18%, 22%);
-    --f-event-border: hsl(var(--accent-h), 35%, 42%);
-    --f-event-fg: hsl(var(--accent-h), 15%, 86%);
-    --f-event-sel-bg: var(--interactive-accent);
-    --f-event-sel-border: var(--interactive-accent);
-    --f-event-sel-fg: var(--text-on-accent, #fff);
-    --f-event-series-bg: hsl(var(--accent-h), 40%, 40%);
-    --f-event-series-border: hsl(var(--accent-h), 50%, 54%);
+    /* Event cards — dark mode: Monokai Pro bright accent palette */
+    --f-event-bg: hsl(var(--accent-h), 28%, 15%);
+    --f-event-border: hsl(var(--accent-h), 78%, 63%);
+    --f-event-fg: hsl(var(--accent-h), 72%, 70%);
+    --f-event-sel-bg: hsl(var(--accent-h), 80%, 48%);
+    --f-event-sel-border: hsl(var(--accent-h), 80%, 34%);
+    --f-event-sel-fg: #fcfcfa;
+    --f-event-series-bg: hsl(var(--accent-h), 30%, 24%);
+    --f-event-series-border: hsl(var(--accent-h), 70%, 55%);
 }
 
 /* ── Root ────────────────────────────────────────────────────────── */
@@ -546,9 +548,9 @@
     font-weight: 700;
     padding: 2px 6px;
     border-radius: 3px;
-    background: hsl(var(--cal-h, var(--accent-h)), 80%, 86%);
-    border-left: 4px solid hsl(var(--cal-h, var(--accent-h)), 100%, 44%);
-    color: hsl(var(--cal-h, var(--accent-h)), 100%, 28%);
+    background: hsl(var(--cal-h, var(--accent-h)), 52%, 91%);
+    border-left: 4px solid hsl(var(--cal-h, var(--accent-h)), 58%, 47%);
+    color: hsl(var(--cal-h, var(--accent-h)), 58%, 22%);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -556,9 +558,9 @@
 }
 
 .theme-dark .dl-allday-chip {
-    background: hsl(var(--cal-h, var(--accent-h)), 65%, 16%);
-    border-left-color: hsl(var(--cal-h, var(--accent-h)), 95%, 58%);
-    color: hsl(var(--cal-h, var(--accent-h)), 95%, 62%);
+    background: hsl(var(--cal-h, var(--accent-h)), 28%, 15%);
+    border-left-color: hsl(var(--cal-h, var(--accent-h)), 78%, 63%);
+    color: hsl(var(--cal-h, var(--accent-h)), 72%, 70%);
 }
 
 .dl-allday-chip:hover {
@@ -566,20 +568,20 @@
 }
 
 .dl-allday-chip--selected {
-    background: hsl(var(--cal-h, var(--accent-h)), 100%, 36%);
-    border-left-color: hsl(var(--cal-h, var(--accent-h)), 100%, 24%);
+    background: hsl(var(--cal-h, var(--accent-h)), 65%, 38%);
+    border-left-color: hsl(var(--cal-h, var(--accent-h)), 65%, 26%);
     color: #fff;
 }
 
 .theme-dark .dl-allday-chip--selected {
-    background: hsl(var(--cal-h, var(--accent-h)), 100%, 40%);
-    border-left-color: hsl(var(--cal-h, var(--accent-h)), 100%, 28%);
-    color: #fff;
+    background: hsl(var(--cal-h, var(--accent-h)), 80%, 48%);
+    border-left-color: hsl(var(--cal-h, var(--accent-h)), 80%, 34%);
+    color: #fcfcfa;
 }
 
 .dl-allday-chip--series {
-    background: hsl(var(--cal-h, var(--accent-h)), 68%, 78%);
-    border-left-color: hsl(var(--cal-h, var(--accent-h)), 78%, 44%);
+    background: hsl(var(--cal-h, var(--accent-h)), 52%, 82%);
+    border-left-color: hsl(var(--cal-h, var(--accent-h)), 60%, 44%);
 }
 
 /* Scrollable body */
@@ -662,7 +664,7 @@
     left: 0;
     right: 0;
     height: 2px;
-    background: #d96060;
+    background: #ff6188;
     pointer-events: none;
     z-index: 5;
 }
@@ -674,14 +676,14 @@
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: #d96060;
+    background: #ff6188;
 }
 
 .dl-now-label {
     position: absolute;
     right: 0;
     transform: translateY(-50%);
-    background: #d96060;
+    background: #ff6188;
     color: #fff;
     font-size: 0.63em;
     font-weight: 700;
@@ -699,10 +701,10 @@
 .dl-event-card {
     position: absolute;
     box-sizing: border-box;
-    background: hsl(var(--cal-h, var(--accent-h)), 80%, 86%);
+    background: hsl(var(--cal-h, var(--accent-h)), 52%, 91%);
     border: none;
-    border-left: 4px solid hsl(var(--cal-h, var(--accent-h)), 100%, 44%);
-    color: hsl(var(--cal-h, var(--accent-h)), 100%, 28%);
+    border-left: 4px solid hsl(var(--cal-h, var(--accent-h)), 58%, 47%);
+    color: hsl(var(--cal-h, var(--accent-h)), 58%, 24%);
     padding: 4px 6px 3px;
     cursor: pointer;
     overflow: hidden;
@@ -713,9 +715,9 @@
 }
 
 .theme-dark .dl-event-card {
-    background: hsl(var(--cal-h, var(--accent-h)), 65%, 16%);
-    border-left: 4px solid hsl(var(--cal-h, var(--accent-h)), 95%, 58%);
-    color: hsl(var(--cal-h, var(--accent-h)), 95%, 62%);
+    background: hsl(var(--cal-h, var(--accent-h)), 28%, 15%);
+    border-left: 4px solid hsl(var(--cal-h, var(--accent-h)), 78%, 63%);
+    color: hsl(var(--cal-h, var(--accent-h)), 72%, 70%);
 }
 
 .dl-event-card:hover {
@@ -724,26 +726,26 @@
 }
 
 .dl-event-card--selected {
-    background: hsl(var(--cal-h, var(--accent-h)), 100%, 36%);
-    border-color: hsl(var(--cal-h, var(--accent-h)), 100%, 24%);
+    background: hsl(var(--cal-h, var(--accent-h)), 65%, 38%);
+    border-color: hsl(var(--cal-h, var(--accent-h)), 65%, 26%);
     color: #fff;
     z-index: 4;
 }
 
 .theme-dark .dl-event-card--selected {
-    background: hsl(var(--cal-h, var(--accent-h)), 100%, 40%);
-    border-color: hsl(var(--cal-h, var(--accent-h)), 100%, 28%);
-    color: #fff;
+    background: hsl(var(--cal-h, var(--accent-h)), 80%, 48%);
+    border-color: hsl(var(--cal-h, var(--accent-h)), 80%, 34%);
+    color: #fcfcfa;
 }
 
 .dl-event-card--series {
-    background: hsl(var(--cal-h, var(--accent-h)), 68%, 78%);
-    border-color: hsl(var(--cal-h, var(--accent-h)), 78%, 44%);
+    background: hsl(var(--cal-h, var(--accent-h)), 52%, 82%);
+    border-color: hsl(var(--cal-h, var(--accent-h)), 60%, 44%);
 }
 
 .theme-dark .dl-event-card--series {
-    background: hsl(var(--cal-h, var(--accent-h)), 52%, 32%);
-    border-color: hsl(var(--cal-h, var(--accent-h)), 72%, 50%);
+    background: hsl(var(--cal-h, var(--accent-h)), 30%, 24%);
+    border-color: hsl(var(--cal-h, var(--accent-h)), 70%, 55%);
 }
 
 .dl-event-card--cancelled {
