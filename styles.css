@@ -566,14 +566,14 @@
 }
 
 .dl-allday-chip--selected {
-    background: hsl(var(--cal-h, var(--accent-h)), 100%, 46%);
-    border-left-color: hsl(var(--cal-h, var(--accent-h)), 100%, 34%);
+    background: hsl(var(--cal-h, var(--accent-h)), 100%, 36%);
+    border-left-color: hsl(var(--cal-h, var(--accent-h)), 100%, 24%);
     color: #fff;
 }
 
 .theme-dark .dl-allday-chip--selected {
-    background: hsl(var(--cal-h, var(--accent-h)), 100%, 48%);
-    border-left-color: hsl(var(--cal-h, var(--accent-h)), 100%, 36%);
+    background: hsl(var(--cal-h, var(--accent-h)), 100%, 40%);
+    border-left-color: hsl(var(--cal-h, var(--accent-h)), 100%, 28%);
     color: #fff;
 }
 
@@ -724,15 +724,15 @@
 }
 
 .dl-event-card--selected {
-    background: hsl(var(--cal-h, var(--accent-h)), 100%, 46%);
-    border-color: hsl(var(--cal-h, var(--accent-h)), 100%, 34%);
+    background: hsl(var(--cal-h, var(--accent-h)), 100%, 36%);
+    border-color: hsl(var(--cal-h, var(--accent-h)), 100%, 24%);
     color: #fff;
     z-index: 4;
 }
 
 .theme-dark .dl-event-card--selected {
-    background: hsl(var(--cal-h, var(--accent-h)), 100%, 48%);
-    border-color: hsl(var(--cal-h, var(--accent-h)), 100%, 36%);
+    background: hsl(var(--cal-h, var(--accent-h)), 100%, 40%);
+    border-color: hsl(var(--cal-h, var(--accent-h)), 100%, 28%);
     color: #fff;
 }
 
