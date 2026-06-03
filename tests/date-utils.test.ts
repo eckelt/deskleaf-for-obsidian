@@ -169,30 +169,44 @@ describe("getNDayColumns", () => {
 });
 
 describe("rangeHeaderLabel", () => {
-  it("formats a multi-day range with month and year at the end", () => {
+  it("omits year for current year", () => {
     const label = rangeHeaderLabel(parseDate("2026-04-20"), parseDate("2026-04-23"));
     expect(label).toMatch(/^Mo 20\./);
-    expect(label).toMatch(/April 2026$/);
+    expect(label).toMatch(/April$/);
+  });
+  it("includes year for a different year", () => {
+    const label = rangeHeaderLabel(parseDate("2025-04-14"), parseDate("2025-04-17"));
+    expect(label).toMatch(/^Mo 14\./);
+    expect(label).toMatch(/April 2025$/);
   });
 });
 
 describe("dayHeaderLabel", () => {
-  it("formats a single day with weekday, date, month and year", () => {
+  it("omits year for current year", () => {
     const label = dayHeaderLabel(parseDate("2026-04-22"));
-    expect(label).toBe("Mi, 22. April 2026");
+    expect(label).toBe("Mi, 22. April");
+  });
+  it("includes year for a different year", () => {
+    const label = dayHeaderLabel(parseDate("2025-04-22"));
+    expect(label).toBe("Di, 22. April 2025");
   });
 });
 
 describe("weekHeaderLabel", () => {
-  it("includes KW and month/year", () => {
+  it("omits year for current year", () => {
     const label = weekHeaderLabel(parseDate("2026-04-20"));
     expect(label).toMatch(/^KW 17/);
-    expect(label).toMatch(/April 2026$/);
+    expect(label).toMatch(/April$/);
+  });
+  it("includes year for a different year", () => {
+    const label = weekHeaderLabel(parseDate("2025-04-20"));
+    expect(label).toMatch(/^KW 16/);
+    expect(label).toMatch(/April 2025$/);
   });
 });
 
 describe("shortDayLabel", () => {
-  it("formats as weekday + day.month.", () => {
-    expect(shortDayLabel(parseDate("2026-05-04"))).toBe("Mo 4.05.");
+  it("formats as weekday + dash + day. Month", () => {
+    expect(shortDayLabel(parseDate("2026-05-04"))).toBe("Mo – 4. Mai");
   });
 });

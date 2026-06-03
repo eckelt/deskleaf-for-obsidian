@@ -1,0 +1,1 @@
+cd "/Users/nils/Repositories/deskleaf-for-obsidian" && node esbuild.config.mjs production 2>&1 && cp main.js "/Users/nils/Library/Mobile Documents/iCloud~md~obsidian/Documents/Verknüpfungen/.obsidian/plugins/deskleaf-for-obsidian/main.js" && echo "deployed"
