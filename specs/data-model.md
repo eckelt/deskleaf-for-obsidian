@@ -2,8 +2,8 @@
 
 ## CalendarEvent (internal)
 
-The normalised shape used everywhere in the plugin. Produced directly by the `deskleaf-calendar-sync`
-binary (Swift/EventKit) and passed as JSON.
+The normalised shape used everywhere in the plugin. Produced by both `CalendarReader`
+(via the Swift binary) and `CalDAVReader` (via `ical-parser.ts`).
 
 ```ts
 interface CalendarEvent {
@@ -18,8 +18,8 @@ interface CalendarEvent {
   isRecurring?: boolean;
   isCancelled?: boolean;
   isAllDay?: boolean;
-  isOrganizer?: boolean;    // true if organizer is nil OR isCurrentUser
-  meetingPlatform?: string; // "zoom" | "teams" | "meet" | "webex" | null
+  isOrganizer?: boolean;    // true if organizer is nil OR isCurrentUser (binary); always false (CalDAV)
+  meetingPlatform?: string; // "zoom" | "teams" | "meet" | "webex" | undefined
   numAttendees?: number;
   organizer?: string | null;
 }
@@ -27,19 +27,17 @@ interface CalendarEvent {
 
 ### Event ID schema
 
-| Event type | ID format | Example |
-|---|---|---|
-| Non-recurring | Raw `eventIdentifier` | `"ABC123"` |
-| Recurring | `eventIdentifier\|YYYY-MM-DD` | `"ABC123\|2026-04-22"` |
+| Backend | Event type | ID format | Example |
+|---|---|---|---|
+| Binary | Non-recurring | Raw `eventIdentifier` | `"ABC123"` |
+| Binary | Recurring | `eventIdentifier\|YYYY-MM-DD` | `"ABC123\|2026-04-22"` |
+| CalDAV | Non-recurring | `UID` | `"abc-uuid"` |
+| CalDAV | Recurring instance | `UID_RECURRENCE-ID.value` | `"abc-uuid_20260422T100000Z"` |
 
-The composite recurring ID is unique per occurrence. The `|` separator is used by the
-binary's `findEvent()` to look up the correct occurrence in EventKit.
+`id` is the stable link between the calendar and the note. Stored in note frontmatter as `event-id`.
 
-`id` is the stable link between the calendar and the note. It is stored in the note's
-frontmatter as `event-id`. The filename is not load-bearing.
-
-Multi-day events returned by `getEventsForDate` carry two extra runtime flags (not in
-the interface, added as `any` casts):
+Multi-day events from `getEventsForDate` carry two extra runtime flags (added as `any` casts,
+not part of the interface):
 
 ```ts
 _continuesBefore: boolean  // event started on an earlier day
@@ -48,10 +46,10 @@ _continuesAfter:  boolean  // event ends on a later day
 
 ---
 
-## JSON input format
+## JSON input format (binary backend)
 
-A JSON array is emitted on stdout by `deskleaf-calendar-sync export` and `deskleaf-calendar-sync watch` (one JSON
-line per output). The array contains objects matching the `CalendarEvent` interface above.
+A JSON array is emitted on stdout by `deskleaf-calendar-sync export` and once per
+`EKEventStoreChanged` notification by `deskleaf-calendar-sync watch`.
 
 All-day events use `YYYY-MM-DD` for `start`/`end`. Timed events use full ISO 8601 with
 timezone offset.
@@ -60,7 +58,7 @@ timezone offset.
 
 ## Event note frontmatter
 
-Written by `NoteManager` when creating a new note. Consumed by the calendar and sidebar views.
+Written by `NoteManager` when creating a new note.
 
 ```yaml
 ---
@@ -74,26 +72,25 @@ attendees: ["[[Alice Smith]]", "[[Bob Jones]]"]
 type: meeting          # meeting | interview | recurring | task
 toBeRemoved: false
 removalDate: null
-topics: []             # list of topic titles this note is associated with
+topics: []
 ---
 ```
 
-`event-id` in the frontmatter can be a single string or a YAML array (for notes manually
-linked to multiple events).
+`event-id` can be a single string or a YAML array (for notes linked to multiple events).
 
 ### Attendee name normalisation
 
-Attendee names in the format `"Last, First"` are normalised to `"First Last"` before
-being written as `[[wikilinks]]`. Names without a comma are used as-is.
+Names in the format `"Last, First"` are normalised to `"First Last"`. Names without a comma
+are used as-is. Implemented in `note-utils.normalizeAttendee`.
 
 ---
 
 ## Topic note
 
 Any vault file with the `#topic` tag (inline body tag) or `topic` in frontmatter `tags`
-array is treated as a topic. Both `topic` and `#topic` YAML tag formats are accepted.
+array is treated as a topic.
 
-Created by the sidebar with the following template:
+Created by the sidebar:
 
 ```markdown
 ---
@@ -118,12 +115,44 @@ interface DeskleafSettings {
   notesFolder: string;        // default: "notes"
   topicsFolder: string;       // default: "topics"
   topicsOrder: string[];      // ordered file paths for sidebar sort
+  caldav: CalDAVSettings;
 }
 ```
 
-Also persisted in `data.json` alongside settings (not part of the interface):
+## CalDAVSettings
+
+```ts
+interface CalDAVSettings {
+  url: string;                // CalDAV server URL
+  username: string;
+  password: string;
+  selectedCalendars: string[]; // hrefs; empty = all
+  discoveredCalendars: Array<{ href: string; displayName: string }>;
+  calendarColors: Record<string, number>; // displayName → hue from CAL_COLOR_PALETTE
+}
+```
+
+## CAL_COLOR_PALETTE
+
+Six Monokai Pro hues used for per-calendar colour assignment:
+
+```ts
+const CAL_COLOR_PALETTE = [346, 21, 48, 96, 188, 252] as const;
+// pink · orange · yellow · green · cyan · purple
+```
+
+Assigned to calendars via colour swatches in the settings UI. Persisted in
+`<manifest.dir>/calendar-colors.json` separately from `data.json`.
+
+---
+
+## data.json persistence
+
+Stores `DeskleafSettings` plus:
 
 ```ts
 calendarCache:     CalendarEvent[]  // last successful load
 calendarCacheDate: string | null    // ISO timestamp of that load
 ```
+
+Calendar colours are stored separately in `calendar-colors.json` (not in `data.json`).

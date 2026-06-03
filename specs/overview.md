@@ -2,13 +2,17 @@
 
 ## Purpose
 
-An Obsidian plugin that renders macOS calendar data as a time-grid calendar and pairs it
-with a structured note-taking workflow. Calendar events are fetched via a bundled Swift
-binary (`deskleaf-calendar-sync`) that reads from EventKit directly. The plugin lets the
-user view, navigate, and create meeting notes directly from the calendar.
+An Obsidian plugin that renders calendar data as a time-grid calendar and pairs it with a
+structured note-taking workflow. Two calendar backends are supported:
 
-Visual language: e-paper / document aesthetic — low contrast, accent-tinted surfaces,
-no heavy chrome.
+- **CalDAV** (primary): any CalDAV server (Fastmail, iCloud, Google, etc.) via HTTP. Works
+  on all platforms including iOS.
+- **deskleaf-calendar-sync** (macOS-only): bundled Swift binary reading from EventKit directly.
+
+The active backend is selected automatically at startup: CalDAV if `caldav.username` and
+`caldav.password` are set, otherwise the binary.
+
+Visual language: e-paper / document aesthetic — low contrast, accent-tinted surfaces, no heavy chrome.
 
 ---
 
@@ -17,11 +21,17 @@ no heavy chrome.
 ```
 src/
   main.ts             Plugin entry: registration, ribbon, commands, startup
-  types.ts            All TS interfaces and constants
-  calendar-reader.ts  Load / parse / cache / watch via deskleaf-calendar-sync binary
+  types.ts            All TS interfaces and constants (CalendarEvent, DeskleafSettings, CalDAVSettings, …)
+  calendar-reader.ts  macOS EventKit backend: load / parse / cache / watch via binary
+  caldav-reader.ts    CalDAV backend: HTTP polling, iCal parsing, same public interface as CalendarReader
+  caldav-client.ts    Low-level CalDAV/WebDAV HTTP client (PROPFIND, REPORT, PUT, DELETE)
+  ical-parser.ts      RFC 5545 iCalendar parser + VEVENT builder
+  event-filter.ts     Pure date-filtering functions shared by both readers
+  event-layout.ts     Event-to-pixel math: offsets, heights, overlap column assignment
   calendar-view.ts    Main time-grid calendar (ItemView)
   sidebar-view.ts     Left-panel sidebar: Topics + Todos (ItemView)
   note-manager.ts     Create / find / template / remove event notes
+  note-utils.ts       Pure helpers: attendee normalisation, filename sanitisation, body cleaning
   open-file.ts        Shared helper: open file in existing tab or split
   date-utils.ts       Date arithmetic, column builders, label formatters
   search-modal.ts     Full-text search modal over the notes folder
@@ -46,8 +56,8 @@ node esbuild.config.mjs production
 node esbuild.config.mjs
 ```
 
-Deploy by copying `main.js`, `styles.css`, `manifest.json`, and the `deskleaf-calendar-sync`
-binary into the Obsidian plugin folder:
+Deploy by copying `main.js`, `styles.css`, `manifest.json`, and `deskleaf-calendar-sync`
+into the Obsidian plugin folder:
 
 ```
 ~/Library/Mobile Documents/iCloud~md~obsidian/Documents/<vault>/.obsidian/plugins/deskleaf-for-obsidian/
@@ -61,57 +71,85 @@ The binary must be built separately: `cd swift && bash build.sh`
 
 ### `onload`
 1. Register custom SVG icons:
-   - `dl-point` — circle with crosshair ticks (used for sidebar ribbon).
-   - `deskleaf-calendar` — leaf+calendar composite (tab icon for calendar view).
-   - `deskleaf` — leaf only (ribbon icon for calendar).
-2. Load settings + persisted calendar cache from `data.json`.
-3. Instantiate `CalendarReader` (binary-based) and `NoteManager`.
-4. Register view types `deskleaf-calendar` and `deskleaf-sidebar`.
-5. On `workspace.onLayoutReady`:
-   - Run `calendarReader.load()` (one-shot `deskleaf-calendar-sync export`).
-   - Start `deskleaf-calendar-sync watch` process for live updates.
-   - Run removal cleanup (`NoteManager.runRemovalCleanup`).
-   - Open default views via `ensureView` helper (see below).
-6. Add ribbon icons: Kalender (`deskleaf`), Sidebar (`dl-point`), Suche (`search`).
-7. Add commands: `dl-open-calendar`, `dl-open-sidebar`, `dl-search` (hotkey `Cmd+F`).
-8. Add settings tab.
-9. Register `window.beforeunload` handler to kill the watch process on Electron shutdown.
+   - `dl-point` — circle with crosshair ticks (sidebar ribbon + tab icon).
+   - `deskleaf-calendar` — leaf+calendar composite (calendar tab icon).
+   - `deskleaf` — leaf only (calendar ribbon icon).
+2. Load settings (`loadSettings`) + restore calendar colours from `calendar-colors.json`
+   (`restoreCalendarColors`).
+3. Create reader via `makeReader()`: returns `CalDAVReader` if both `caldav.username` and
+   `caldav.password` are set; otherwise returns `CalendarReader` (binary path).
+4. Call `reader.setCacheCallbacks(save, load)` to wire cache persistence into `data.json`.
+5. Instantiate `NoteManager`.
+6. Register view types `deskleaf-calendar` and `deskleaf-sidebar`.
+7. On `workspace.onLayoutReady`:
+   - Run `calendarReader.load()`.
+   - Start `calendarReader.startWatching()`.
+   - Run `NoteManager.runRemovalCleanup`.
+   - Open default views via `openDefaultViews`.
+8. Add ribbon icons: Kalender (`deskleaf`), Sidebar (`dl-point`), Suche (`search`).
+9. Add commands: `dl-open-calendar`, `dl-open-sidebar`, `dl-search` (hotkey `Cmd+F`).
+10. Add settings tab.
+11. Register `window.beforeunload` handler to stop the reader on Electron shutdown.
 
 ### Default view layout
 
-`ensureView(viewType, getLeaf, active)` is a helper that either opens the view (if no leaf
-of that type exists yet) or calls `leaf.updateHeader()` to refresh tab icons that may have
-been painted before `addIcon()` ran.
+`ensureView(viewType, getLeaf, active)` opens the view if no leaf exists yet, or calls
+`leaf.updateHeader()` to refresh tab icons.
 
 - Calendar view opens in the main content area via `workspace.getLeaf(false)`.
 - Sidebar is placed in the **left panel** via `workspace.getLeftLeaf(false)`.
-
-After both views are ensured, `revealLeaf` makes the calendar the active leaf.
+- After both are ensured, `revealLeaf` makes the calendar active.
 
 ### `onunload`
-Stops the `CalendarReader` watch process (`deskleaf-calendar-sync watch` subprocess killed
-via SIGKILL). Also fires via the `beforeunload` handler on Electron exit.
+Calls `calendarReader.stopWatching()` (kills the watch process for the binary backend,
+clears the poll interval for CalDAV). Also fires via the `beforeunload` handler.
 
 ---
 
 ## Settings
 
+### CalDAV section
+
 | Setting | Key | Default |
 |---|---|---|
-| deskleaf-calendar-sync binary path | `binaryPath` | `""` (auto-detect in plugin directory) |
-| Template folder | `templateFolder` | `templates` |
-| Notes folder | `notesFolder` | `notes` |
-| Topics folder | `topicsFolder` | `topics` |
-| Topics order | `topicsOrder` | `[]` |
+| Server-URL | `caldav.url` | `"https://caldav.fastmail.com"` |
+| Benutzername | `caldav.username` | `""` |
+| App-Passwort | `caldav.password` | `""` |
+| Ausgewählte Kalender | `caldav.selectedCalendars` | `[]` (= alle) |
+| Entdeckte Kalender | `caldav.discoveredCalendars` | `[]` |
+| Kalenderfarben | `caldav.calendarColors` | `{}` |
 
-`weekStartsOn` is fixed to `"monday"` and not exposed in settings UI.
+"Neu laden" button: discovers calendars, populates `discoveredCalendars`, activates all of them.
 
-Changing `binaryPath` immediately restarts the binary watch process and reloads data.
+Per-calendar colour swatches use the 6 Monokai Pro hues from `CAL_COLOR_PALETTE`
+(`[346, 21, 48, 96, 188, 252]`). Clicking a swatch calls `saveSettingsQuiet()` — writes
+`calendar-colors.json` in the plugin directory without triggering a reader restart.
+
+### Notizen section
+
+| Setting | Key | Default |
+|---|---|---|
+| Template-Ordner | `templateFolder` | `"templates"` |
+| Notizen-Ordner | `notesFolder` | `"notes"` |
+| Topics-Ordner | `topicsFolder` | `"topics"` |
+
+### Erweitert section
+
+| Setting | Key | Default |
+|---|---|---|
+| Binary-Pfad (macOS) | `binaryPath` | `""` (auto-detect in plugin dir) |
+
+`weekStartsOn` is fixed to `"monday"` and not exposed in the UI.
+
+Changing CalDAV credentials via `saveSettings()` updates or recreates the reader live.
+Changing `binaryPath` calls `setBinaryPath()` on the CalendarReader, which restarts the watch process.
 
 ### data.json persistence
 
-In addition to settings, `data.json` stores:
+`data.json` stores settings plus:
+
 - `calendarCache`: `CalendarEvent[]` — last successful load
 - `calendarCacheDate`: `string | null` — ISO timestamp of that load
 
-This cache is used as a fallback on load failure and on mobile (where the binary is unavailable).
+Calendar colours are stored separately in `<manifest.dir>/calendar-colors.json` (written by
+`persistCalendarColors`, read by `restoreCalendarColors` on startup).
