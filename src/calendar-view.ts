@@ -119,19 +119,10 @@ function deskleafIconSvg(size: number): string {
 
 function todayIconSvg(size: number): string {
   return (
-    `<svg width="${size}" height="${size}" viewBox="0 0 60 60" style="display:inline-block;vertical-align:middle;flex-shrink:0;fill-rule:evenodd;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:1.5">` +
-    `<g transform="matrix(0.815869,0,0,0.826332,4.41553,6.00109)">` +
-    `<path fill="currentColor" d="M26.074,49.855C26.074,50.244 25.918,50.616 25.64,50.891C25.361,51.165 24.984,51.32 24.591,51.32C21.014,51.32 12.204,51.32 12.204,51.32C8.277,51.32 5.089,48.171 5.089,44.294L5.089,12.049C5.089,8.172 8.277,5.024 12.204,5.024L49.125,5.024C53.052,5.024 56.241,8.172 56.241,12.049L56.241,44.294C56.241,48.171 53.052,51.32 49.125,51.32L36.885,51.32C36.492,51.32 36.115,51.165 35.836,50.891C35.558,50.616 35.402,50.244 35.402,49.855C35.402,49.854 35.402,49.853 35.402,49.852C35.402,49.464 35.558,49.091 35.836,48.817C36.115,48.542 36.492,48.388 36.885,48.388C40.434,48.388 49.125,48.388 49.125,48.388C51.413,48.388 53.271,46.553 53.271,44.294L53.271,14.765L8.058,14.765L8.058,44.294C8.058,46.553 9.916,48.388 12.204,48.388L24.591,48.388C24.984,48.388 25.361,48.542 25.64,48.817C25.918,49.091 26.074,49.464 26.074,49.852C26.074,49.853 26.074,49.854 26.074,49.855Z"/>` +
-    `</g>` +
-    `<g transform="matrix(1,0,0,1,-0.67791,1.41425)">` +
-    `<circle cx="30.205" cy="23.227" r="2.717" fill="currentColor"/>` +
-    `</g>` +
-    `<g transform="matrix(0.999993,-0.00148916,-0.00148916,0.662649,0.0704775,15.9659)">` +
-    `<path d="M29.528,47.197L29.434,25.944" fill="none" stroke="currentColor" stroke-width="2.86"/>` +
-    `</g>` +
-    `<g transform="matrix(1,0,0,1,0.242592,5.91298)">` +
-    `<path d="M23.617,31.69L29.434,25.944L34.817,31.857" fill="none" stroke="currentColor" stroke-width="2.42"/>` +
-    `</g>` +
+    `<svg width="${size}" height="${size}" viewBox="0 0 20 20" style="display:inline-block;vertical-align:middle;flex-shrink:0;fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round">` +
+    `<path fill="currentColor" d="M9,14L7,14L10,10L8,13L9,13L9,14ZM10,10L13,14L11,14L11,13L12,13L10,10Z"/>` +
+    `<path fill="currentColor" d="M11,13L11,18L9,18L9,13L8,13L10,10L12,13L11,13Z"/>` +
+    `<path fill="currentColor" d="M10,7C10.552,7 11,7.448 11,8C11,8.552 10.552,9 10,9C9.448,9 9,8.552 9,8C9,7.448 9.448,7 10,7ZM13,15L16,15L16,6L4,6L4,15L7,15L7,16.042L4,16.042C3.425,16.042 2.958,15.575 2.958,15L2.958,4C2.958,3.425 3.425,2.958 4,2.958L16,2.958C16.575,2.958 17.042,3.425 17.042,4L17.042,15C17.042,15.575 16.575,16.042 16,16.042L13,16.042L13,15Z"/>` +
     `</svg>`
   );
 }
@@ -267,8 +258,7 @@ export class DeskleafCalendarView extends ItemView {
     this.unsubscribeData = this.plugin.calendarReader.onChange(() =>
       this.render(),
     );
-    // addAction fügt einen Header-Button ein – funktioniert auf Desktop und iOS
-    this.addAction("crosshair", "Heute", () => {
+    this.addAction("calendar", "Heute", () => {
       this.anchor = new Date();
       this.animatedRender(0);
     });
@@ -469,6 +459,7 @@ export class DeskleafCalendarView extends ItemView {
     const navBtns = header.querySelector<HTMLElement>(".view-header-nav-buttons");
     if (navBtns) {
       navBtns.empty();
+      addBtn(navBtns, "Zurück", "arrow-left", null, () => this.navigate(-1));
       addBtn(navBtns, "Heute", null, todayIconSvg(16), () => {
         const today = new Date();
         const dir = toDateStr(today) === toDateStr(this.anchor) ? 0
@@ -476,7 +467,6 @@ export class DeskleafCalendarView extends ItemView {
         this.anchor = today;
         this.animatedRender(dir);
       });
-      addBtn(navBtns, "Zurück", "arrow-left", null, () => this.navigate(-1));
       addBtn(navBtns, "Weiter", "arrow-right", null, () => this.navigate(1));
     }
 

@@ -81,13 +81,13 @@
 
 .theme-light {
     /* Repeat light-mode event card vars so --accent-h resolves at body level */
-    --f-event-bg: hsl(var(--accent-h), 52%, 91%);
-    --f-event-border: hsl(var(--accent-h), 58%, 47%);
-    --f-event-sel-bg: hsl(var(--accent-h), 65%, 38%);
-    --f-event-sel-border: hsl(var(--accent-h), 65%, 26%);
+    --f-event-bg: hsl(var(--accent-h), 80%, 91%);
+    --f-event-border: hsl(var(--accent-h), 80%, 47%);
+    --f-event-sel-bg: hsl(var(--accent-h), 90%, 38%);
+    --f-event-sel-border: hsl(var(--accent-h), 90%, 26%);
     --f-event-sel-fg: #fff;
-    --f-event-series-bg: hsl(var(--accent-h), 52%, 82%);
-    --f-event-series-border: hsl(var(--accent-h), 60%, 44%);
+    --f-event-series-bg: hsl(var(--accent-h), 80%, 82%);
+    --f-event-series-border: hsl(var(--accent-h), 80%, 44%);
     --f-today-bg: hsla(var(--accent-h), var(--accent-s), var(--accent-l), 0.06);
     --f-today-header: hsla(
         var(--accent-h),
@@ -548,9 +548,9 @@
     font-weight: 700;
     padding: 2px 6px;
     border-radius: 3px;
-    background: hsl(var(--cal-h, var(--accent-h)), 52%, 91%);
-    border-left: 4px solid hsl(var(--cal-h, var(--accent-h)), 58%, 47%);
-    color: hsl(var(--cal-h, var(--accent-h)), 58%, 22%);
+    background: hsl(var(--cal-h, var(--accent-h)), 68%, 88%);
+    border-left: 4px solid hsl(var(--cal-h, var(--accent-h)), 70%, 45%);
+    color: hsl(var(--cal-h, var(--accent-h)), 70%, 20%);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -701,10 +701,10 @@
 .dl-event-card {
     position: absolute;
     box-sizing: border-box;
-    background: hsl(var(--cal-h, var(--accent-h)), 52%, 91%);
+    background: hsl(var(--cal-h, var(--accent-h)), 82%, 91%);
     border: none;
-    border-left: 4px solid hsl(var(--cal-h, var(--accent-h)), 58%, 47%);
-    color: hsl(var(--cal-h, var(--accent-h)), 58%, 24%);
+    border-left: 4px solid hsl(var(--cal-h, var(--accent-h)), 88%, 47%);
+    color: hsl(var(--cal-h, var(--accent-h)), 88%, 24%);
     padding: 4px 6px 3px;
     cursor: pointer;
     overflow: hidden;
@@ -726,8 +726,8 @@
 }
 
 .dl-event-card--selected {
-    background: hsl(var(--cal-h, var(--accent-h)), 65%, 38%);
-    border-color: hsl(var(--cal-h, var(--accent-h)), 65%, 26%);
+    background: hsl(var(--cal-h, var(--accent-h)), 95%, 38%);
+    border-color: hsl(var(--cal-h, var(--accent-h)), 95%, 26%);
     color: #fff;
     z-index: 4;
 }
@@ -739,8 +739,8 @@
 }
 
 .dl-event-card--series {
-    background: hsl(var(--cal-h, var(--accent-h)), 52%, 82%);
-    border-color: hsl(var(--cal-h, var(--accent-h)), 60%, 44%);
+    background: hsl(var(--cal-h, var(--accent-h)), 82%, 82%);
+    border-color: hsl(var(--cal-h, var(--accent-h)), 80%, 44%);
 }
 
 .theme-dark .dl-event-card--series {
@@ -2096,7 +2096,9 @@
     border-radius: 50%;
     cursor: pointer;
     border: 2px solid transparent;
-    transition: transform 100ms, border-color 100ms;
+    transition:
+        transform 100ms,
+        border-color 100ms;
     flex-shrink: 0;
 }
 
@@ -2144,7 +2146,9 @@
     color: var(--f-muted);
     flex-shrink: 0;
     cursor: pointer;
-    transition: color 100ms, opacity 100ms;
+    transition:
+        color 100ms,
+        opacity 100ms;
 }
 
 .dl-ical-trash:hover {
