@@ -2000,6 +2000,7 @@ export class DeskleafCalendarView extends ItemView {
     this.applySelection(event);
     this.render();
     const { file, isNew } = await this.plugin.noteManager.openOrCreate(event);
+    if (Platform.isMobile) modifier = false;
     await openFile(this.app, file, modifier);
     if (isNew)
       setTimeout(() => {
