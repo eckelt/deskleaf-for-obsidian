@@ -2,3 +2,4 @@ node_modules/
 main.js
 focal-cal
 swift/.build/
+**/*~lock~
