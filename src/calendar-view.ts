@@ -12,6 +12,7 @@ import {
 } from "obsidian";
 import type DeskleafPlugin from "./main";
 import type { CalendarEvent } from "./types";
+import { isFeedEvent } from "./ical-feed-manager";
 import {
   toDateStr,
   toTimeStr,
@@ -141,12 +142,43 @@ const TEAMS_SVG_PATH =
   "M34.727,31.614C35.162,30.516 36.234,29.739 37.485,29.739L46.363,29.739C47.999,29.739 49.327,31.067 49.327,32.704L49.327,38.633C49.327,38.84 49.306,39.042 49.266,39.236C49.307,39.576 49.327,39.922 49.327,40.273C49.327,44.473 46.331,47.978 42.361,48.766C37.9,47.928 34.521,44.008 34.521,39.305L34.521,32.704C34.521,32.319 34.594,31.952 34.727,31.614Z" +
   "M23.523,7.194C27.955,7.194 31.553,10.792 31.553,15.224C31.553,19.656 27.955,23.255 23.523,23.255C19.091,23.255 15.492,19.656 15.492,15.224C15.492,10.792 19.091,7.194 23.523,7.194Z";
 
+const OBSIDIAN_CRYSTAL_PATH =
+  "M81.51,113.142C77.224,100.428 68.787,88.592 56.086,77.69C57.878,70.513 59.011,63.747 59.752,56.2C59.927,54.467 60.752,52.864 62.061,51.715L99.945,18.451L99.948,18.449C101.417,17.409 102.852,16.819 104.31,16.892C105.768,16.965 107.179,17.699 108.62,18.985L108.889,19.299C108.922,19.65 109.016,20.002 109.176,20.339C116.205,35.165 108.377,44.34 102.176,56.007C95.454,68.657 89.887,83.809 101.148,109.39C94.994,109.554 88.442,110.788 81.51,113.142Z" +
+  "M83.215,119.164C97.31,114.312 109.638,114.464 120.011,119.516C130.921,124.829 139.581,135.467 145.98,150.874C142.81,158.115 140.446,165.737 139.034,173.808C136.642,177.28 134.315,179.514 131.78,180.645C129.355,181.727 126.784,181.714 123.923,181.01C106.624,174.701 91.855,172.967 74.985,172.103C83.678,154.237 86.598,137.582 83.833,122.18C83.651,121.169 83.445,120.164 83.215,119.164Z" +
+  "M118.203,30.221C126.119,39.504 136.712,51.93 141.315,57.335L141.317,57.336C142.328,58.522 142.908,60.015 142.964,61.573L142.964,61.584C143.764,81.984 149.552,101.269 161.563,116.978L161.57,116.987C163.424,119.393 163.414,122.75 161.546,125.145L161.545,125.146C156.981,131.005 152.943,137.111 149.542,143.516C142.671,129.132 133.631,119.197 122.747,113.896C118.212,111.688 113.344,110.272 108.157,109.683C93.966,79.875 104.285,65.188 111.698,51.687C115.511,44.743 118.585,38.067 118.203,30.221Z" +
+  "M54.254,84.407C67.319,96.244 75.149,109.182 77.681,123.284C80.251,137.597 77.364,153.046 69.228,169.65L38.205,136.993C36.653,135.359 36.196,132.971 37.036,130.88C45.349,110.269 50.734,96.363 54.254,84.407Z";
+
+function obsidianCrystalIconSvg(size: number): string {
+  return (
+    `<svg width="${size}" height="${size}" viewBox="0 0 200 200" style="display:block;flex-shrink:0;fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round">` +
+    `<path fill="currentColor" d="${OBSIDIAN_CRYSTAL_PATH}"/>` +
+    `</svg>`
+  );
+}
+
 function teamsIconSvg(size: number): string {
   return (
     `<svg width="${size}" height="${size}" viewBox="0 0 60 60" style="display:inline-block;vertical-align:middle;flex-shrink:0;fill-rule:evenodd;clip-rule:evenodd">` +
     `<g transform="translate(-2.4078,0.458041)">` +
     `<path fill="currentColor" d="${TEAMS_SVG_PATH}"/>` +
     `</g></svg>`
+  );
+}
+
+export function locationIconSvg(size: number): string {
+  return (
+    `<svg width="${size}" height="${size}" viewBox="0 0 20 20" style="display:inline-block;vertical-align:middle;flex-shrink:0;fill-rule:evenodd;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round">` +
+    `<g transform="matrix(1,0,0,1,0,-1)"><path d="M18,4L2,10L9,12L11,19L18,4Z" style="fill:none;stroke:currentColor;stroke-width:1.25px"/></g>` +
+    `</svg>`
+  );
+}
+
+export function clockIconSvg(size: number): string {
+  return (
+    `<svg width="${size}" height="${size}" viewBox="0 0 20 20" style="display:inline-block;vertical-align:middle;flex-shrink:0;fill-rule:evenodd;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round">` +
+    `<circle cx="10" cy="10" r="8" style="fill:none;stroke:currentColor;stroke-width:1.25px"/>` +
+    `<g transform="matrix(1,0,0,1,0,1)"><path d="M14,5L10,9L8,7" style="fill:none;stroke:currentColor;stroke-width:1.25px"/></g>` +
+    `</svg>`
   );
 }
 
@@ -209,8 +241,13 @@ export class DeskleafCalendarView extends ItemView {
   }
 
   private calendarHue(name: string): number {
+    // 1. CalDAV saved color
     const saved = this.plugin.settings.caldav.calendarColors?.[name];
     if (saved !== undefined) return saved;
+    // 2. iCal feed: check by label
+    const feed = this.plugin.settings.icalSubscriptions?.find(f => f.label === name);
+    if (feed?.color !== undefined) return feed.color;
+    // 3. Fallback: hash-based round-robin
     let h = 0;
     for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
     return CAL_HUES[h % CAL_HUES.length];
@@ -489,6 +526,15 @@ export class DeskleafCalendarView extends ItemView {
         text: `Keine Events. Pfad: ${this.plugin.calendarReader.getPath()}`,
       });
     }
+    // iCal feed warnings
+    const warnFeeds = this.plugin.icalFeedManager?.getWarnFeeds() ?? [];
+    if (warnFeeds.length > 0) {
+      const names = warnFeeds.map(f => f.label).join(", ");
+      el.createDiv({
+        cls: "dl-status-bar dl-status-bar--warn",
+        text: `⚠ Feed-Fehler: ${names}`,
+      });
+    }
   }
 
   private navigate(dir: number) {
@@ -673,8 +719,12 @@ export class DeskleafCalendarView extends ItemView {
       }
 
       // ── All-day row ────────────────────────────────────────────
+      const feedAllDay = (this.plugin.icalFeedManager?.getAllEvents() ?? []).filter(e => e.isAllDay);
       const hasAnyAllDay = colSeq.some(col =>
-        col.dates.some(d => this.plugin.calendarReader.getAllDayEventsForDate(d).length > 0)
+        col.dates.some(d =>
+          this.plugin.calendarReader.getAllDayEventsForDate(d).length > 0 ||
+          feedAllDay.some(e => e.start.slice(0, 10) <= d && e.end.slice(0, 10) >= d)
+        )
       );
       if (hasAnyAllDay) {
         const alldayRow = grid.createDiv("dl-allday-row");
@@ -727,8 +777,10 @@ export class DeskleafCalendarView extends ItemView {
       grid.addClass("dl-time-grid--desktop");
       const columns = this.getColumnsForOffset(0);
       const allDates = columns.flatMap(c => c.dates);
+      const feedAllDayForDesktop = (this.plugin.icalFeedManager?.getAllEvents() ?? []).filter(e => e.isAllDay);
       const hasAllDay = allDates.some(d =>
-        this.plugin.calendarReader.getAllDayEventsForDate(d).length > 0
+        this.plugin.calendarReader.getAllDayEventsForDate(d).length > 0 ||
+        feedAllDayForDesktop.some(e => e.start.slice(0, 10) <= d && e.end.slice(0, 10) >= d)
       );
 
       // Left column: always-visible gutter (not part of the slide animation)
@@ -872,8 +924,15 @@ export class DeskleafCalendarView extends ItemView {
     const seen = new Set<string>();
     const items: Array<{ ev: CalendarEvent; fracStart: number; fracEnd: number }> = [];
 
+    const feedAllDayEvents = (this.plugin.icalFeedManager?.getAllEvents() ?? [])
+      .filter(e => e.isAllDay);
+
     for (const date of allDates) {
-      for (const ev of this.plugin.calendarReader.getAllDayEventsForDate(date)) {
+      const calEvents = this.plugin.calendarReader.getAllDayEventsForDate(date);
+      const feedEventsForDate = feedAllDayEvents.filter(
+        e => e.start.slice(0, 10) <= date && e.end.slice(0, 10) >= date
+      );
+      for (const ev of [...calEvents, ...feedEventsForDate]) {
         if (seen.has(ev.id)) continue;
         seen.add(ev.id);
         const evStart = ev.start.slice(0, 10);
@@ -965,9 +1024,13 @@ export class DeskleafCalendarView extends ItemView {
       }
     }
 
-    for (const layout of assignColumns(
-      this.plugin.calendarReader.getEventsForDate(date),
-    )) {
+    const feedEventsForDate = (this.plugin.icalFeedManager?.getAllEvents() ?? [])
+      .filter(e => !e.isAllDay && e.start.slice(0, 10) <= date && e.end.slice(0, 10) >= date);
+    const allEventsForDate = [
+      ...this.plugin.calendarReader.getEventsForDate(date),
+      ...feedEventsForDate,
+    ];
+    for (const layout of assignColumns(allEventsForDate)) {
       this.buildEventCard(el, layout.event, layout.col, layout.totalCols, date);
     }
 
@@ -1020,7 +1083,7 @@ export class DeskleafCalendarView extends ItemView {
     card.style.left = `calc(${pct(col / totalCols)} + 1px)`;
     card.style.width = `calc(${pct(1 / totalCols)} - 3px)`;
 
-    if (noteFile) card.createDiv("dl-event-note-dot");
+    if (noteFile) { const dot = card.createDiv("dl-event-note-dot"); dot.innerHTML = obsidianCrystalIconSvg(8); }
 
     // 1. Title — always first
     card.createDiv({ cls: "dl-event-title", text: event.title });
@@ -1034,13 +1097,20 @@ export class DeskleafCalendarView extends ItemView {
         const loc = card.createDiv({ cls: "dl-event-location dl-event-location--teams" });
         loc.innerHTML = teamsIconSvg(10);
       } else if (event.location) {
-        card.createDiv({ cls: "dl-event-location", text: event.location.replace(/\n/g, ", ") });
+        const loc = card.createDiv({ cls: "dl-event-location" });
+        const iconWrap = loc.createSpan({ cls: "dl-event-icon-wrap" });
+        iconWrap.setAttribute("aria-hidden", "true");
+        iconWrap.innerHTML = locationIconSvg(9);
+        loc.createSpan({ text: event.location.replace(/\n/g, ", ") });
       }
     }
 
     // 3. Time — third (start – end, if enough space)
     if (heightPx >= 26) {
       const timeRow = card.createDiv("dl-event-time-row");
+      const clockWrap = timeRow.createSpan({ cls: "dl-event-icon-wrap" });
+      clockWrap.setAttribute("aria-hidden", "true");
+      clockWrap.innerHTML = clockIconSvg(9);
       timeRow.createSpan({
         cls: "dl-event-time",
         text: `${toTimeStr(event.start)} – ${toTimeStr(event.end)}`,
@@ -1058,7 +1128,7 @@ export class DeskleafCalendarView extends ItemView {
         });
     }
 
-    const canEdit = !event.isCancelled && !Platform.isMobile;
+    const canEdit = !event.isCancelled && !Platform.isMobile && !isFeedEvent(event);
 
     card.addEventListener("contextmenu", (e) => {
       e.stopPropagation();

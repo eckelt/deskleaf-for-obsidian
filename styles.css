@@ -769,11 +769,9 @@
     position: absolute;
     top: 3px;
     right: 4px;
-    width: 5px;
-    height: 5px;
-    border-radius: 50%;
-    background: var(--f-event-border);
-    opacity: 0.7;
+    width: 8px;
+    height: 8px;
+    opacity: 0.75;
     pointer-events: none;
     flex-shrink: 0;
 }
@@ -1212,6 +1210,13 @@
 }
 .dl-event-card--continues-after.dl-event-card--continues-before {
     border-radius: 0;
+}
+
+.dl-event-icon-wrap {
+    display: inline-flex;
+    align-items: center;
+    vertical-align: -0.15em;
+    flex-shrink: 0;
 }
 
 .dl-event-time-row {
@@ -1693,6 +1698,135 @@
     text-decoration: underline;
 }
 
+/* ── Settings UI Tabs ───────────────────────────────────────────── */
+
+/* ── iCal Feed Rows ─────────────────────────────────────────────── */
+
+.dl-ical-feed-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    border: 1px solid var(--f-border);
+    border-radius: 4px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+}
+
+.dl-ical-feed-name {
+    flex: 0 0 auto;
+    min-width: 100px;
+    font-weight: 500;
+    color: var(--f-fg);
+    font-size: 0.9em;
+}
+
+.dl-ical-feed-url {
+    flex: 1;
+    min-width: 150px;
+    font-size: 0.8em;
+    color: var(--f-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dl-ical-swatches-container {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    position: relative;
+    flex-shrink: 0;
+}
+
+.dl-ical-color-swatch {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid transparent;
+    box-sizing: border-box;
+    flex-shrink: 0;
+    transition: transform 0.1s;
+}
+
+.dl-ical-color-swatch:hover {
+    transform: scale(1.2);
+}
+
+.dl-ical-disabled-swatch {
+    text-decoration: line-through;
+    opacity: 0.5;
+}
+
+.dl-ical-color-picker {
+    display: flex;
+    gap: 4px;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background: var(--f-bg-col);
+    border: 1px solid var(--f-border-dark);
+    padding: 8px;
+    border-radius: 5px;
+    margin-top: 6px;
+    z-index: 100;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.theme-dark .dl-ical-color-picker {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.dl-trash-btn {
+    background: none;
+    border: none;
+    color: var(--f-muted);
+    font-size: 1.2em;
+    cursor: pointer;
+    padding: 2px 4px;
+    opacity: 0.7;
+    transition: opacity 0.15s;
+    flex-shrink: 0;
+}
+
+.dl-trash-btn:hover {
+    opacity: 1;
+    color: var(--f-fg);
+}
+
+/* ── Mobile-responsive iCal feed rows ──────────────────────────── */
+
+@media (max-width: 600px) {
+    .dl-ical-feed-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    .dl-ical-feed-name {
+        width: 100%;
+    }
+
+    .dl-ical-feed-url {
+        width: 100%;
+        min-width: auto;
+        margin-bottom: 6px;
+    }
+
+    .dl-ical-swatches-container {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .dl-ical-color-picker {
+        position: static;
+        margin-top: 4px;
+        width: 100%;
+        justify-content: flex-start;
+    }
+}
+
 /* ── Search Modal ────────────────────────────────────────────────── */
 
 .dl-search-modal {
@@ -1881,5 +2015,170 @@
     .dl-split-notes {
         width: 100% !important;
         flex: 1;
+    }
+}
+
+/* ── CalDAV & iCal Settings ──────────────────────────────────── */
+
+.dl-caldav-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px;
+    border-bottom: 1px solid var(--f-border);
+    flex-wrap: wrap;
+}
+
+.dl-caldav-row:last-child {
+    border-bottom: none;
+}
+
+.dl-caldav-name {
+    flex: 0 0 120px;
+    font-weight: 500;
+    font-size: 0.9em;
+    color: var(--f-fg);
+}
+
+.dl-caldav-circles {
+    display: flex;
+    gap: 6px;
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+/* iCal Feed Row */
+.dl-ical-feed-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px;
+    border: 1px solid var(--f-border);
+    border-radius: 4px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+}
+
+.dl-ical-feed-info {
+    flex: 1;
+    min-width: 120px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.dl-ical-feed-name {
+    font-weight: 500;
+    font-size: 0.9em;
+    color: var(--f-fg);
+}
+
+.dl-ical-feed-url {
+    font-size: 0.75em;
+    color: var(--f-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+}
+
+.dl-ical-circles {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+/* Unified Circle Styles */
+.dl-circle {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: transform 100ms, border-color 100ms;
+    flex-shrink: 0;
+}
+
+.dl-circle:hover {
+    transform: scale(1.15);
+}
+
+.dl-circle--active {
+    border-color: var(--f-fg);
+}
+
+/* Outline Kreis mit diagonaler Linie */
+.dl-circle--outline {
+    background: transparent;
+    border: 2px solid var(--f-muted);
+    position: relative;
+}
+
+.dl-circle--outline::before {
+    content: "";
+    position: absolute;
+    width: 65%;
+    height: 2px;
+    background: var(--f-muted);
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.dl-circle--outline::after {
+    content: "";
+    position: absolute;
+    width: 65%;
+    height: 2px;
+    background: var(--f-muted);
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(-45deg);
+}
+
+/* Mülltonne-Button */
+.dl-ical-trash {
+    width: 20px;
+    height: 20px;
+    color: var(--f-muted);
+    flex-shrink: 0;
+    cursor: pointer;
+    transition: color 100ms, opacity 100ms;
+}
+
+.dl-ical-trash:hover {
+    color: var(--f-fg);
+}
+
+/* Mobil: mehrzeilig */
+@media (max-width: 600px) {
+    .dl-ical-feed-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .dl-ical-feed-info {
+        width: 100%;
+    }
+
+    .dl-ical-circles {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    .dl-caldav-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .dl-caldav-name {
+        flex: 1;
+    }
+
+    .dl-caldav-circles {
+        margin-left: 0;
+        width: 100%;
+        justify-content: flex-start;
     }
 }

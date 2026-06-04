@@ -104,6 +104,25 @@ Defined on `:root`, overridden per theme.
 
 ---
 
+## Calendar color palette
+
+Six fixed accent colors for multi-calendar display (one per calendar / iCal feed). Backgrounds use a muted version of these colors (lower saturation / higher lightness in light mode; lower saturation / lower lightness in dark mode) — the base colors here are for borders and text-on-card labels.
+
+| # | Semantic | Light (`rgb`) | Dark (`rgb`) | Hue (HSL) |
+|---|---|---|---|---|
+| 1 | Rose | `rgb(225, 71, 117)` | `rgb(255, 97, 136)` | 346° |
+| 2 | Orange | `rgb(225, 96, 50)` | `rgb(252, 152, 103)` | 21° |
+| 3 | Yellow | `rgb(255, 216, 102)` | `rgb(255, 216, 102)` | 48° |
+| 4 | Green | `rgb(38, 157, 105)` | `rgb(169, 220, 118)` | 154° |
+| 5 | Teal | `rgb(28, 140, 168)` | `rgb(120, 220, 232)` | 188° |
+| 6 | Purple | `rgb(112, 88, 190)` | `rgb(171, 157, 242)` | 252° |
+
+**Code:** `CAL_COLOR_PALETTE` in `src/types.ts` stores the six hue values `[346, 21, 48, 154, 188, 252]` for HSL-based color calculations. Specific lightness/saturation values per theme are applied in CSS.
+
+**Yellow note:** Yellow (hue 48°) uses the same base color in both themes. On light backgrounds white-text contrast requires the background to stay ≤ 36% lightness; on dark backgrounds the muted background can be standard.
+
+---
+
 ## Status bar
 
 Shown below the nav bar when data has a problem:

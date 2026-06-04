@@ -73,6 +73,14 @@ function parseICalDateTime(value: string, params: Record<string, string>): strin
   return `${value.slice(0,4)}-${value.slice(4,6)}-${value.slice(6,8)}T${pad2(hr)}:${pad2(mi)}:${pad2(se)}`;
 }
 
+// iCal DTEND for DATE-only (all-day) events is exclusive per RFC 5545.
+// Subtract one day to make it inclusive, matching how the calendar view renders spans.
+function allDayEndInclusive(dateStr: string): string {
+  const d = new Date(dateStr + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+
 // ── Text unescaping ───────────────────────────────────────────────
 
 function unescape(s: string | null | undefined): string | null {
@@ -118,8 +126,12 @@ function buildEvent(props: ICalProp[], calendarName: string): CalendarEvent | nu
 
   const dtend = first("DTEND");
   const start = parseICalDateTime(dtstart.value, dtstart.params);
-  const end = dtend ? parseICalDateTime(dtend.value, dtend.params) : start;
+  let end = dtend ? parseICalDateTime(dtend.value, dtend.params) : start;
   const isAllDay = dtstart.params.VALUE === "DATE" || !dtstart.value.includes("T");
+
+  if (isAllDay && end) {
+    end = allDayEndInclusive(end);
+  }
 
   const attendeeProps = m["ATTENDEE"] ?? [];
   const attendees = attendeeProps

@@ -7,6 +7,7 @@ import { DeskleafCalendarView, VIEW_TYPE_CALENDAR } from "./calendar-view";
 import { DeskleafSidebarView, VIEW_TYPE_SIDEBAR } from "./sidebar-view";
 import { DeskleafSearchModal } from "./search-modal";
 import { DEFAULT_SETTINGS, type DeskleafSettings, type CalendarEvent } from "./types";
+import { ICalFeedManager } from "./ical-feed-manager";
 
 export default class DeskleafPlugin extends Plugin {
   settings!: DeskleafSettings;
@@ -14,6 +15,7 @@ export default class DeskleafPlugin extends Plugin {
   private calendarCacheDate: string | null = null;
   calendarReader!: CalendarReader | CalDAVReader;
   noteManager!: NoteManager;
+  icalFeedManager!: ICalFeedManager;
 
   private makeReader(): CalendarReader | CalDAVReader {
     const { caldav } = this.settings;
@@ -57,6 +59,9 @@ export default class DeskleafPlugin extends Plugin {
 
     await this.loadSettings();
     await this.restoreCalendarColors();
+
+    this.icalFeedManager = new ICalFeedManager(this.settings.icalSubscriptions);
+    this.icalFeedManager.startPolling();
 
     this.calendarReader = this.makeReader();
     this.calendarReader.setCacheCallbacks(
@@ -109,6 +114,7 @@ export default class DeskleafPlugin extends Plugin {
   onunload() {
     window.removeEventListener("beforeunload", this._beforeUnloadHandler);
     this.calendarReader.stopWatching();
+    this.icalFeedManager?.stopPolling();
   }
 
   private _beforeUnloadHandler = () => this.calendarReader.stopWatching();
@@ -120,6 +126,12 @@ export default class DeskleafPlugin extends Plugin {
     this.settings.caldav = Object.assign({}, DEFAULT_SETTINGS.caldav, data.caldav ?? {});
     this.calendarCache = data.calendarCache ?? [];
     this.calendarCacheDate = data.calendarCacheDate ?? null;
+  }
+
+  reloadFeeds() {
+    this.icalFeedManager?.stopPolling();
+    this.icalFeedManager = new ICalFeedManager(this.settings.icalSubscriptions);
+    this.icalFeedManager.startPolling();
   }
 
   async saveSettings() {

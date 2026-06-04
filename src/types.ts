@@ -49,6 +49,16 @@ export interface CalDAVSettings {
   calendarColors: Record<string, number>;
 }
 
+export interface ICalFeedSubscription {
+  id: string;
+  label: string;
+  url: string;
+  enabled: boolean;
+  lastFetched: string | null;
+  lastError: string | null;
+  color?: number; // Hue from CAL_COLOR_PALETTE; optional for backward compatibility
+}
+
 export interface DeskleafSettings {
   binaryPath: string; // empty = auto-detect deskleaf-calendar-sync in plugin directory
   weekStartsOn: "monday";
@@ -57,6 +67,7 @@ export interface DeskleafSettings {
   topicsFolder: string;
   topicsOrder: string[];
   caldav: CalDAVSettings;
+  icalSubscriptions: ICalFeedSubscription[];
 }
 
 export const DEFAULT_SETTINGS: DeskleafSettings = {
@@ -74,4 +85,5 @@ export const DEFAULT_SETTINGS: DeskleafSettings = {
     discoveredCalendars: [],
     calendarColors: {},
   },
+  icalSubscriptions: [],
 };
