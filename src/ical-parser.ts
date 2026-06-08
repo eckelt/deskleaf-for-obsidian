@@ -98,6 +98,7 @@ function detectMeetingPlatform(haystack: string): string | undefined {
   if (haystack.includes("zoom.us")) return "zoom";
   if (haystack.includes("teams.microsoft.com") || haystack.includes("teams.live.com")) return "teams";
   if (haystack.includes("meet.google.com")) return "meet";
+  if (haystack.includes("jitsi") || haystack.includes("meet.jit.si")) return "jitsi";
   if (haystack.includes("webex.com")) return "webex";
   return undefined;
 }

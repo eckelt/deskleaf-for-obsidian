@@ -3,3 +3,4 @@ main.js
 focal-cal
 swift/.build/
 **/*~lock~
+**/.DS_Store

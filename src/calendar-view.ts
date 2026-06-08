@@ -133,6 +133,16 @@ const TEAMS_SVG_PATH =
   "M34.727,31.614C35.162,30.516 36.234,29.739 37.485,29.739L46.363,29.739C47.999,29.739 49.327,31.067 49.327,32.704L49.327,38.633C49.327,38.84 49.306,39.042 49.266,39.236C49.307,39.576 49.327,39.922 49.327,40.273C49.327,44.473 46.331,47.978 42.361,48.766C37.9,47.928 34.521,44.008 34.521,39.305L34.521,32.704C34.521,32.319 34.594,31.952 34.727,31.614Z" +
   "M23.523,7.194C27.955,7.194 31.553,10.792 31.553,15.224C31.553,19.656 27.955,23.255 23.523,23.255C19.091,23.255 15.492,19.656 15.492,15.224C15.492,10.792 19.091,7.194 23.523,7.194Z";
 
+const MEET_SVG_PATH =
+  "M14,5L14,15L14,15C13.448,15 13,14.552 13,14C13,12.084 13,7.916 13,6C13,5.448 13.448,5 14,5C14,5 14,5 14,5Z" +
+  "M14,15L14,15.243C14,15.709 13.815,16.156 13.485,16.485C13.156,16.815 12.709,17 12.243,17L3.278,17C2.812,17 2.365,16.815 2.035,16.485C1.706,16.156 1.521,15.709 1.521,15.243L1.521,7.858C1.521,5.175 3.696,3 6.378,3L12.243,3C12.709,3 13.156,3.185 13.485,3.515C13.815,3.844 14,4.291 14,4.757L14,5C13.448,5 13,5.448 13,6L13,14C13,14.552 13.448,15 14,15Z" +
+  "M14,7.75L16.797,5.652C17.214,5.339 17.772,5.289 18.239,5.522C18.705,5.755 19,6.232 19,6.754L19,13.966C19,14.506 18.684,14.996 18.192,15.22C17.7,15.443 17.123,15.358 16.717,15.002L14,12.625L14,7.75Z" +
+  "M4.5,12C3.672,12 3,12.672 3,13.5C3,14.328 3.672,15 4.5,15C5.328,15 6,14.328 6,13.5C6,12.672 5.328,12 4.5,12Z";
+
+const JITSI_SVG_PATH =
+  "M6,4C4.895,4 4,4.895 4,6L4,12C4,13.105 4.895,14 6,14L10,14L10,16L13,13L18,13C19.105,13 20,12.105 20,11L20,6C20,4.895 19.105,4 18,4L6,4ZM5,6C5,5.448 5.448,5 6,5L18,5C18.552,5 19,5.448 19,6L19,11C19,11.552 18.552,12 18,12L10.414,12L8,14.414L8,12L6,12C5.448,12 5,11.552 5,11L5,6Z" +
+  "M2,8C1.448,8 1,8.448 1,9L1,15C1,16.105 1.895,17 3,17L6,17L6,19L9,16L14,16C15.105,16 16,15.105 16,14L16,12C16,11.448 15.552,11 15,11C15.552,11 16,11.448 16,12L16,14C16,14.552 15.552,15 15,15L8.414,15L6,17.414L6,15L3,15C2.448,15 2,14.552 2,14L2,9C2,8.448 2.448,8 3,8L14,8C14.552,8 15,8.448 15,9L15,10C15,10.552 15.448,11 16,11C16.552,11 17,10.552 17,10L17,9C17,7.895 16.105,7 15,7L3,7C1.895,7 1,7.895 1,9Z";
+
 const OBSIDIAN_CRYSTAL_PATH =
   "M81.51,113.142C77.224,100.428 68.787,88.592 56.086,77.69C57.878,70.513 59.011,63.747 59.752,56.2C59.927,54.467 60.752,52.864 62.061,51.715L99.945,18.451L99.948,18.449C101.417,17.409 102.852,16.819 104.31,16.892C105.768,16.965 107.179,17.699 108.62,18.985L108.889,19.299C108.922,19.65 109.016,20.002 109.176,20.339C116.205,35.165 108.377,44.34 102.176,56.007C95.454,68.657 89.887,83.809 101.148,109.39C94.994,109.554 88.442,110.788 81.51,113.142Z" +
   "M83.215,119.164C97.31,114.312 109.638,114.464 120.011,119.516C130.921,124.829 139.581,135.467 145.98,150.874C142.81,158.115 140.446,165.737 139.034,173.808C136.642,177.28 134.315,179.514 131.78,180.645C129.355,181.727 126.784,181.714 123.923,181.01C106.624,174.701 91.855,172.967 74.985,172.103C83.678,154.237 86.598,137.582 83.833,122.18C83.651,121.169 83.445,120.164 83.215,119.164Z" +
@@ -153,6 +163,22 @@ function teamsIconSvg(size: number): string {
     `<g transform="translate(-2.4078,0.458041)">` +
     `<path fill="currentColor" d="${TEAMS_SVG_PATH}"/>` +
     `</g></svg>`
+  );
+}
+
+function meetIconSvg(size: number): string {
+  return (
+    `<svg width="${size}" height="${size}" viewBox="0 0 20 20" style="display:inline-block;vertical-align:middle;flex-shrink:0">` +
+    `<path fill="currentColor" d="${MEET_SVG_PATH}"/>` +
+    `</svg>`
+  );
+}
+
+function jitsiIconSvg(size: number): string {
+  return (
+    `<svg width="${size}" height="${size}" viewBox="0 0 20 20" style="display:inline-block;vertical-align:middle;flex-shrink:0">` +
+    `<path fill="currentColor" d="${JITSI_SVG_PATH}"/>` +
+    `</svg>`
   );
 }
 
@@ -1075,17 +1101,45 @@ export class DeskleafCalendarView extends ItemView {
 
     if (noteFile) { const dot = card.createDiv("dl-event-note-dot"); dot.innerHTML = obsidianCrystalIconSvg(8); }
 
+    // Check for Teams/Meet/Jitsi early (check Jitsi first to avoid "meet" in "Jitsi Meet")
+    const isJitsiCard =
+      event.meetingPlatform?.toLowerCase().includes("jitsi") ||
+      event.location?.toLowerCase().includes("jitsi") ||
+      event.location?.toLowerCase().includes("meet.jit.si");
+    const isTeamsCard =
+      event.meetingPlatform?.toLowerCase().includes("teams") ||
+      event.location?.toLowerCase().includes("teams");
+    const isMeetCard =
+      !isJitsiCard && (
+        event.meetingPlatform?.toLowerCase().includes("meet") ||
+        (event.location?.toLowerCase().includes("meet") && event.location?.toLowerCase().includes("google"))
+      );
+
     // 1. Title — always first
-    card.createDiv({ cls: "dl-event-title", text: event.title });
+    const titleRow = card.createDiv({ cls: "dl-event-title-row" });
+    if (isTeamsCard) {
+      const iconWrap = titleRow.createSpan({ cls: "dl-event-icon-wrap" });
+      iconWrap.innerHTML = teamsIconSvg(8);
+    } else if (isMeetCard) {
+      const iconWrap = titleRow.createSpan({ cls: "dl-event-icon-wrap" });
+      iconWrap.innerHTML = meetIconSvg(8);
+    } else if (isJitsiCard) {
+      const iconWrap = titleRow.createSpan({ cls: "dl-event-icon-wrap" });
+      iconWrap.innerHTML = jitsiIconSvg(8);
+    }
+    titleRow.createDiv({ cls: "dl-event-title", text: event.title });
 
     // 2. Location — second (if enough space)
     if (heightPx > 40) {
-      const isTeamsCard =
-        event.meetingPlatform?.toLowerCase().includes("teams") ||
-        event.location?.toLowerCase().includes("teams");
       if (isTeamsCard) {
         const loc = card.createDiv({ cls: "dl-event-location dl-event-location--teams" });
         loc.innerHTML = teamsIconSvg(10);
+      } else if (isMeetCard) {
+        const loc = card.createDiv({ cls: "dl-event-location dl-event-location--meet" });
+        loc.innerHTML = meetIconSvg(10);
+      } else if (isJitsiCard) {
+        const loc = card.createDiv({ cls: "dl-event-location dl-event-location--jitsi" });
+        loc.innerHTML = jitsiIconSvg(10);
       } else if (event.location) {
         const loc = card.createDiv({ cls: "dl-event-location" });
         const iconWrap = loc.createSpan({ cls: "dl-event-icon-wrap" });
@@ -1898,13 +1952,28 @@ export class DeskleafCalendarView extends ItemView {
         : `${toTimeStr(event.start)} – ${toTimeStr(event.end)}`;
       el.createDiv({ cls: "dl-hover-meta", text: timeStr });
 
+      const isJitsi =
+        event.meetingPlatform?.toLowerCase().includes("jitsi") ||
+        event.location?.toLowerCase().includes("jitsi") ||
+        event.location?.toLowerCase().includes("meet.jit.si");
       const isTeams =
         event.meetingPlatform?.toLowerCase().includes("teams") ||
         event.location?.toLowerCase().includes("teams");
+      const isMeet =
+        !isJitsi && (
+          event.meetingPlatform?.toLowerCase().includes("meet") ||
+          (event.location?.toLowerCase().includes("meet") && event.location?.toLowerCase().includes("google"))
+        );
 
       if (isTeams) {
         const row = el.createDiv({ cls: "dl-hover-meta dl-hover-teams" });
         row.innerHTML = teamsIconSvg(14) + `<span style="margin-left:4px">Microsoft Teams</span>`;
+      } else if (isMeet) {
+        const row = el.createDiv({ cls: "dl-hover-meta dl-hover-meet" });
+        row.innerHTML = meetIconSvg(14) + `<span style="margin-left:4px">Google Meet</span>`;
+      } else if (isJitsi) {
+        const row = el.createDiv({ cls: "dl-hover-meta dl-hover-jitsi" });
+        row.innerHTML = jitsiIconSvg(14) + `<span style="margin-left:4px">Jitsi Meet</span>`;
       } else if (event.location) {
         const locEl = el.createDiv({ cls: "dl-hover-meta" });
         locEl.style.whiteSpace = "pre-line";
@@ -1915,7 +1984,7 @@ export class DeskleafCalendarView extends ItemView {
         el.createDiv({ cls: "dl-hover-meta dl-hover-calendar", text: event.calendar });
       if ((event.numAttendees ?? 0) > 1)
         el.createDiv({ cls: "dl-hover-meta", text: `${event.numAttendees} Teilnehmer` });
-      if (!isTeams && event.meetingPlatform)
+      if (!isTeams && !isMeet && !isJitsi && event.meetingPlatform)
         el.createDiv({ cls: "dl-hover-meta", text: event.meetingPlatform });
       if (this.noteCache.has(event.id))
         el.createDiv({ cls: "dl-hover-meta dl-hover-note", text: "Notiz verknüpft" });

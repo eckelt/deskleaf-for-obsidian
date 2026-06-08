@@ -23,6 +23,20 @@ export function cleanBody(raw: string | null | undefined): string {
   if (!raw) return "";
   const normalized = raw.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
   const lines = normalized.split("\n");
-  const cutAt = lines.findIndex((l) => /^_{3,}\s*$/.test(l));
-  return (cutAt === -1 ? lines : lines.slice(0, cutAt)).join("\n").trim();
+  const filtered = lines.filter((line) => {
+    const stripped = line.trim();
+    if (stripped === ":~:~") return false;
+    return true;
+  });
+  let inGoogleMeetBlock = false;
+  const result = filtered.filter((line) => {
+    const stripped = line.trim();
+    if (stripped === ":~:~") {
+      inGoogleMeetBlock = !inGoogleMeetBlock;
+      return false;
+    }
+    return !inGoogleMeetBlock;
+  });
+  const cutAt = result.findIndex((l) => /^_{3,}\s*$/.test(l));
+  return (cutAt === -1 ? result : result.slice(0, cutAt)).join("\n").trim();
 }

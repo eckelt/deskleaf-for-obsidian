@@ -1241,6 +1241,12 @@
     line-height: 1;
 }
 
+.dl-event-title-row {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+}
+
 .dl-event-title {
     font-size: 0.82em;
     font-weight: 700;
