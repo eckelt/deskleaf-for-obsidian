@@ -1,9 +1,47 @@
-import { ItemView, WorkspaceLeaf, TFile, normalizePath, MarkdownRenderer } from "obsidian";
+import { ItemView, WorkspaceLeaf, TFile, normalizePath, MarkdownRenderer, setIcon } from "obsidian";
 import type DeskleafPlugin from "./main";
-import { toDateStr, addDays } from "./date-utils";
+import { toDateStr, addDays, parseDate, weekStart, getWeekNumber } from "./date-utils";
 import { openFile } from "./open-file";
 
+function getSectionIconSvg(section: "calendar" | "topics" | "todos", size: number): string {
+  const s = `style="display:inline-block;vertical-align:middle;flex-shrink:0;fill-rule:evenodd;clip-rule:evenodd"`;
+  switch (section) {
+    case "calendar":
+      // calandar.svg: viewBox 0 0 20 20, transform matrix(1,0,0,1,-2,6)
+      return `<svg width="${size}" height="${size}" viewBox="0 0 20 20" ${s}><g transform="matrix(1,0,0,1,-2,6)"><path fill="currentColor" d="M4,10.003L4,-1.003C4,-1.544 4.217,-2.047 4.585,-2.415C4.953,-2.783 5.456,-3 5.997,-3L18.003,-3C18.544,-3 19.047,-2.783 19.415,-2.415C19.783,-2.047 20,-1.544 20,-1.003L20,10.003C20,11.106 19.106,12 18.003,12L5.997,12C4.894,12 4,11.106 4,10.003ZM5.042,1L5.042,10.003C5.042,10.531 5.469,10.958 5.997,10.958L18.003,10.958C18.531,10.958 18.958,10.531 18.958,10.003L18.958,1L5.042,1ZM7,5C7.552,5 8,5.448 8,6C8,6.552 7.552,7 7,7C6.448,7 6,6.552 6,6C6,5.448 6.448,5 7,5ZM10,8C10.552,8 11,8.448 11,9C11,9.552 10.552,10 10,10C9.448,10 9,9.552 9,9C9,8.448 9.448,8 10,8ZM16,2C16.552,2 17,2.448 17,3C17,3.552 16.552,4 16,4C15.448,4 15,3.552 15,3C15,2.448 15.448,2 16,2ZM7,8C7.552,8 8,8.448 8,9C8,9.552 7.552,10 7,10C6.448,10 6,9.552 6,9C6,8.448 6.448,8 7,8ZM10,5C10.552,5 11,5.448 11,6C11,6.552 10.552,7 10,7C9.448,7 9,6.552 9,6C9,5.448 9.448,5 10,5ZM13,5C13.552,5 14,5.448 14,6C14,6.552 13.552,7 13,7C12.448,7 12,6.552 12,6C12,5.448 12.448,5 13,5ZM16,5C16.552,5 17,5.448 17,6C17,6.552 16.552,7 16,7C15.448,7 15,6.552 15,6C15,5.448 15.448,5 16,5ZM13,2C13.552,2 14,2.448 14,3C14,3.552 13.552,4 13,4C12.448,4 12,3.552 12,3C12,2.448 12.448,2 13,2ZM10,2C10.552,2 11,2.448 11,3C11,3.552 10.552,4 10,4C9.448,4 9,3.552 9,3C9,2.448 9.448,2 10,2Z"/></g></svg>`;
+    case "topics":
+      // topic.svg: viewBox 0 0 20 20
+      return `<svg width="${size}" height="${size}" viewBox="0 0 20 20" ${s}><path fill="currentColor" d="M16,6L16,18L4,18L4,2L12.054,2L16,6ZM15.167,6.342L11.706,2.833L4.833,2.833L4.833,17.167L15.167,17.167L15.167,6.342Z"/><path fill="currentColor" d="M11,2L12.001,1.983L15.954,5.965L16,7L11,7L11,2ZM11.833,2.997L11.833,6.167L14.979,6.167L11.833,2.997Z"/><rect fill="currentColor" x="7" y="6.167" width="3" height="1.667"/><path fill="currentColor" d="M6.994,9.922L7,9.089L12.994,9.089L12.994,9.922L6.994,9.922Z"/><path fill="currentColor" d="M6.994,12.922L6.994,12.089L12.994,12.089L12.994,12.922L6.994,12.922Z"/><path fill="currentColor" d="M6.994,15.924L6.994,15.091L12.994,15.091L12.994,15.924L6.994,15.924Z"/></svg>`;
+    case "todos":
+      // todos.svg: viewBox 0 0 20 20
+      return `<svg width="${size}" height="${size}" viewBox="0 0 20 20" ${s}><path fill="currentColor" d="M13.666,4.042L4.937,4.042C4.699,4.042 4.472,4.136 4.304,4.304C4.136,4.472 4.042,4.699 4.042,4.937L4.042,15.063C4.042,15.301 4.136,15.528 4.304,15.696C4.472,15.864 4.699,15.958 4.937,15.958L15.063,15.958C15.301,15.958 15.528,15.864 15.696,15.696C15.864,15.528 15.958,15.301 15.958,15.063L15.958,7.974L17,6.542L17,15.063C17,15.577 16.796,16.07 16.433,16.433C16.07,16.796 15.577,17 15.063,17L4.937,17C4.423,17 3.93,16.796 3.567,16.433C3.204,16.07 3,15.577 3,15.063L3,4.937C3,4.423 3.204,3.93 3.567,3.567C3.93,3.204 4.423,3 4.937,3L14.424,3L13.666,4.042ZM18.011,3.735L10.011,14.735L8,14.75L5,10.75L7,9.25L8.985,11.896L15.989,2.265L18.011,3.735Z"/></svg>`;
+  }
+}
+
 export const VIEW_TYPE_SIDEBAR = "deskleaf-sidebar";
+
+type SectionName = "calendar" | "topics" | "todos";
+
+const LAYOUT_STORAGE_KEY = "deskleaf-sidebar-layout";
+const SECTIONS: SectionName[] = ["calendar", "topics", "todos"];
+const DEFAULT_SECTION_SIZES: Record<SectionName, number> = { calendar: 170, topics: 200, todos: 240 };
+const MIN_SECTION_H: Record<SectionName, number> = { calendar: 66, topics: 56, todos: 56 };
+
+// Mini calendar geometry — must match .dl-minical-* CSS (row height incl. grid gap)
+const MINICAL_ROW_H = 19;
+const MINICAL_CHROME_H = 46;
+
+const MONTHS_FULL = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
+const MONTHS_SHORT = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
+
+/** "Juni 2026", "Jun – Aug 2026" or "Dez 2026 – Feb 2027" */
+function monthRangeLabel(a: Date, b: Date): string {
+  if (a.getFullYear() === b.getFullYear()) {
+    if (a.getMonth() === b.getMonth()) return `${MONTHS_FULL[a.getMonth()]} ${a.getFullYear()}`;
+    return `${MONTHS_SHORT[a.getMonth()]} – ${MONTHS_SHORT[b.getMonth()]} ${a.getFullYear()}`;
+  }
+  return `${MONTHS_SHORT[a.getMonth()]} ${a.getFullYear()} – ${MONTHS_SHORT[b.getMonth()]} ${b.getFullYear()}`;
+}
 
 interface TopicEntry { file: TFile; title: string; }
 interface TodoItem {
@@ -16,6 +54,23 @@ export class DeskleafSidebarView extends ItemView {
   plugin: DeskleafPlugin;
   private refreshTimer: number | null = null;
   private activeFilePath: string | null = null;
+  private sectionOrder: SectionName[] = ["calendar", "topics", "todos"];
+  private sectionVisibility: Map<string, boolean> = new Map([
+    ["calendar", true],
+    ["topics", true],
+    ["todos", true],
+  ]);
+  private sectionSizes: Record<SectionName, number> = { ...DEFAULT_SECTION_SIZES };
+  private draggedSection: string | null = null;
+  private unsubscribeReader: (() => void) | null = null;
+
+  // Mini calendar state
+  private miniAnchor: Date = new Date();
+  private miniViewDate: Date = new Date();
+  private miniVisibleDates: Set<string> = new Set([toDateStr(new Date())]);
+  private miniRows = 6;
+  private minicalEl: HTMLElement | null = null;
+  private miniResizeObs: ResizeObserver | null = null;
 
   constructor(leaf: WorkspaceLeaf, plugin: DeskleafPlugin) {
     super(leaf);
@@ -27,6 +82,7 @@ export class DeskleafSidebarView extends ItemView {
   getIcon() { return "deskleaf"; }
 
   async onOpen() {
+    this.loadLayout();
     await this.render();
     this.activeFilePath = this.app.workspace.getActiveFile()?.path ?? null;
     this.highlightActiveTopic();
@@ -46,6 +102,24 @@ export class DeskleafSidebarView extends ItemView {
     this.registerEvent(this.app.vault.on("delete", () => this.debouncedRefresh()));
     this.registerEvent(this.app.vault.on("rename", () => this.debouncedRefresh()));
 
+    // Event dots in the mini calendar need a refresh when calendar data changes
+    this.unsubscribeReader = this.plugin.calendarReader.onChange(() => {
+      if (this.minicalEl) this.renderMiniCal(this.minicalEl);
+    });
+
+    // Follow the calendar view's visible range so the mini calendar mirrors it
+    this.registerEvent((this.app.workspace as any).on("deskleaf:anchor-changed", (dateStr: string, visibleDates?: string[]) => {
+      if (!dateStr) return;
+      const dates = visibleDates && visibleDates.length > 0 ? visibleDates : [dateStr];
+      const sameAnchor = toDateStr(this.miniAnchor) === dateStr;
+      const sameRange = dates.length === this.miniVisibleDates.size && dates.every((d) => this.miniVisibleDates.has(d));
+      if (sameAnchor && sameRange) return;
+      this.miniAnchor = parseDate(dateStr);
+      this.miniVisibleDates = new Set(dates);
+      this.miniViewDate = new Date(this.miniAnchor);
+      if (this.minicalEl) this.renderMiniCal(this.minicalEl);
+    }));
+
     // Internal links rendered by MarkdownRenderer need explicit click handling in custom views
     this.registerDomEvent(this.containerEl, "click", (e: MouseEvent) => {
       const anchor = (e.target as HTMLElement).closest("a.internal-link") as HTMLAnchorElement | null;
@@ -57,7 +131,45 @@ export class DeskleafSidebarView extends ItemView {
     });
   }
 
-  async onClose() {}
+  async onClose() {
+    this.unsubscribeReader?.();
+    this.unsubscribeReader = null;
+    this.miniResizeObs?.disconnect();
+    this.miniResizeObs = null;
+  }
+
+  // ── Layout persistence (per device, hence localStorage) ──────────
+
+  private loadLayout() {
+    try {
+      const raw = window.localStorage.getItem(LAYOUT_STORAGE_KEY);
+      if (!raw) return;
+      const layout = JSON.parse(raw);
+      if (Array.isArray(layout.order) && layout.order.length === SECTIONS.length
+          && SECTIONS.every((s) => layout.order.includes(s))) {
+        this.sectionOrder = layout.order;
+      }
+      if (Array.isArray(layout.hidden)) {
+        for (const s of SECTIONS) this.sectionVisibility.set(s, !layout.hidden.includes(s));
+      }
+      if (layout.sizes && typeof layout.sizes === "object") {
+        for (const s of SECTIONS) {
+          if (typeof layout.sizes[s] === "number") this.sectionSizes[s] = layout.sizes[s];
+        }
+      }
+    } catch {
+      // corrupt layout state is non-fatal — fall back to defaults
+    }
+  }
+
+  private saveLayout() {
+    const hidden = SECTIONS.filter((s) => !(this.sectionVisibility.get(s) ?? true));
+    window.localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify({
+      order: this.sectionOrder,
+      hidden,
+      sizes: this.sectionSizes,
+    }));
+  }
 
   private highlightActiveTopic() {
     const root = this.containerEl.children[1] as HTMLElement;
@@ -78,18 +190,256 @@ export class DeskleafSidebarView extends ItemView {
 
   async render() {
     const root = this.containerEl.children[1] as HTMLElement;
+    this.miniResizeObs?.disconnect();
+    this.miniResizeObs = null;
+    this.minicalEl = null;
     root.empty();
     root.addClass("dl-sidebar-root");
 
-    const topicsEl = root.createDiv("dl-sidebar-topics");
-    await this.renderTopics(topicsEl);
+    this.renderToolbar(root);
 
-    root.createDiv("dl-sidebar-divider");
+    const visible = this.sectionOrder.filter((s) => this.sectionVisibility.get(s) ?? true);
+    for (let i = 0; i < visible.length; i++) {
+      const section = visible[i];
+      const isLast = i === visible.length - 1;
 
-    const todosEl = root.createDiv("dl-sidebar-todos");
-    await this.renderTodos(todosEl);
+      const wrap = root.createDiv("dl-sidebar-section");
+      wrap.setAttribute("data-section", section);
+      wrap.style.minHeight = `${MIN_SECTION_H[section]}px`;
+      if (isLast) {
+        wrap.addClass("dl-sidebar-section--flex");
+      } else {
+        wrap.addClass("dl-sidebar-section--fixed");
+        wrap.style.height = `${this.sectionSizes[section]}px`;
+      }
+
+      if (section === "calendar") {
+        this.minicalEl = wrap.createDiv("dl-sidebar-minical");
+        this.renderMiniCal(this.minicalEl);
+        this.observeMiniCal(wrap);
+      } else if (section === "topics") {
+        await this.renderTopics(wrap.createDiv("dl-sidebar-topics"));
+      } else if (section === "todos") {
+        await this.renderTodos(wrap.createDiv("dl-sidebar-todos"));
+      }
+
+      if (!isLast) this.renderResizer(root, section, wrap);
+    }
 
     this.highlightActiveTopic();
+  }
+
+  private renderResizer(root: HTMLElement, section: SectionName, wrap: HTMLElement) {
+    const resizer = root.createDiv("dl-sidebar-resizer");
+    resizer.addEventListener("pointerdown", (e: PointerEvent) => {
+      e.preventDefault();
+      resizer.setPointerCapture(e.pointerId);
+      resizer.addClass("dl-sidebar-resizer--active");
+      const startY = e.clientY;
+      const startH = wrap.getBoundingClientRect().height;
+      const maxH = root.clientHeight - 80;
+
+      const onMove = (ev: PointerEvent) => {
+        const h = Math.min(maxH, Math.max(MIN_SECTION_H[section], startH + ev.clientY - startY));
+        wrap.style.height = `${h}px`;
+      };
+      const onUp = (ev: PointerEvent) => {
+        resizer.releasePointerCapture(ev.pointerId);
+        resizer.removeClass("dl-sidebar-resizer--active");
+        resizer.removeEventListener("pointermove", onMove);
+        resizer.removeEventListener("pointerup", onUp);
+        this.sectionSizes[section] = wrap.getBoundingClientRect().height;
+        this.saveLayout();
+      };
+      resizer.addEventListener("pointermove", onMove);
+      resizer.addEventListener("pointerup", onUp);
+    });
+  }
+
+  private renderToolbar(container: HTMLElement) {
+    const header = container.createDiv("nav-header");
+    const toolbar = header.createDiv("nav-buttons-container");
+
+    for (const section of this.sectionOrder) {
+      const isVisible = this.sectionVisibility.get(section) ?? true;
+      const btn = toolbar.createDiv({ cls: ["clickable-icon", "nav-action-button"] });
+
+      if (isVisible) {
+        btn.addClass("is-active");
+      }
+
+      btn.setAttribute("data-section", section);
+      btn.setAttribute("aria-label", this.getSectionLabel(section));
+      btn.draggable = true;
+      btn.innerHTML = getSectionIconSvg(section, 16);
+
+      btn.addEventListener("click", () => {
+        this.sectionVisibility.set(section, !isVisible);
+        this.saveLayout();
+        this.render();
+      });
+
+      btn.addEventListener("dragstart", (e) => {
+        this.draggedSection = section;
+        (e.dataTransfer as DataTransfer).effectAllowed = "move";
+      });
+
+      btn.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        (e.dataTransfer as DataTransfer).dropEffect = "move";
+      });
+
+      btn.addEventListener("drop", (e) => {
+        e.preventDefault();
+        if (!this.draggedSection || this.draggedSection === section) return;
+        const fromIdx = this.sectionOrder.indexOf(this.draggedSection as SectionName);
+        const toIdx = this.sectionOrder.indexOf(section);
+        if (fromIdx !== -1 && toIdx !== -1) {
+          this.sectionOrder.splice(fromIdx, 1);
+          this.sectionOrder.splice(toIdx, 0, this.draggedSection as SectionName);
+          this.saveLayout();
+          this.render();
+        }
+      });
+
+      btn.addEventListener("dragend", () => {
+        this.draggedSection = null;
+      });
+    }
+  }
+
+  private getSectionLabel(section: "calendar" | "topics" | "todos"): string {
+    switch (section) {
+      case "calendar": return "Kalender ein-/ausblenden";
+      case "topics": return "Topics ein-/ausblenden";
+      case "todos": return "Todos ein-/ausblenden";
+    }
+  }
+
+
+  /**
+   * Height-adaptive mini calendar (continuous week strip).
+   *  - 1–3 rows: week mode — pages by the number of visible weeks
+   *  - ≥4 rows: month mode — starts at the week of the 1st of the view month,
+   *    mutes days outside the fully visible months, pages monthly (quarterly
+   *    once 3+ full months fit)
+   */
+  private renderMiniCal(container: HTMLElement) {
+    container.empty();
+    const todayStr = toDateStr(new Date());
+    const anchorStr = toDateStr(this.miniAnchor);
+    const rows = this.miniRows;
+    const weekMode = rows <= 3;
+
+    let viewStart: Date;
+    let muteBefore: string | null = null;
+    let muteAfter: string | null = null;
+    let label: string;
+    let pageMonths = 1;
+
+    if (weekMode) {
+      viewStart = weekStart(this.miniViewDate);
+      label = monthRangeLabel(viewStart, addDays(viewStart, rows * 7 - 1));
+    } else {
+      const monthFirst = new Date(this.miniViewDate.getFullYear(), this.miniViewDate.getMonth(), 1);
+      viewStart = weekStart(monthFirst);
+      const endExclusive = addDays(viewStart, rows * 7);
+      let fullMonths = 0;
+      while (new Date(monthFirst.getFullYear(), monthFirst.getMonth() + fullMonths + 1, 0) < endExclusive) {
+        fullMonths++;
+      }
+      fullMonths = Math.max(1, fullMonths);
+      const lastFull = new Date(monthFirst.getFullYear(), monthFirst.getMonth() + fullMonths, 0);
+      muteBefore = toDateStr(monthFirst);
+      muteAfter = toDateStr(lastFull);
+      label = monthRangeLabel(monthFirst, lastFull);
+      pageMonths = fullMonths >= 3 ? 3 : 1;
+    }
+
+    const page = (dir: number) => {
+      if (weekMode) {
+        this.miniViewDate = addDays(weekStart(this.miniViewDate), dir * rows * 7);
+      } else {
+        this.miniViewDate = new Date(this.miniViewDate.getFullYear(), this.miniViewDate.getMonth() + dir * pageMonths, 1);
+      }
+      this.renderMiniCal(container);
+    };
+
+    const nav = container.createDiv("dl-minical-nav");
+    const prevBtn = nav.createDiv({ cls: ["clickable-icon", "dl-minical-navbtn"] });
+    prevBtn.setAttribute("aria-label", weekMode ? "Vorherige Wochen" : pageMonths > 1 ? "Vorheriges Quartal" : "Vorheriger Monat");
+    setIcon(prevBtn, "chevron-left");
+    prevBtn.addEventListener("click", () => page(-1));
+
+    const labelEl = nav.createDiv({ cls: "dl-minical-label", text: label });
+    labelEl.setAttribute("aria-label", "Zu heute springen");
+    labelEl.addEventListener("click", () => {
+      this.miniViewDate = new Date();
+      this.renderMiniCal(container);
+    });
+
+    const nextBtn = nav.createDiv({ cls: ["clickable-icon", "dl-minical-navbtn"] });
+    nextBtn.setAttribute("aria-label", weekMode ? "Nächste Wochen" : pageMonths > 1 ? "Nächstes Quartal" : "Nächster Monat");
+    setIcon(nextBtn, "chevron-right");
+    nextBtn.addEventListener("click", () => page(1));
+
+    const grid = container.createDiv("dl-minical-grid");
+    grid.createDiv({ cls: "dl-minical-dow dl-minical-kw", text: "KW" });
+    for (const d of ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]) {
+      grid.createDiv({ cls: "dl-minical-dow", text: d });
+    }
+
+    const reader = this.plugin.calendarReader;
+    for (let r = 0; r < rows; r++) {
+      grid.createDiv({ cls: "dl-minical-kw", text: String(getWeekNumber(addDays(viewStart, r * 7))) });
+      for (let c = 0; c < 7; c++) {
+        const date = addDays(viewStart, r * 7 + c);
+        const dateStr = toDateStr(date);
+        const cell = grid.createDiv({ cls: "dl-minical-cell", text: String(date.getDate()) });
+
+        const hasEvent =
+          reader.getEventsForDate(dateStr).length > 0 ||
+          reader.getAllDayEventsForDate(dateStr).length > 0;
+        if (hasEvent) cell.addClass("dl-minical-cell--has-event");
+        if (muteBefore && (dateStr < muteBefore || dateStr > (muteAfter as string))) cell.addClass("dl-minical-cell--muted");
+        if (this.miniVisibleDates.has(dateStr)) {
+          cell.addClass("dl-minical-cell--visible");
+          // Rounded ends of the visible-range pill (within a week row)
+          if (c === 0 || !this.miniVisibleDates.has(toDateStr(addDays(date, -1)))) cell.addClass("dl-minical-cell--visible-start");
+          if (c === 6 || !this.miniVisibleDates.has(toDateStr(addDays(date, 1)))) cell.addClass("dl-minical-cell--visible-end");
+        }
+        if (dateStr === anchorStr) cell.addClass("dl-minical-cell--anchor");
+        if (dateStr === todayStr) cell.addClass("dl-minical-cell--today");
+
+        cell.addEventListener("click", () => {
+          this.miniAnchor = new Date(date);
+          this.navigateCalendarTo(new Date(date));
+          this.renderMiniCal(container);
+        });
+      }
+    }
+  }
+
+  private observeMiniCal(wrap: HTMLElement) {
+    this.miniResizeObs?.disconnect();
+    this.miniResizeObs = new ResizeObserver((entries) => {
+      const h = entries[0]?.contentRect.height ?? wrap.clientHeight;
+      const rows = Math.min(30, Math.max(1, Math.floor((h - MINICAL_CHROME_H) / MINICAL_ROW_H)));
+      if (rows !== this.miniRows) {
+        this.miniRows = rows;
+        if (this.minicalEl) this.renderMiniCal(this.minicalEl);
+      }
+    });
+    this.miniResizeObs.observe(wrap);
+  }
+
+  private navigateCalendarTo(date: Date) {
+    const leaves = this.app.workspace.getLeavesOfType("deskleaf-calendar");
+    if (leaves.length === 0) return;
+    const calView = leaves[0].view as any;
+    if (calView && typeof calView.setAnchor === "function") {
+      calView.setAnchor(date);
+    }
   }
 
   // ── Topics ───────────────────────────────────────────────────────
@@ -124,7 +474,6 @@ export class DeskleafSidebarView extends ItemView {
   }
 
   private async renderTopics(container: HTMLElement) {
-    container.createDiv({ cls: "dl-sidebar-section-header", text: "Topics" });
     const topics = this.getTopics();
     const list = container.createDiv("dl-topics-list");
     for (let i = 0; i < topics.length; i++) this.renderTopicRow(list, topics[i]);
@@ -136,11 +485,16 @@ export class DeskleafSidebarView extends ItemView {
     const row = container.createDiv("dl-topic-row");
     row.setAttribute("draggable", "true");
     row.setAttribute("data-path", topic.file.path);
-    row.createDiv({ cls: "dl-topic-handle", text: "⠿" });
 
     const content = row.createDiv("dl-topic-content");
-    content.createEl("span", { cls: "dl-topic-title", text: topic.title })
-      .addEventListener("click", (e) => this.openTopic(topic.file, e.metaKey || e.ctrlKey));
+    const title = content.createEl("span", { cls: "dl-topic-title", text: topic.title });
+    title.addEventListener("mousedown", (e: MouseEvent) => {
+      if (e.button === 1) {
+        e.preventDefault();
+        this.openTopic(topic.file, true);
+      }
+    });
+    title.addEventListener("click", (e: MouseEvent) => this.openTopic(topic.file, e.metaKey || e.ctrlKey));
 
     const linkedEvents = this.plugin.calendarReader.getEvents().filter((e) => {
       const nf = this.plugin.noteManager.noteExists(e);
@@ -275,8 +629,7 @@ export class DeskleafSidebarView extends ItemView {
     const groups = this.groupTodos(todos);
     const openCount = Object.values(groups).reduce((s, g) => s + g.length, 0);
 
-    const header = container.createDiv("dl-sidebar-section-header dl-sidebar-todos-header");
-    header.createSpan({ text: "Todos" });
+    const header = container.createDiv("dl-sidebar-todos-header");
     header.createSpan({ cls: "dl-sidebar-count", text: String(openCount) });
     const filterInput = header.createEl("input", {
       type: "text",

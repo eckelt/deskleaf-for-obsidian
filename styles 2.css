@@ -396,6 +396,33 @@
     opacity: 0.85;
 }
 
+.dl-overlay {
+    position: absolute;
+    bottom: 32px;
+    right: 12px;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+    pointer-events: none;
+}
+
+.dl-today-fab {
+    pointer-events: all;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--interactive-accent);
+    color: var(--text-on-accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    cursor: pointer;
+    opacity: 0.92;
+}
+
 /* Sticky column-header row */
 .dl-grid-header-row {
     flex-shrink: 0;
@@ -1362,11 +1389,6 @@
 
 /* ── Sidebar (combined Topics + Todos) ───────────────────────────── */
 
-/* Obsidian gibt .view-content Standard-Padding — für die Sidebar weg */
-.workspace-leaf-content[data-type="deskleaf-sidebar"] .view-content {
-    padding: 0;
-}
-
 .dl-sidebar-root {
     display: flex;
     flex-direction: column;
@@ -1374,217 +1396,109 @@
     overflow: hidden;
 }
 
-/* Toolbar uses Obsidian's nav-header/nav-action-button (file-explorer look) */
-.dl-sidebar-root > .nav-header {
-    flex-shrink: 0;
-}
-
-.dl-sidebar-root .nav-action-button {
-    cursor: pointer;
-    color: var(--icon-color);
-    opacity: var(--icon-opacity, 0.75);
-}
-
-/* Let the custom section SVGs scale with Obsidian's icon size (bigger on mobile) */
-.dl-sidebar-root .nav-action-button svg {
-    width: var(--icon-size);
-    height: var(--icon-size);
-}
-
-.dl-sidebar-root .nav-action-button:hover {
-    color: var(--icon-color-hover);
-    opacity: var(--icon-opacity-hover, 1);
-}
-
-.dl-sidebar-root .nav-action-button.is-active {
-    color: var(--nav-item-color-active, var(--text-normal));
-    opacity: 1;
-}
-
-/* Resizable section wrappers */
-.dl-sidebar-section {
+.dl-sidebar-toolbar {
     display: flex;
-    flex-direction: column;
-    min-height: 0;
-    overflow: hidden;
-    position: relative;
-}
-
-/* fixed = user-set height, may still shrink down to its min-height on tight panels */
-.dl-sidebar-section--fixed {
-    flex: 0 1 auto;
-}
-
-.dl-sidebar-section--flex {
-    flex: 1 1 0;
-}
-
-.dl-sidebar-resizer {
+    gap: 8px;
+    padding: 8px;
+    border-bottom: 1px solid var(--f-border);
     flex-shrink: 0;
-    height: 7px;
-    cursor: row-resize;
-    position: relative;
-    z-index: 5;
-    touch-action: none;
 }
 
-.dl-sidebar-resizer::after {
-    content: "";
-    position: absolute;
-    left: 6px;
-    right: 6px;
-    top: 3px;
-    height: 1px;
-    background: var(--f-border);
+.dl-sidebar-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 1.2em;
+    transition: background-color 120ms;
 }
 
-.dl-sidebar-resizer:hover::after,
-.dl-sidebar-resizer--active::after {
-    top: 2px;
-    height: 3px;
-    border-radius: 2px;
-    background: var(--interactive-accent);
+.dl-sidebar-btn:hover {
+    background-color: var(--background-secondary);
 }
 
 .dl-sidebar-topics {
-    flex: 1;
-    min-height: 0;
+    flex-shrink: 0;
     overflow-y: auto;
+    max-height: 40%;
 }
-
-/* ── Mini calendar (height-adaptive week strip) ──────────────────── */
 
 .dl-sidebar-minical {
-    flex: 1;
-    min-height: 0;
-    overflow: hidden;
-    padding: 2px 6px 4px;
-    display: flex;
-    flex-direction: column;
-}
-
-.dl-minical-nav {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-    padding: 1px 0;
     flex-shrink: 0;
+    padding: 8px;
 }
 
-.dl-minical-navbtn {
-    padding: 2px;
-    --icon-size: 14px;
-    color: var(--f-muted);
+.dl-minical {
+    font-size: 0.8em;
 }
 
-.dl-minical-label {
-    flex: 1;
+.dl-minical-header {
     text-align: center;
-    font-size: 0.7em;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    color: var(--f-muted);
-    cursor: pointer;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    padding: 8px 0;
 }
 
-.dl-minical-label:hover {
-    color: var(--text-normal);
+.dl-minical-month {
+    font-weight: 600;
+    font-size: 0.9em;
+}
+
+.dl-minical-days-header {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+    padding: 4px 0;
+    text-align: center;
+}
+
+.dl-minical-day-label {
+    font-weight: 600;
+    font-size: 0.75em;
+    color: var(--f-muted);
 }
 
 .dl-minical-grid {
     display: grid;
-    grid-template-columns: 20px repeat(7, 1fr);
-    gap: 1px;
-    align-content: start;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
 }
 
-.dl-minical-dow {
-    font-size: 0.58em;
+.dl-minical-day {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 3px;
+    font-size: 0.8em;
+    color: var(--text-normal);
+}
+
+.dl-minical-day-num {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.dl-minical-today {
+    background-color: var(--interactive-accent);
+    color: white;
     font-weight: 600;
-    text-align: center;
-    color: var(--f-muted);
-    padding-bottom: 2px;
-}
-
-.dl-minical-kw {
-    font-size: 0.55em;
-    color: var(--f-muted);
-    opacity: 0.6;
-    text-align: right;
-    padding-right: 4px;
-    line-height: 18px;
-    font-variant-numeric: tabular-nums;
-}
-
-.dl-minical-dow.dl-minical-kw {
-    line-height: unset;
-}
-
-.dl-minical-cell {
-    font-size: 0.62em;
-    text-align: center;
-    height: 18px;
-    line-height: 18px;
-    border-radius: 3px;
-    cursor: pointer;
-    color: var(--f-fg);
-    position: relative;
-}
-
-.dl-minical-cell:hover {
-    background: var(--f-today-bg);
-}
-
-.dl-minical-cell--muted {
-    opacity: 0.35;
-}
-
-.dl-minical-cell--has-event::after {
-    content: "";
-    position: absolute;
-    bottom: 1px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 3px;
-    height: 3px;
-    border-radius: 50%;
-    background: var(--f-event-border);
-}
-
-/* Visible-range band: every day currently shown in the calendar view */
-.dl-minical-cell--visible {
-    background: var(--f-today-bg);
-    border-radius: 0;
-}
-
-.dl-minical-cell--visible-start {
-    border-top-left-radius: 3px;
-    border-bottom-left-radius: 3px;
-}
-
-.dl-minical-cell--visible-end {
-    border-top-right-radius: 3px;
-    border-bottom-right-radius: 3px;
-}
-
-.dl-minical-cell--anchor {
-    background: var(--f-today-header);
-    border-radius: 3px;
-    font-weight: 600;
-}
-
-.dl-minical-cell--today {
-    background: var(--f-event-sel-bg);
-    color: var(--f-event-sel-fg);
-    font-weight: 700;
-    border-radius: 3px;
 }
 
 .dl-sidebar-section-header {
-    display: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.7em;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--f-muted);
+    padding: 10px 16px 4px;
 }
 
 .dl-sidebar-count {
@@ -1598,6 +1512,13 @@
     line-height: 1.6;
 }
 
+.dl-sidebar-divider {
+    height: 1px;
+    background: var(--f-border);
+    flex-shrink: 0;
+    margin: 0 12px;
+}
+
 .dl-sidebar-todos {
     flex: 1;
     overflow-y: auto;
@@ -1609,21 +1530,17 @@
     top: 0;
     z-index: 10;
     background: var(--f-bg);
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    padding: 2px 8px;
 }
 
 .dl-todo-filter {
     flex: 1;
     min-width: 0;
-    padding: 2px 4px;
+    padding: 0 4px;
     background: transparent;
     border: none;
     border-bottom: 1px solid transparent;
     color: var(--text-normal);
-    font-size: 0.75em;
+    font-size: 0.8em;
     outline: none;
     text-transform: none;
     letter-spacing: 0;
@@ -1639,23 +1556,23 @@
 /* ── Todo Board ──────────────────────────────────────────────────── */
 
 .dl-board-section {
-    padding: 0 8px 4px;
+    padding: 0 16px 8px;
 }
 
 .dl-board-group-label {
-    font-size: 0.65em;
+    font-size: 0.68em;
     font-weight: 600;
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--text-faint);
-    margin: 6px 0 2px;
+    margin: 14px 0 4px;
 }
 
 .dl-todo-row {
     display: flex;
     align-items: flex-start;
-    gap: 6px;
-    padding: 3px 0;
+    gap: 8px;
+    padding: 5px 0;
     border-bottom: 1px solid var(--f-border);
 }
 
@@ -1702,27 +1619,26 @@
 
 /* ── Topics View ─────────────────────────────────────────────────── */
 
-/* Padding/Radius an den Obsidian-Fileexplorer angelehnt */
 .dl-topics-list {
-    padding: 4px;
+    padding: 4px 16px;
 }
 
 .dl-topic-row {
     display: flex;
     align-items: center;
-    gap: 4px;
-    padding: 5px 8px;
-    border-radius: var(--radius-s, 4px);
+    gap: 8px;
+    padding: 4px 8px;
+    border-radius: 4px;
     cursor: grab;
     user-select: none;
 }
 
 .dl-topic-row:hover {
-    background: var(--nav-item-background-hover, var(--background-modifier-hover));
+    background: var(--background-secondary);
 }
 
 .dl-topic-row--active {
-    background: var(--nav-item-background-active, var(--background-modifier-hover));
+    background: var(--background-secondary);
 }
 .dl-topic-row.dl-dragging {
     opacity: 0.35;
@@ -1734,28 +1650,39 @@
     border-bottom: 2px solid var(--interactive-accent);
 }
 
+.dl-topic-handle {
+    color: var(--f-muted);
+    opacity: 0.35;
+    cursor: grab;
+    padding: 0 4px;
+    font-size: 1em;
+    align-self: center;
+    flex-shrink: 0;
+    user-select: none;
+}
+
+.dl-topic-row:hover .dl-topic-handle {
+    opacity: 0.7;
+}
+.dl-topic-row.dl-dragging .dl-topic-handle {
+    cursor: grabbing;
+}
+
 .dl-topic-content {
     flex: 1;
     min-width: 0;
 }
 
 .dl-topic-title {
-    color: var(--nav-item-color, var(--text-muted));
-    font-size: var(--nav-item-size, 0.9em);
-    font-weight: var(--nav-item-weight, 400);
+    color: var(--text-normal);
+    font-size: 0.9em;
+    font-weight: 400;
     cursor: pointer;
     display: block;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
 }
 
-.dl-topic-row:hover .dl-topic-title {
-    color: var(--nav-item-color-hover, var(--text-normal));
-}
-
-.dl-topic-row--active .dl-topic-title {
-    color: var(--nav-item-color-active, var(--text-normal));
+.dl-topic-title:hover {
+    color: var(--text-normal);
 }
 
 .dl-topic-delete {
@@ -1796,10 +1723,10 @@
 }
 
 .dl-topic-new-row {
-    padding: 3px 8px;
+    padding: 8px 0;
     cursor: text;
     border-bottom: 1px dashed var(--f-border);
-    min-height: 22px;
+    min-height: 32px;
 }
 
 .dl-topic-new-row:hover {
@@ -2074,34 +2001,100 @@
     font-size: 0.85em;
 }
 
-/* Mobile floating "today" button */
-.dl-today-fab {
-    position: absolute;
-    bottom: 20px;
-    right: 16px;
-    z-index: 25;
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
-    background: var(--interactive-accent);
-    color: var(--text-on-accent);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
-    cursor: pointer;
-    opacity: 0.94;
+/* ── Mini month ──────────────────────────────────────────────────── */
+
+.dl-mini-month {
+    pointer-events: all;
+    background: var(--f-bg);
+    border: 1px solid var(--f-border-dark);
+    border-radius: 6px;
+    padding: 8px 6px 6px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    width: 186px;
 }
 
-.dl-today-fab:active {
-    transform: scale(0.94);
+.dl-mini-month-header {
+    font-size: 0.66em;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-align: center;
+    color: var(--f-muted);
+    margin-bottom: 5px;
+}
+
+.dl-mini-month-grid {
+    display: grid;
+    grid-template-columns: 22px repeat(7, 1fr);
+    gap: 1px;
+}
+
+.dl-mini-dow {
+    font-size: 0.58em;
+    font-weight: 600;
+    text-align: center;
+    color: var(--f-muted);
+    padding-bottom: 3px;
+}
+
+.dl-mini-kw-header {
+    text-align: right;
+    padding-right: 4px;
+}
+
+.dl-mini-kw {
+    font-size: 0.55em;
+    color: var(--f-muted);
+    opacity: 0.6;
+    text-align: right;
+    padding-right: 4px;
+    line-height: 1.9;
+    font-variant-numeric: tabular-nums;
+}
+
+.dl-mini-day {
+    font-size: 0.62em;
+    text-align: center;
+    line-height: 1.9;
+    border-radius: 3px;
+    cursor: pointer;
+    color: var(--f-fg);
+    position: relative;
+}
+
+.dl-mini-day:hover {
+    background: var(--f-today-bg);
+}
+.dl-mini-day--empty {
+    pointer-events: none;
+}
+
+.dl-mini-day--has-event::after {
+    content: "";
+    position: absolute;
+    bottom: 1px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: var(--f-event-border);
+}
+
+.dl-mini-day--anchor {
+    background: var(--f-today-header);
+}
+
+.dl-mini-day--today {
+    background: var(--f-event-sel-bg);
+    color: var(--f-event-sel-fg);
+    font-weight: 700;
 }
 
 /* ── Mobile ──────────────────────────────────────────────────────── */
 
 @media (max-width: 768px) {
-    .dl-today-fab {
-        bottom: 76px;
+    .dl-overlay {
+        bottom: 92px;
     }
 
     .dl-split {
