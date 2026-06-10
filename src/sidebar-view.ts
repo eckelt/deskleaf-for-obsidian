@@ -30,6 +30,7 @@ const MIN_SECTION_H: Record<SectionName, number> = { calendar: 66, topics: 56, t
 // Mini calendar geometry — must match .dl-minical-* CSS (row height incl. grid gap)
 const MINICAL_ROW_H = 19;
 const MINICAL_CHROME_H = 46;
+const MINICAL_SEP_H = 16; // month-name separator row height incl. grid gap
 
 const MONTHS_FULL = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
 const MONTHS_SHORT = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
@@ -320,9 +321,9 @@ export class DeskleafSidebarView extends ItemView {
   /**
    * Height-adaptive mini calendar (continuous week strip).
    *  - 1–3 rows: week mode — pages by the number of visible weeks
-   *  - ≥4 rows: month mode — starts at the week of the 1st of the view month,
-   *    mutes days outside the fully visible months, pages monthly (quarterly
-   *    once 3+ full months fit)
+   *  - 4 rows up to ~1 full month: month mode with alternating per-month tint
+   *  - ≥2 full months: month mode with month-name separator rows; pages monthly
+   *    (quarterly once 3+ full months fit)
    */
   private renderMiniCal(container: HTMLElement) {
     container.empty();
@@ -332,29 +333,31 @@ export class DeskleafSidebarView extends ItemView {
     const weekMode = rows <= 3;
 
     let viewStart: Date;
-    let muteBefore: string | null = null;
-    let muteAfter: string | null = null;
+    let monthFirst = new Date(this.miniViewDate.getFullYear(), this.miniViewDate.getMonth(), 1);
     let label: string;
     let pageMonths = 1;
+    let fullMonths = 0;
 
     if (weekMode) {
       viewStart = weekStart(this.miniViewDate);
       label = monthRangeLabel(viewStart, addDays(viewStart, rows * 7 - 1));
     } else {
-      const monthFirst = new Date(this.miniViewDate.getFullYear(), this.miniViewDate.getMonth(), 1);
       viewStart = weekStart(monthFirst);
       const endExclusive = addDays(viewStart, rows * 7);
-      let fullMonths = 0;
       while (new Date(monthFirst.getFullYear(), monthFirst.getMonth() + fullMonths + 1, 0) < endExclusive) {
         fullMonths++;
       }
       fullMonths = Math.max(1, fullMonths);
       const lastFull = new Date(monthFirst.getFullYear(), monthFirst.getMonth() + fullMonths, 0);
-      muteBefore = toDateStr(monthFirst);
-      muteAfter = toDateStr(lastFull);
       label = monthRangeLabel(monthFirst, lastFull);
       pageMonths = fullMonths >= 3 ? 3 : 1;
     }
+
+    // ≥2 full months: render each month as its own block with a name header.
+    // Fewer (≈6 weeks): one continuous strip, tinting each month alternately.
+    const showMonthNames = !weekMode && fullMonths >= 2;
+    const tintMonths = !weekMode && !showMonthNames;
+    const refMonthIdx = monthFirst.getFullYear() * 12 + monthFirst.getMonth();
 
     const page = (dir: number) => {
       if (weekMode) {
@@ -390,32 +393,77 @@ export class DeskleafSidebarView extends ItemView {
     }
 
     const reader = this.plugin.calendarReader;
-    for (let r = 0; r < rows; r++) {
-      grid.createDiv({ cls: "dl-minical-kw", text: String(getWeekNumber(addDays(viewStart, r * 7))) });
-      for (let c = 0; c < 7; c++) {
-        const date = addDays(viewStart, r * 7 + c);
-        const dateStr = toDateStr(date);
-        const cell = grid.createDiv({ cls: "dl-minical-cell", text: String(date.getDate()) });
 
-        const hasEvent =
-          reader.getEventsForDate(dateStr).length > 0 ||
-          reader.getAllDayEventsForDate(dateStr).length > 0;
-        if (hasEvent) cell.addClass("dl-minical-cell--has-event");
-        if (muteBefore && (dateStr < muteBefore || dateStr > (muteAfter as string))) cell.addClass("dl-minical-cell--muted");
-        if (this.miniVisibleDates.has(dateStr)) {
-          cell.addClass("dl-minical-cell--visible");
-          // Rounded ends of the visible-range pill (within a week row)
-          if (c === 0 || !this.miniVisibleDates.has(toDateStr(addDays(date, -1)))) cell.addClass("dl-minical-cell--visible-start");
-          if (c === 6 || !this.miniVisibleDates.has(toDateStr(addDays(date, 1)))) cell.addClass("dl-minical-cell--visible-end");
+    const addKw = (wkStart: Date) =>
+      grid.createDiv({ cls: "dl-minical-kw", text: String(getWeekNumber(wkStart)) });
+
+    const addEmptyCell = () => grid.createDiv("dl-minical-cell dl-minical-cell--empty");
+
+    const addDayCell = (date: Date) => {
+      const dateStr = toDateStr(date);
+      const cell = grid.createDiv({ cls: "dl-minical-cell", text: String(date.getDate()) });
+
+      const hasEvent =
+        reader.getEventsForDate(dateStr).length > 0 ||
+        reader.getAllDayEventsForDate(dateStr).length > 0;
+      if (hasEvent) cell.addClass("dl-minical-cell--has-event");
+      // Mute every other month, never the currently shown one (offset 0)
+      if (tintMonths && Math.abs((date.getFullYear() * 12 + date.getMonth()) - refMonthIdx) % 2 === 1) {
+        cell.addClass("dl-minical-cell--alt");
+      }
+      if (this.miniVisibleDates.has(dateStr)) {
+        cell.addClass("dl-minical-cell--visible");
+        // Rounded ends of the visible-range pill (within a week row)
+        if (date.getDay() === 1 || !this.miniVisibleDates.has(toDateStr(addDays(date, -1)))) cell.addClass("dl-minical-cell--visible-start");
+        if (date.getDay() === 0 || !this.miniVisibleDates.has(toDateStr(addDays(date, 1)))) cell.addClass("dl-minical-cell--visible-end");
+      }
+      if (dateStr === anchorStr) cell.addClass("dl-minical-cell--anchor");
+      if (dateStr === todayStr) cell.addClass("dl-minical-cell--today");
+
+      cell.addEventListener("click", () => {
+        this.miniAnchor = new Date(date);
+        this.navigateCalendarTo(new Date(date));
+        this.renderMiniCal(container);
+      });
+    };
+
+    // Fill by a fixed pixel budget so separator rows / block gaps don't overflow
+    const budget = rows * MINICAL_ROW_H;
+    let usedPx = 0;
+
+    if (showMonthNames) {
+      // One block per month: leading/trailing days of the grid week stay empty
+      for (let m = 0; m < 24; m++) {
+        const mStart = new Date(monthFirst.getFullYear(), monthFirst.getMonth() + m, 1);
+        const mEnd = new Date(monthFirst.getFullYear(), monthFirst.getMonth() + m + 1, 0);
+        if (m > 0 && usedPx + MINICAL_SEP_H + MINICAL_ROW_H > budget) break;
+
+        const name = MONTHS_FULL[mStart.getMonth()]
+          + (mStart.getMonth() === 0 ? ` ${mStart.getFullYear()}` : "");
+        grid.createDiv({ cls: "dl-minical-monthsep", text: name });
+        usedPx += MINICAL_SEP_H;
+
+        let wk = weekStart(mStart);
+        while (wk <= mEnd) {
+          if (usedPx + MINICAL_ROW_H > budget) return;
+          addKw(wk);
+          for (let c = 0; c < 7; c++) {
+            const d = addDays(wk, c);
+            if (d.getMonth() === mStart.getMonth() && d.getFullYear() === mStart.getFullYear()) addDayCell(d);
+            else addEmptyCell();
+          }
+          usedPx += MINICAL_ROW_H;
+          wk = addDays(wk, 7);
         }
-        if (dateStr === anchorStr) cell.addClass("dl-minical-cell--anchor");
-        if (dateStr === todayStr) cell.addClass("dl-minical-cell--today");
-
-        cell.addEventListener("click", () => {
-          this.miniAnchor = new Date(date);
-          this.navigateCalendarTo(new Date(date));
-          this.renderMiniCal(container);
-        });
+      }
+    } else {
+      // Continuous week strip
+      for (let r = 0; r < 60; r++) {
+        if (r > 0 && usedPx + MINICAL_ROW_H > budget) break;
+        const wkStart = addDays(viewStart, r * 7);
+        addKw(wkStart);
+        for (let c = 0; c < 7; c++) addDayCell(addDays(wkStart, c));
+        usedPx += MINICAL_ROW_H;
       }
     }
   }

@@ -1538,8 +1538,25 @@
     background: var(--f-today-bg);
 }
 
-.dl-minical-cell--muted {
-    opacity: 0.35;
+/* Alternating per-month text color (≈6-week view) */
+.dl-minical-cell--alt {
+    color: var(--f-muted);
+}
+
+.dl-minical-cell--empty {
+    cursor: default;
+    pointer-events: none;
+}
+
+/* Month-name header row (multi-month block view) */
+.dl-minical-monthsep {
+    grid-column: 1 / -1;
+    font-size: 0.6em;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--f-muted);
+    padding: 3px 0 1px 4px;
 }
 
 .dl-minical-cell--has-event::after {
