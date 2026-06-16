@@ -285,3 +285,16 @@ Manual QA found that PUT-to-target before deleting the old resource fails on Cal
 
 Fix:
 - Calendar switching now updates the existing CalDAV resource in place, then moves that resource to the target calendar with CalDAV `MOVE`.
+
+### QA Feedback 2026-06-16, interaction model
+
+Manual QA rejected the desktop double-click interaction and requested:
+- Obsidian note icon gets a large click target and opens/creates the linked note.
+- Single-click on the rest of the event card opens the edit form.
+- Delete/cancel must be available from the edit form.
+
+Fix:
+- Every event card now renders a 24px Obsidian note action target.
+- Event card click opens the edit form; the note action keeps the note workflow.
+- Edit form now includes a danger action for delete/decline.
+- Added `scripts/check-issue-comments.mjs` and `npm run check:issue -- <issue>` to detect unchecked human comments.

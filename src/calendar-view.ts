@@ -1111,7 +1111,14 @@ export class DeskleafCalendarView extends ItemView {
     card.style.left = `calc(${pct(col / totalCols)} + 1px)`;
     card.style.width = `calc(${pct(1 / totalCols)} - 3px)`;
 
-    if (noteFile) { const dot = card.createDiv("dl-event-note-dot"); dot.innerHTML = obsidianCrystalIconSvg(8); }
+    const noteAction = card.createDiv("dl-event-note-action");
+    noteAction.setAttribute("aria-label", noteFile ? "Notiz öffnen" : "Notiz erstellen");
+    noteAction.innerHTML = obsidianCrystalIconSvg(14);
+    noteAction.addEventListener("mousedown", (e) => e.stopPropagation());
+    noteAction.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.openEvent(event, e.metaKey || e.ctrlKey);
+    });
 
     // Check for Teams/Meet/Jitsi early (check Jitsi first to avoid "meet" in "Jitsi Meet")
     const isJitsiCard =
@@ -1196,7 +1203,7 @@ export class DeskleafCalendarView extends ItemView {
       this.addEventLongPress(card, event, date);
       card.addEventListener("click", (e) => {
         e.stopPropagation();
-        this.openEvent(event, false);
+        this.showEventEditPopover(event, date, e, isReadOnly);
       });
     } else if (canEdit) {
       // Resize handle at bottom edge
@@ -1208,10 +1215,9 @@ export class DeskleafCalendarView extends ItemView {
 
       // Drag-to-move: track drag vs click
       let wasDrag = false;
-      let clickTimer: number | null = null;
       card.addEventListener("mousedown", (e) => {
         if (e.button !== 0) return;
-        if ((e.target as HTMLElement).closest(".dl-resize-handle")) return;
+        if ((e.target as HTMLElement).closest(".dl-resize-handle, .dl-event-note-action")) return;
         e.stopPropagation();
         wasDrag = false;
         this.onEventMoveMouseDown(e, event, date, card, () => {
@@ -1224,38 +1230,11 @@ export class DeskleafCalendarView extends ItemView {
           wasDrag = false;
           return;
         }
-        if (clickTimer !== null) window.clearTimeout(clickTimer);
-        clickTimer = window.setTimeout(() => {
-          clickTimer = null;
-          this.openEvent(event, e.metaKey || e.ctrlKey);
-        }, 220);
-      });
-      card.addEventListener("dblclick", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (clickTimer !== null) {
-          window.clearTimeout(clickTimer);
-          clickTimer = null;
-        }
         this.showEventEditPopover(event, date, e, false);
       });
     } else if (!Platform.isMobile) {
-      let clickTimer: number | null = null;
       card.addEventListener("click", (e) => {
         e.stopPropagation();
-        if (clickTimer !== null) window.clearTimeout(clickTimer);
-        clickTimer = window.setTimeout(() => {
-          clickTimer = null;
-          this.openEvent(event, e.metaKey || e.ctrlKey);
-        }, 220);
-      });
-      card.addEventListener("dblclick", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (clickTimer !== null) {
-          window.clearTimeout(clickTimer);
-          clickTimer = null;
-        }
         this.showEventEditPopover(event, date, e, true);
       });
     }
@@ -1754,6 +1733,10 @@ export class DeskleafCalendarView extends ItemView {
     }
 
     const actions = popover.createDiv("dl-create-actions");
+    const deleteBtn = readOnly ? null : actions.createEl("button", {
+      cls: "dl-create-btn dl-create-btn--danger",
+      text: event.isOrganizer === false ? "Ablehnen" : "Löschen",
+    });
     const cancelBtn = actions.createEl("button", { cls: "dl-create-btn", text: readOnly ? "Schliessen" : "Abbrechen" });
     const saveBtn = readOnly ? null : actions.createEl("button", { cls: "dl-create-btn dl-create-btn--primary", text: "Speichern" });
 
@@ -1808,6 +1791,17 @@ export class DeskleafCalendarView extends ItemView {
 
     cancelBtn.addEventListener("mousedown", (ev) => ev.preventDefault());
     cancelBtn.addEventListener("click", close);
+    deleteBtn?.addEventListener("mousedown", (ev) => ev.preventDefault());
+    deleteBtn?.addEventListener("click", async () => {
+      const span = event.isRecurring ? await this.askRecurringEditSpan() : "this";
+      if (!span) return;
+      close();
+      try {
+        await this.plugin.calendarReader.cancelEvent(event.id, span === "series" ? "future" : "this");
+      } catch (err: any) {
+        new Notice(`Fehler: ${err?.message ?? err}`);
+      }
+    });
     saveBtn?.addEventListener("mousedown", (ev) => ev.preventDefault());
     saveBtn?.addEventListener("click", save);
     titleInput.addEventListener("keydown", (ev) => {

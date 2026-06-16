@@ -738,15 +738,25 @@
     border-left-width: 4px;
 }
 
-.dl-event-note-dot {
+.dl-event-note-action {
     position: absolute;
-    top: 3px;
-    right: 4px;
-    width: 8px;
-    height: 8px;
-    opacity: 0.75;
-    pointer-events: none;
+    top: 2px;
+    right: 3px;
+    width: 24px;
+    height: 24px;
+    opacity: 0.78;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
     flex-shrink: 0;
+    z-index: 5;
+}
+
+.dl-event-note-action:hover {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.2);
 }
 
 /* Multi-day continuation: square off the cut edge */
@@ -1064,6 +1074,19 @@
 }
 .dl-create-btn--primary:hover {
     filter: brightness(1.1);
+}
+
+.dl-create-btn--danger {
+    background: hsla(0, 70%, 55%, 0.12);
+    border-color: hsla(0, 70%, 55%, 0.4);
+    color: hsl(0, 60%, 50%);
+    margin-right: auto;
+}
+
+.theme-dark .dl-create-btn--danger {
+    background: hsla(0, 60%, 45%, 0.18);
+    border-color: hsla(0, 60%, 55%, 0.4);
+    color: hsl(0, 65%, 65%);
 }
 
 /* ── Mobile edit mode ────────────────────────────────────────────── */
