@@ -1,4 +1,4 @@
-import type { CalendarEvent } from "./types";
+import type { CalendarEvent, EventUpdate } from "./types";
 
 // ── Line unfolding & property parsing ────────────────────────────
 
@@ -104,6 +104,14 @@ function detectMeetingPlatform(haystack: string): string | undefined {
 }
 
 // ── VEVENT builder ────────────────────────────────────────────────
+
+function escapeText(s: string): string {
+  return s
+    .replace(/\\/g, "\\\\")
+    .replace(/\n/g, "\\n")
+    .replace(/,/g, "\\,")
+    .replace(/;/g, "\\;");
+}
 
 function buildProps(props: ICalProp[]): Record<string, ICalProp[]> {
   const map: Record<string, ICalProp[]> = {};
@@ -220,10 +228,10 @@ export function buildVEvent(params: {
     `DTSTAMP:${fmtDT(new Date())}`,
     dtStartLine,
     dtEndLine,
-    `SUMMARY:${(params.summary ?? "").replace(/\n/g, "\\n")}`,
+    `SUMMARY:${escapeText(params.summary ?? "")}`,
   ];
-  if (params.description) lines.push(`DESCRIPTION:${params.description.replace(/\n/g, "\\n")}`);
-  if (params.location) lines.push(`LOCATION:${params.location.replace(/\n/g, "\\n")}`);
+  if (params.description) lines.push(`DESCRIPTION:${escapeText(params.description)}`);
+  if (params.location) lines.push(`LOCATION:${escapeText(params.location)}`);
   lines.push("END:VEVENT", "END:VCALENDAR");
 
   return lines.join("\r\n") + "\r\n";
@@ -241,4 +249,27 @@ export function updateVEventTimes(icalText: string, newStart: string, newEnd: st
   return icalText
     .replace(/^DTSTART[^\r\n]*/m, dtStartLine)
     .replace(/^DTEND[^\r\n]*/m, dtEndLine);
+}
+
+function lineForTextProp(name: string, value: string | undefined): string | null {
+  const trimmed = value?.trim() ?? "";
+  return trimmed ? `${name}:${escapeText(trimmed)}` : null;
+}
+
+function upsertLine(icalText: string, propName: string, line: string | null): string {
+  const re = new RegExp(`^${propName}[^\\r\\n]*`, "m");
+  if (re.test(icalText)) {
+    if (line) return icalText.replace(re, line);
+    return icalText.replace(new RegExp(`^${propName}[^\\r\\n]*(\\r?\\n)?`, "m"), "");
+  }
+  if (!line) return icalText;
+  return icalText.replace(/^END:VEVENT/m, `${line}\r\nEND:VEVENT`);
+}
+
+export function updateVEvent(icalText: string, update: EventUpdate): string {
+  let next = updateVEventTimes(icalText, update.start, update.end);
+  next = upsertLine(next, "SUMMARY", `SUMMARY:${escapeText(update.title)}`);
+  next = upsertLine(next, "LOCATION", lineForTextProp("LOCATION", update.location));
+  next = upsertLine(next, "DESCRIPTION", lineForTextProp("DESCRIPTION", update.notes));
+  return next;
 }

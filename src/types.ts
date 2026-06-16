@@ -17,6 +17,16 @@ export interface CalendarEvent {
   organizer?: string | null;
 }
 
+export interface EventUpdate {
+  title: string;
+  start: string;
+  end: string;
+  location?: string;
+  notes?: string;
+  calendar?: string;
+  span?: "this" | "series";
+}
+
 // Frontmatter for event notes
 export interface EventNoteFrontmatter {
   "event-id": string;

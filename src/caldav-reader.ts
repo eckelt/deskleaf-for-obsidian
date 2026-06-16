@@ -1,8 +1,8 @@
 import { Notice } from "obsidian";
-import type { CalendarEvent } from "./types";
+import type { CalendarEvent, EventUpdate } from "./types";
 import { getEventsForDate, getAllDayEventsForDate } from "./event-filter";
 import { CalDAVClient, type CalDAVCalendar } from "./caldav-client";
-import { parseICalendar, buildVEvent, updateVEventTimes } from "./ical-parser";
+import { parseICalendar, buildVEvent, updateVEventTimes, updateVEvent } from "./ical-parser";
 
 const POLL_MS = 5 * 60 * 1000; // 5 minutes
 const DAYS_BACK = 90;
@@ -21,6 +21,7 @@ export class CalDAVReader {
   selectedCalendars: string[] = []; // hrefs; leer = alle
   // uid → absolute href, populated during fetch
   private hrefMap = new Map<string, string>();
+  private calendarHrefMap = new Map<string, string>();
   private initialLoaded = false;
   private saveCache: ((events: CalendarEvent[], date: string) => Promise<void>) | null = null;
   private loadCacheFn: (() => Promise<{ events: CalendarEvent[]; date: string | null }>) | null = null;
@@ -37,6 +38,7 @@ export class CalDAVReader {
     this.principalPath = `/dav/principals/user/${encodeURIComponent(username)}/`;
     this.calendars = [];
     this.hrefMap.clear();
+    this.calendarHrefMap.clear();
   }
 
   // ── CalendarReader-compatible interface ───────────────────────
@@ -113,6 +115,7 @@ export class CalDAVReader {
 
       const allEvents: CalendarEvent[] = [];
       this.hrefMap.clear();
+      this.calendarHrefMap.clear();
 
       const skipped: string[] = [];
       for (const calendar of active) {
@@ -123,6 +126,7 @@ export class CalDAVReader {
             for (const ev of parsed) {
               allEvents.push(ev);
               this.hrefMap.set(ev.id, href);
+              this.calendarHrefMap.set(ev.id, calendar.href);
             }
           }
         } catch (err) {
@@ -197,6 +201,28 @@ export class CalDAVReader {
     await this.fetchAll();
   }
 
+  async updateEvent(id: string, update: EventUpdate): Promise<void> {
+    const href = this.requireHref(id);
+    const currentIcal = await this.client.getEvent(href);
+    if (update.span === "series" && currentIcal.includes("RECURRENCE-ID")) {
+      throw new Error("Serienbearbeitung ist für diese CalDAV-Instanz nicht eindeutig möglich");
+    }
+
+    const updatedIcal = updateVEvent(currentIcal, update);
+    const targetCalendar = this.resolveCalendar(update.calendar);
+    const currentCalendarHref = this.calendarHrefMap.get(id);
+    const uid = this.uidFromId(id);
+    const targetHref = this.client.hrefForEvent(targetCalendar.href, uid);
+
+    if (!currentCalendarHref || currentCalendarHref === targetCalendar.href) {
+      await this.client.putEvent(href, updatedIcal, false);
+    } else {
+      await this.client.putEvent(targetHref, updatedIcal, true);
+      await this.client.deleteEvent(href);
+    }
+    await this.fetchAll();
+  }
+
   async cancelEvent(id: string, _span: "this" | "future" = "this"): Promise<void> {
     const href = this.requireHref(id);
     await this.client.deleteEvent(href);
@@ -217,5 +243,9 @@ export class CalDAVReader {
     const href = this.hrefMap.get(id);
     if (!href) throw new Error(`Event ${id} nicht gefunden`);
     return href;
+  }
+
+  private uidFromId(id: string): string {
+    return id.includes("_") ? id.slice(0, id.indexOf("_")) : id;
   }
 }

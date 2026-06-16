@@ -120,7 +120,7 @@ func fetchAndPrint(daysBack: Int, daysForward: Int) {
 
 let cmdArgs = CommandLine.arguments
 guard cmdArgs.count > 1 else {
-    fputs("Usage: deskleaf-calendar-sync <export|watch|create|cancel> [options]\n", stderr)
+    fputs("Usage: deskleaf-calendar-sync <export|watch|create|move|update|cancel> [options]\n", stderr)
     exit(1)
 }
 
@@ -209,6 +209,40 @@ Task {
             exit(0)
         } catch {
             fputs("Failed to move event: \(error)\n", stderr); exit(1)
+        }
+
+    case "update":
+        let eid      = strArg("--id")
+        let title    = strArg("--title")
+        let startStr = strArg("--start")
+        let endStr   = strArg("--end")
+        guard !eid.isEmpty, !title.isEmpty, !startStr.isEmpty, !endStr.isEmpty else {
+            fputs("update requires --id --title --start --end\n", stderr); exit(1)
+        }
+        guard let ev = findEvent(eid) else {
+            fputs("Event not found: \(eid)\n", stderr); exit(1)
+        }
+        guard let sd = parseDate(startStr), let ed = parseDate(endStr) else {
+            fputs("Invalid ISO 8601 date\n", stderr); exit(1)
+        }
+        let span: EKSpan = strArg("--span") == "series" ? .futureEvents : .thisEvent
+        ev.title = title
+        ev.startDate = sd
+        ev.endDate = ed
+        let notes = strArg("--notes"); ev.notes = notes.isEmpty ? nil : notes
+        let loc = strArg("--location"); ev.location = loc.isEmpty ? nil : loc
+        let calName = strArg("--calendar")
+        if !calName.isEmpty {
+            guard let targetCal = store.calendars(for: .event).first(where: { $0.title == calName }) else {
+                fputs("Calendar not found: \(calName)\n", stderr); exit(1)
+            }
+            ev.calendar = targetCal
+        }
+        do {
+            try store.save(ev, span: span, commit: true)
+            exit(0)
+        } catch {
+            fputs("Failed to update event: \(error)\n", stderr); exit(1)
         }
 
     case "cancel":

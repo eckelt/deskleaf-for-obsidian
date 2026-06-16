@@ -49,6 +49,25 @@ export class NoteManager {
     return { file: await this.createNote(event), isNew: true };
   }
 
+  async syncEventNote(previousEvent: CalendarEvent, updatedEvent: CalendarEvent): Promise<void> {
+    const file = this.noteExists(previousEvent);
+    if (!file) return;
+
+    await this.app.fileManager.processFrontMatter(file, (fm) => {
+      fm["event-id"] = updatedEvent.id;
+      fm.title = updatedEvent.title;
+      fm.date = updatedEvent.start.slice(0, 10);
+      fm.start = toTimeStr(updatedEvent.start);
+      fm.end = toTimeStr(updatedEvent.end);
+      fm.location = (updatedEvent.location ?? "").replace(/\n/g, ", ");
+    });
+
+    const content = await this.app.vault.read(file);
+    const withHeading = this.replaceEventHeading(content, previousEvent.title, updatedEvent.title);
+    const patched = this.replaceDescription(withHeading, cleanBody(updatedEvent.body));
+    if (patched !== content) await this.app.vault.modify(file, patched);
+  }
+
   private async patchDescription(file: TFile, event: CalendarEvent): Promise<void> {
     const cleaned = cleanBody(event.body);
     if (!cleaned) return;
@@ -60,6 +79,38 @@ export class NoteManager {
     const insertAt = fmEnd === -1 ? 0 : fmEnd + 4;
     const patched = content.slice(0, insertAt) + "\n" + section + content.slice(insertAt).replace(/^\n/, "");
     await this.app.vault.modify(file, patched);
+  }
+
+  private replaceEventHeading(content: string, oldTitle: string, newTitle: string): string {
+    const lines = content.split("\n");
+    const firstHeading = lines.findIndex((line) => /^#\s+/.test(line));
+    if (firstHeading === -1) return content;
+    const current = lines[firstHeading].replace(/^#\s+/, "").trim();
+    if (current !== oldTitle) return content;
+    lines[firstHeading] = `# ${newTitle}`;
+    return lines.join("\n");
+  }
+
+  private replaceDescription(content: string, description: string): string {
+    const normalized = content.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+    const heading = "## Beschreibung";
+    const start = normalized.indexOf(heading);
+    if (!description && start === -1) return normalized;
+
+    if (start === -1) {
+      const fmEnd = normalized.indexOf("\n---", 3);
+      const insertAt = fmEnd === -1 ? 0 : fmEnd + 4;
+      const section = `\n${heading}\n${description}\n`;
+      return normalized.slice(0, insertAt) + section + normalized.slice(insertAt).replace(/^\n/, "\n");
+    }
+
+    const afterHeading = start + heading.length;
+    const nextHeading = normalized.slice(afterHeading).search(/\n##\s+/);
+    const end = nextHeading === -1 ? normalized.length : afterHeading + nextHeading;
+    if (!description) {
+      return (normalized.slice(0, start) + normalized.slice(end)).replace(/\n{3,}/g, "\n\n");
+    }
+    return `${normalized.slice(0, afterHeading)}\n${description}\n${normalized.slice(end).replace(/^\n?/, "\n")}`;
   }
 
   private async createNote(event: CalendarEvent): Promise<TFile> {

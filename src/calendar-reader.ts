@@ -1,5 +1,5 @@
 import { Notice } from "obsidian";
-import type { CalendarEvent } from "./types";
+import type { CalendarEvent, EventUpdate } from "./types";
 import { getEventsForDate, getAllDayEventsForDate } from "./event-filter";
 import type { ChildProcess, execFile as ExecFile, spawn as Spawn } from "child_process";
 import type { existsSync as ExistsSync } from "fs";
@@ -242,6 +242,27 @@ export class CalendarReader {
         { timeout: 10_000 },
         (err) => { if (err) { reject(err); return; } resolve(); }
       );
+    });
+  }
+
+  async updateEvent(id: string, update: EventUpdate): Promise<void> {
+    if (!this.execFile) return Promise.reject(new Error("Nicht auf diesem Gerät verfügbar"));
+    return new Promise((resolve, reject) => {
+      const args = [
+        "update",
+        "--id", id,
+        "--title", update.title,
+        "--start", update.start,
+        "--end", update.end,
+        "--span", update.span ?? "this",
+        "--calendar", update.calendar ?? "",
+        "--location", update.location ?? "",
+        "--notes", update.notes ?? "",
+      ];
+      this.execFile!(this.binaryPath, args, { timeout: 10_000 }, (err) => {
+        if (err) { reject(err); return; }
+        resolve();
+      });
     });
   }
 

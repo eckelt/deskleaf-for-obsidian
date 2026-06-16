@@ -1,7 +1,7 @@
 # Feature: Edit Existing Events
 
 ## Status
-`approved`
+`qa`
 <!-- draft → ux-reviewed → design-reviewed → approved → in-development → qa → done -->
 
 ## User Story
@@ -235,4 +235,36 @@ Regeln:
 ---
 
 ## QA Report
-_Pending_
+**Datum:** 2026-06-16
+**Status:** QA pending manual Obsidian verification.
+
+### Automated Verification
+
+- `npm test`: PASS — 9 test files, 151 tests.
+- `npm run build`: PASS.
+- `swift test`: PASS.
+- `bash deploy.sh`: PASS — built JS/CSS, ran Vitest, built `deskleaf-calendar-sync`, copied `main.js`, `styles.css`, `manifest.json`, and `deskleaf-calendar-sync` into the local Obsidian plugin folder.
+
+### Implemented Coverage
+
+| AC | Automated / Code Coverage | Status |
+|---|---|---|
+| AC1 Desktop double-click opens editor | Implemented in `calendar-view.ts`; needs manual Obsidian check for click vs double-click feel | Pending manual |
+| AC2 Mobile long-press opens editor | Implemented by redirecting long-press from mobile move mode to edit popover | Pending manual |
+| AC3 Initial values in editor | Implemented for title, start/end, location, description, calendar | Pending manual |
+| AC4 Save/discard title/time/location/description/calendar | Implemented through `EventUpdate`, CalDAV update path, Swift `update` command | Pending backend manual |
+| AC5 Discard does not mutate | Editor cancel removes popover without backend or note calls | PASS by code inspection |
+| AC6 Save updates backend and reloads calendar | CalDAV calls `fetchAll()` after update; EventKit command added, watch process handles refresh | Pending manual EventKit/CalDAV |
+| AC7 Recurring asks this vs series | Implemented via `askRecurringEditSpan()` | Pending manual |
+| AC8 Validation | Empty title, missing start/end, and invalid time range block save | PASS by code inspection |
+| AC9 iCal feed events read-only | Read-only detection includes `isFeedEvent(event)` | PASS by code inspection |
+| AC10 Participants excluded | No participant fields in editor or update contract | PASS |
+| AC11 Linked note sync | `NoteManager.syncEventNote()` implemented and covered by tests | PASS automated |
+| AC12 Existing note open/create behavior | Single-click path retained with double-click delay | Pending manual feel check |
+| AC13 Non-organizer read-only | Read-only detection includes `event.isOrganizer === false` | PASS by code inspection |
+
+### Notes
+
+- CalDAV calendar switching writes to the target calendar before deleting the old resource. If the final delete fails after a successful PUT, Deskleaf reports an error but does not roll back.
+- CalDAV series editing remains conservative: expanded recurrence resources with `RECURRENCE-ID` reject `"series"` instead of silently editing the wrong object.
+- Existing event-note files are not renamed during note sync.

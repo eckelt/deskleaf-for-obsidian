@@ -11,7 +11,7 @@ import {
   normalizePath,
 } from "obsidian";
 import type DeskleafPlugin from "./main";
-import type { CalendarEvent } from "./types";
+import type { CalendarEvent, EventUpdate } from "./types";
 import { isFeedEvent } from "./ical-feed-manager";
 import {
   toDateStr,
@@ -1184,7 +1184,8 @@ export class DeskleafCalendarView extends ItemView {
         });
     }
 
-    const canEdit = !event.isCancelled && !Platform.isMobile && !isFeedEvent(event);
+    const isReadOnly = event.isCancelled || isFeedEvent(event) || event.isOrganizer === false || event.isAllDay;
+    const canEdit = !isReadOnly && !Platform.isMobile;
 
     card.addEventListener("contextmenu", (e) => {
       e.stopPropagation();
@@ -1207,6 +1208,7 @@ export class DeskleafCalendarView extends ItemView {
 
       // Drag-to-move: track drag vs click
       let wasDrag = false;
+      let clickTimer: number | null = null;
       card.addEventListener("mousedown", (e) => {
         if (e.button !== 0) return;
         if ((e.target as HTMLElement).closest(".dl-resize-handle")) return;
@@ -1222,12 +1224,39 @@ export class DeskleafCalendarView extends ItemView {
           wasDrag = false;
           return;
         }
-        this.openEvent(event, e.metaKey || e.ctrlKey);
+        if (clickTimer !== null) window.clearTimeout(clickTimer);
+        clickTimer = window.setTimeout(() => {
+          clickTimer = null;
+          this.openEvent(event, e.metaKey || e.ctrlKey);
+        }, 220);
+      });
+      card.addEventListener("dblclick", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (clickTimer !== null) {
+          window.clearTimeout(clickTimer);
+          clickTimer = null;
+        }
+        this.showEventEditPopover(event, date, e, false);
       });
     } else if (!Platform.isMobile) {
+      let clickTimer: number | null = null;
       card.addEventListener("click", (e) => {
         e.stopPropagation();
-        this.openEvent(event, e.metaKey || e.ctrlKey);
+        if (clickTimer !== null) window.clearTimeout(clickTimer);
+        clickTimer = window.setTimeout(() => {
+          clickTimer = null;
+          this.openEvent(event, e.metaKey || e.ctrlKey);
+        }, 220);
+      });
+      card.addEventListener("dblclick", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (clickTimer !== null) {
+          window.clearTimeout(clickTimer);
+          clickTimer = null;
+        }
+        this.showEventEditPopover(event, date, e, true);
       });
     }
   }
@@ -1244,7 +1273,7 @@ export class DeskleafCalendarView extends ItemView {
       const timer = window.setTimeout(() => {
         fired = true;
         if ((navigator as any).vibrate) (navigator as any).vibrate(12);
-        this.enterMobileEditMode(event, date, cardEl);
+        this.showEventEditPopover(event, date, e, !!event.isCancelled || isFeedEvent(event) || event.isOrganizer === false || !!event.isAllDay);
       }, 350);
 
       const onMove = (ev: TouchEvent) => {
@@ -1635,6 +1664,218 @@ export class DeskleafCalendarView extends ItemView {
       }
       titleInput.focus();
     }, 0);
+  }
+
+  private showEventEditPopover(
+    event: CalendarEvent,
+    date: string,
+    source: MouseEvent | TouchEvent,
+    readOnly: boolean,
+  ) {
+    document.querySelector(".dl-create-popover")?.remove();
+    this.hideHoverPopover();
+
+    const popover = document.body.createDiv("dl-create-popover dl-edit-popover");
+    const parseTime = (s: string) => { const [h, m] = s.split(":").map(Number); return (h || 0) * 60 + (m || 0); };
+    const initialStart = new Date(event.start);
+    const initialEnd = new Date(event.end);
+    const startMin = initialStart.getHours() * 60 + initialStart.getMinutes();
+    const endMin = initialEnd.getHours() * 60 + initialEnd.getMinutes();
+
+    const titleInput = popover.createEl("input", {
+      type: "text",
+      cls: "dl-create-input",
+      placeholder: "Titel...",
+    } as any) as HTMLInputElement;
+    titleInput.value = event.title;
+    titleInput.disabled = readOnly;
+
+    const timeRow = popover.createDiv("dl-create-time-row");
+    const startInput = timeRow.createEl("input", { type: "time", cls: "dl-create-time-input" } as any) as HTMLInputElement;
+    startInput.step = "900";
+    startInput.value = minsToTimeStr(startMin);
+    startInput.disabled = readOnly;
+    timeRow.createSpan({ cls: "dl-create-time-sep", text: "-" });
+    const endInput = timeRow.createEl("input", { type: "time", cls: "dl-create-time-input" } as any) as HTMLInputElement;
+    endInput.step = "900";
+    endInput.value = minsToTimeStr(endMin);
+    endInput.disabled = readOnly;
+
+    const locationInput = popover.createEl("input", {
+      type: "text",
+      cls: "dl-create-input",
+      placeholder: "Ort",
+    } as any) as HTMLInputElement;
+    locationInput.value = event.location ?? "";
+    locationInput.disabled = readOnly;
+
+    const descInput = popover.createEl("textarea", {
+      cls: "dl-create-desc",
+      placeholder: "Beschreibung",
+    } as any) as HTMLTextAreaElement;
+    descInput.value = event.body ?? "";
+    descInput.disabled = readOnly;
+
+    const { discoveredCalendars, selectedCalendars } = this.plugin.settings.caldav;
+    const activeCals = discoveredCalendars.filter(c => selectedCalendars.length === 0 || selectedCalendars.includes(c.href));
+    let calendarValue = event.calendar ?? "";
+    if (activeCals.length > 0) {
+      const calRow = popover.createDiv("dl-create-cal-row");
+      const knownCalendars = activeCals.some(c => c.displayName === calendarValue)
+        ? activeCals
+        : [{ href: "", displayName: calendarValue }, ...activeCals].filter(c => c.displayName);
+      for (const c of knownCalendars) {
+        const chip = calRow.createDiv("dl-create-cal-chip");
+        if (c.displayName === calendarValue) chip.addClass("dl-create-cal-chip--active");
+        const dot = chip.createDiv("dl-create-cal-dot");
+        dot.style.background = `hsl(${this.calendarHue(c.displayName)}, 65%, 52%)`;
+        chip.createSpan({ text: c.displayName });
+        if (!readOnly) {
+          chip.addEventListener("click", () => {
+            calendarValue = c.displayName;
+            calRow.querySelectorAll(".dl-create-cal-chip--active").forEach(el => el.removeClass("dl-create-cal-chip--active"));
+            chip.addClass("dl-create-cal-chip--active");
+          });
+        }
+      }
+    } else {
+      const calendarInput = popover.createEl("input", {
+        type: "text",
+        cls: "dl-create-input",
+        placeholder: "Kalender",
+      } as any) as HTMLInputElement;
+      calendarInput.value = calendarValue;
+      calendarInput.disabled = readOnly;
+      calendarInput.addEventListener("input", () => { calendarValue = calendarInput.value.trim(); });
+    }
+
+    if (readOnly) {
+      popover.createDiv({ cls: "setting-item-description", text: "Dieses Event ist in Deskleaf schreibgeschuetzt." });
+    }
+
+    const actions = popover.createDiv("dl-create-actions");
+    const cancelBtn = actions.createEl("button", { cls: "dl-create-btn", text: readOnly ? "Schliessen" : "Abbrechen" });
+    const saveBtn = readOnly ? null : actions.createEl("button", { cls: "dl-create-btn dl-create-btn--primary", text: "Speichern" });
+
+    const clearErrors = () => {
+      titleInput.style.borderColor = "";
+      startInput.style.borderColor = "";
+      endInput.style.borderColor = "";
+    };
+    const validate = (): EventUpdate | null => {
+      clearErrors();
+      const title = titleInput.value.trim();
+      const s = parseTime(startInput.value);
+      const e = parseTime(endInput.value);
+      if (!title) { titleInput.style.borderColor = "var(--color-red)"; titleInput.focus(); return null; }
+      if (!startInput.value) { startInput.style.borderColor = "var(--color-red)"; startInput.focus(); return null; }
+      if (!endInput.value || e <= s) { endInput.style.borderColor = "var(--color-red)"; endInput.focus(); return null; }
+      return {
+        title,
+        start: minsToISO(date, s),
+        end: minsToISO(date, e),
+        location: locationInput.value.trim(),
+        notes: descInput.value.trim(),
+        calendar: calendarValue,
+      };
+    };
+    const close = () => { popover.remove(); cleanup(); };
+    const save = async () => {
+      const update = validate();
+      if (!update) return;
+      if (event.isRecurring) {
+        const span = await this.askRecurringEditSpan();
+        if (!span) return;
+        update.span = span;
+      }
+      close();
+      try {
+        await this.plugin.calendarReader.updateEvent(event.id, update);
+        const updatedEvent: CalendarEvent = {
+          ...event,
+          title: update.title,
+          start: update.start,
+          end: update.end,
+          location: update.location ?? null,
+          body: update.notes ?? null,
+          calendar: update.calendar,
+        };
+        await this.plugin.noteManager.syncEventNote(event, updatedEvent);
+      } catch (err: any) {
+        new Notice(`Fehler beim Speichern: ${err?.message ?? err}`);
+      }
+    };
+
+    cancelBtn.addEventListener("mousedown", (ev) => ev.preventDefault());
+    cancelBtn.addEventListener("click", close);
+    saveBtn?.addEventListener("mousedown", (ev) => ev.preventDefault());
+    saveBtn?.addEventListener("click", save);
+    titleInput.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter" && !readOnly) { ev.preventDefault(); save(); }
+      if (ev.key === "Escape") close();
+    });
+
+    const onOutside = (ev: Event) => {
+      if (!popover.contains(ev.target as Node)) close();
+    };
+    const cleanup = () => {
+      document.removeEventListener("mousedown", onOutside);
+      document.removeEventListener("touchstart", onOutside);
+    };
+    setTimeout(() => {
+      document.addEventListener("mousedown", onOutside);
+      document.addEventListener("touchstart", onOutside);
+    }, 0);
+
+    const pos = this.eventPosition(source);
+    if (Platform.isMobile) {
+      popover.addClass("dl-create-popover--mobile");
+      popover.style.left = "50%";
+      popover.style.transform = "translateX(-50%)";
+      popover.style.top = "12%";
+    } else {
+      popover.style.left = `${pos.clientX + 12}px`;
+      popover.style.top = `${pos.clientY - 24}px`;
+      requestAnimationFrame(() => {
+        const r = popover.getBoundingClientRect();
+        if (r.right > window.innerWidth - 8) popover.style.left = `${pos.clientX - r.width - 12}px`;
+        if (r.bottom > window.innerHeight - 8) popover.style.top = `${window.innerHeight - r.height - 8}px`;
+      });
+    }
+    titleInput.focus();
+  }
+
+  private eventPosition(source: MouseEvent | TouchEvent): { clientX: number; clientY: number } {
+    if ("touches" in source) {
+      const touch = source.touches[0] ?? source.changedTouches[0];
+      if (touch) return { clientX: touch.clientX, clientY: touch.clientY };
+    }
+    return {
+      clientX: (source as MouseEvent).clientX ?? window.innerWidth / 2,
+      clientY: (source as MouseEvent).clientY ?? window.innerHeight / 2,
+    };
+  }
+
+  private askRecurringEditSpan(): Promise<"this" | "series" | null> {
+    return new Promise((resolve) => {
+      const modal = document.body.createDiv("dl-create-popover dl-edit-scope-popover");
+      modal.createDiv({ cls: "dl-hover-title", text: "Wiederkehrenden Termin aendern" });
+      modal.createDiv({ cls: "setting-item-description", text: "Soll nur dieser Termin oder die Serie geaendert werden?" });
+      const actions = modal.createDiv("dl-create-actions");
+      const cancel = actions.createEl("button", { cls: "dl-create-btn", text: "Abbrechen" });
+      const one = actions.createEl("button", { cls: "dl-create-btn", text: "Nur dieser Termin" });
+      const series = actions.createEl("button", { cls: "dl-create-btn dl-create-btn--primary", text: "Serie" });
+      modal.style.left = "50%";
+      modal.style.top = "18%";
+      modal.style.transform = "translateX(-50%)";
+      const finish = (span: "this" | "series" | null) => {
+        modal.remove();
+        resolve(span);
+      };
+      cancel.addEventListener("click", () => finish(null));
+      one.addEventListener("click", () => finish("this"));
+      series.addEventListener("click", () => finish("series"));
+    });
   }
 
   private onDayTouchStart(e: TouchEvent, dayEl: HTMLElement, date: string) {
