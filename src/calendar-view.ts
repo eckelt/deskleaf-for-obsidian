@@ -1184,7 +1184,7 @@ export class DeskleafCalendarView extends ItemView {
         });
     }
 
-    const isReadOnly = event.isCancelled || isFeedEvent(event) || event.isOrganizer === false || event.isAllDay;
+    const isReadOnly = !!event.isCancelled || isFeedEvent(event) || !!event.isAllDay;
     const canEdit = !isReadOnly && !Platform.isMobile;
 
     card.addEventListener("contextmenu", (e) => {
@@ -1273,7 +1273,7 @@ export class DeskleafCalendarView extends ItemView {
       const timer = window.setTimeout(() => {
         fired = true;
         if ((navigator as any).vibrate) (navigator as any).vibrate(12);
-        this.showEventEditPopover(event, date, e, !!event.isCancelled || isFeedEvent(event) || event.isOrganizer === false || !!event.isAllDay);
+        this.showEventEditPopover(event, date, e, !!event.isCancelled || isFeedEvent(event) || !!event.isAllDay);
       }, 350);
 
       const onMove = (ev: TouchEvent) => {

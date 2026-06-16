@@ -922,10 +922,19 @@
     padding: 10px 12px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.18);
     min-width: 260px;
+    max-width: min(360px, calc(100vw - 24px));
+    max-height: calc(100vh - 24px);
+    overflow: auto;
+    box-sizing: border-box;
     display: flex;
     flex-direction: column;
     gap: 8px;
 }
+
+.dl-edit-popover {
+    width: min(360px, calc(100vw - 24px));
+}
+
 .dl-create-popover--mobile {
     min-width: min(320px, calc(100vw - 32px));
     max-width: calc(100vw - 32px);

@@ -236,7 +236,7 @@ Regeln:
 
 ## QA Report
 **Datum:** 2026-06-16
-**Status:** QA pending manual Obsidian verification.
+**Status:** QA failed once, fix implemented; pending manual retest.
 
 ### Automated Verification
 
@@ -268,3 +268,13 @@ Regeln:
 - CalDAV calendar switching writes to the target calendar before deleting the old resource. If the final delete fails after a successful PUT, Deskleaf reports an error but does not roll back.
 - CalDAV series editing remains conservative: expanded recurrence resources with `RECURRENCE-ID` reject `"series"` instead of silently editing the wrong object.
 - Existing event-note files are not renamed during note sync.
+
+### QA Feedback 2026-06-16
+
+Manual QA found two blockers:
+- Desktop edit form could render wider than the window.
+- All CalDAV events appeared read-only because `isOrganizer` is not reliable for CalDAV events.
+
+Fix:
+- Edit popover now has viewport-safe width, max-width, max-height and overflow handling.
+- Read-only gating no longer uses `isOrganizer === false` as a blanket block. iCal feed events, cancelled events and all-day events remain read-only.
