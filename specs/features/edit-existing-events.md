@@ -337,3 +337,13 @@ Fix:
 - `updateVEventTimes()` now updates `DTSTART` and `DTEND` only inside the first `VEVENT`.
 - Summary, location and description upserts are also scoped to `VEVENT`.
 - Added a regression test with `VTIMEZONE DTSTART` before the event.
+
+### QA Feedback 2026-06-16, mobile handle edit mode
+
+Manual QA requested the mobile tap-hold flow to enable start/end handles instead of opening the details form.
+
+Fix:
+- Mobile tap-hold now enters the existing handle edit mode for writable timed events.
+- Top and bottom handles can be adjusted repeatedly while the edit mode stays open.
+- Changes are committed when tapping outside the event/edit controls.
+- The close button exits the edit mode without committing additional changes.
