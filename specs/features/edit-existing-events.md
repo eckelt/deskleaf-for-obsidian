@@ -366,3 +366,12 @@ Change:
 - Desktop double-click opens or creates the linked note.
 - Mobile double-tap opens or creates the linked note.
 - Single-click/single-tap remains reserved for event editing.
+
+### QA Feedback 2026-06-16, note dot size and mobile double-tap
+
+Manual QA found that the note dot was still too large and mobile required triple-tap.
+
+Fix:
+- Note indicator dot is reduced to 5px and positioned inside the top-right corner radius.
+- Mobile double-tap detection now uses `touchend` directly instead of waiting for synthetic click events.
+- Synthetic clicks after mobile double-tap and long-press are suppressed to avoid opening the editor afterward.

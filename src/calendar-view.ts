@@ -1195,18 +1195,25 @@ export class DeskleafCalendarView extends ItemView {
     });
 
     if (Platform.isMobile) {
-      this.addEventLongPress(card, event, date);
+      let suppressTapUntil = 0;
+      this.addEventLongPress(card, event, date, () => {
+        suppressTapUntil = Date.now() + 500;
+      });
       let tapTimer: number | null = null;
       let lastTapAt = 0;
-      card.addEventListener("click", (e) => {
+      const singleTapDelayMs = 320;
+      card.addEventListener("touchend", (e) => {
         e.stopPropagation();
+        if (Date.now() < suppressTapUntil) return;
         const now = Date.now();
-        if (now - lastTapAt < 280) {
+        if (now - lastTapAt < singleTapDelayMs) {
+          e.preventDefault();
           if (tapTimer !== null) {
             window.clearTimeout(tapTimer);
             tapTimer = null;
           }
           lastTapAt = 0;
+          suppressTapUntil = now + 500;
           this.openEvent(event, false);
           return;
         }
@@ -1215,7 +1222,14 @@ export class DeskleafCalendarView extends ItemView {
         tapTimer = window.setTimeout(() => {
           tapTimer = null;
           this.showEventEditPopover(event, date, e, isReadOnly);
-        }, 280);
+        }, singleTapDelayMs);
+      });
+      card.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (Date.now() < suppressTapUntil) {
+          e.preventDefault();
+          return;
+        }
       });
     } else if (canEdit) {
       let wasDrag = false;
@@ -1296,7 +1310,7 @@ export class DeskleafCalendarView extends ItemView {
 
   // ── Mobile edit mode ─────────────────────────────────────────────
 
-  private addEventLongPress(cardEl: HTMLElement, event: CalendarEvent, date: string) {
+  private addEventLongPress(cardEl: HTMLElement, event: CalendarEvent, date: string, onLongPress?: () => void) {
     cardEl.addEventListener("touchstart", (e: TouchEvent) => {
       e.stopPropagation();
       if (!!event.isCancelled || isFeedEvent(event) || !!event.isAllDay) return;
@@ -1306,6 +1320,7 @@ export class DeskleafCalendarView extends ItemView {
 
       const timer = window.setTimeout(() => {
         fired = true;
+        onLongPress?.();
         if ((navigator as any).vibrate) (navigator as any).vibrate(12);
         this.enterMobileEditMode(event, date, cardEl);
       }, 350);
