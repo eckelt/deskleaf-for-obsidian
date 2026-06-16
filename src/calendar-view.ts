@@ -1111,15 +1111,9 @@ export class DeskleafCalendarView extends ItemView {
     card.style.left = `calc(${pct(col / totalCols)} + 1px)`;
     card.style.width = `calc(${pct(1 / totalCols)} - 3px)`;
 
-    const noteAction = card.createDiv("dl-event-note-action");
-    noteAction.addClass(noteFile ? "dl-event-note-action--exists" : "dl-event-note-action--missing");
-    noteAction.setAttribute("aria-label", noteFile ? "Notiz öffnen" : "Notiz erstellen");
-    noteAction.innerHTML = obsidianCrystalIconSvg(14);
-    noteAction.addEventListener("mousedown", (e) => e.stopPropagation());
-    noteAction.addEventListener("click", (e) => {
-      e.stopPropagation();
-      this.openEvent(event, e.metaKey || e.ctrlKey);
-    });
+    const noteIndicator = card.createDiv("dl-event-note-indicator");
+    noteIndicator.addClass(noteFile ? "dl-event-note-indicator--exists" : "dl-event-note-indicator--missing");
+    noteIndicator.setAttribute("aria-label", noteFile ? "Notiz vorhanden" : "Notiz fehlt");
 
     // Check for Teams/Meet/Jitsi early (check Jitsi first to avoid "meet" in "Jitsi Meet")
     const isJitsiCard =
@@ -1202,13 +1196,31 @@ export class DeskleafCalendarView extends ItemView {
 
     if (Platform.isMobile) {
       this.addEventLongPress(card, event, date);
+      let tapTimer: number | null = null;
+      let lastTapAt = 0;
       card.addEventListener("click", (e) => {
         e.stopPropagation();
-        this.showEventEditPopover(event, date, e, isReadOnly);
+        const now = Date.now();
+        if (now - lastTapAt < 280) {
+          if (tapTimer !== null) {
+            window.clearTimeout(tapTimer);
+            tapTimer = null;
+          }
+          lastTapAt = 0;
+          this.openEvent(event, false);
+          return;
+        }
+        lastTapAt = now;
+        if (tapTimer !== null) window.clearTimeout(tapTimer);
+        tapTimer = window.setTimeout(() => {
+          tapTimer = null;
+          this.showEventEditPopover(event, date, e, isReadOnly);
+        }, 280);
       });
     } else if (canEdit) {
       let wasDrag = false;
       let suppressNextClick = false;
+      let clickTimer: number | null = null;
 
       const topResizeHandle = card.createDiv("dl-resize-handle dl-resize-handle--top");
       topResizeHandle.addEventListener("mousedown", (e) => {
@@ -1229,7 +1241,7 @@ export class DeskleafCalendarView extends ItemView {
       // Drag-to-move: track drag vs click
       card.addEventListener("mousedown", (e) => {
         if (e.button !== 0) return;
-        if ((e.target as HTMLElement).closest(".dl-resize-handle, .dl-event-note-action")) return;
+        if ((e.target as HTMLElement).closest(".dl-resize-handle")) return;
         e.preventDefault();
         e.stopPropagation();
         wasDrag = false;
@@ -1240,17 +1252,44 @@ export class DeskleafCalendarView extends ItemView {
       });
       card.addEventListener("click", (e) => {
         e.stopPropagation();
-        if ((e.target as HTMLElement).closest(".dl-resize-handle, .dl-event-note-action") || wasDrag || suppressNextClick) {
+        if ((e.target as HTMLElement).closest(".dl-resize-handle") || wasDrag || suppressNextClick) {
           wasDrag = false;
           suppressNextClick = false;
           return;
         }
-        this.showEventEditPopover(event, date, e, false);
+        if (clickTimer !== null) window.clearTimeout(clickTimer);
+        clickTimer = window.setTimeout(() => {
+          clickTimer = null;
+          this.showEventEditPopover(event, date, e, false);
+        }, 220);
+      });
+      card.addEventListener("dblclick", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (clickTimer !== null) {
+          window.clearTimeout(clickTimer);
+          clickTimer = null;
+        }
+        this.openEvent(event, e.metaKey || e.ctrlKey);
       });
     } else if (!Platform.isMobile) {
+      let clickTimer: number | null = null;
       card.addEventListener("click", (e) => {
         e.stopPropagation();
-        this.showEventEditPopover(event, date, e, true);
+        if (clickTimer !== null) window.clearTimeout(clickTimer);
+        clickTimer = window.setTimeout(() => {
+          clickTimer = null;
+          this.showEventEditPopover(event, date, e, true);
+        }, 220);
+      });
+      card.addEventListener("dblclick", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (clickTimer !== null) {
+          window.clearTimeout(clickTimer);
+          clickTimer = null;
+        }
+        this.openEvent(event, e.metaKey || e.ctrlKey);
       });
     }
   }

@@ -678,7 +678,7 @@
     border: none;
     border-left: 4px solid hsl(var(--cal-h, var(--accent-h)), 88%, 47%);
     color: hsl(var(--cal-h, var(--accent-h)), 88%, 24%);
-    padding: 4px 31px 3px 6px;
+    padding: 4px 14px 3px 6px;
     cursor: pointer;
     overflow: hidden;
     border-radius: 5px;
@@ -738,35 +738,26 @@
     border-left-width: 4px;
 }
 
-.dl-event-note-action {
+.dl-event-note-indicator {
     position: absolute;
-    top: 2px;
+    top: 3px;
     right: 3px;
-    width: 24px;
-    height: 24px;
-    opacity: 0.78;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 4px;
+    width: 7px;
+    height: 7px;
+    opacity: 0.82;
+    border-radius: 50%;
     flex-shrink: 0;
     z-index: 5;
+    pointer-events: none;
 }
 
-.dl-event-note-action:hover {
-    opacity: 1;
-    background: rgba(255, 255, 255, 0.2);
+.dl-event-note-indicator--exists {
+    background: currentColor;
 }
 
-.dl-event-note-action--exists svg path {
-    fill: currentColor;
-}
-
-.dl-event-note-action--missing svg path {
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 10;
+.dl-event-note-indicator--missing {
+    background: transparent;
+    border: 1px solid currentColor;
 }
 
 /* Multi-day continuation: square off the cut edge */

@@ -355,3 +355,14 @@ Manual QA found that the clickable Obsidian note icon overlapped heavily with th
 Fix:
 - Event cards now reserve right-side padding for the note action target.
 - Title, time and location rows explicitly allow flex shrinking and ellipsis instead of rendering under the icon.
+
+### UX Experiment 2026-06-16, note open gesture
+
+Manual QA requested trying a less dominant note indicator and moving note open/create to a double gesture.
+
+Change:
+- The note state is shown as a small dot in the top-right card corner.
+- Existing notes use a filled dot; missing notes use an outlined dot.
+- Desktop double-click opens or creates the linked note.
+- Mobile double-tap opens or creates the linked note.
+- Single-click/single-tap remains reserved for event editing.
