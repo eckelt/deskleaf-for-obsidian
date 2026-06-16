@@ -311,3 +311,14 @@ Fix:
 - Desktop event cards now expose separate top and bottom resize handles for changing start and end time.
 - Time inputs now use minute-level stepping so half-hour and other minute values are accepted.
 - Added a documented `QA Agent` role with mandatory issue-comment checks and manual Obsidian QA coverage for calendar interactions.
+
+### QA Feedback 2026-06-16, start time and note indicator
+
+Manual QA found two remaining blockers:
+- End handle works, but changing the beginning/start time through the top handle or detail form does not persist correctly.
+- After making the Obsidian icon clickable, the visual indicator for missing notes was lost.
+
+Fix:
+- Start/end updates now derive their date from the actual event timestamps instead of the rendered day column.
+- The detail editor keeps the end time valid when the start time is moved after the previous end time.
+- Existing notes render a filled Obsidian icon; missing notes render an outlined Obsidian icon.

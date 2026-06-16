@@ -1112,6 +1112,7 @@ export class DeskleafCalendarView extends ItemView {
     card.style.width = `calc(${pct(1 / totalCols)} - 3px)`;
 
     const noteAction = card.createDiv("dl-event-note-action");
+    noteAction.addClass(noteFile ? "dl-event-note-action--exists" : "dl-event-note-action--missing");
     noteAction.setAttribute("aria-label", noteFile ? "Notiz öffnen" : "Notiz erstellen");
     noteAction.innerHTML = obsidianCrystalIconSvg(14);
     noteAction.addEventListener("mousedown", (e) => e.stopPropagation());
@@ -1674,6 +1675,9 @@ export class DeskleafCalendarView extends ItemView {
     const initialEnd = new Date(event.end);
     const startMin = initialStart.getHours() * 60 + initialStart.getMinutes();
     const endMin = initialEnd.getHours() * 60 + initialEnd.getMinutes();
+    const startDate = toDateStr(initialStart);
+    const endDate = toDateStr(initialEnd);
+    const durationMin = Math.max(15, Math.round((initialEnd.getTime() - initialStart.getTime()) / 60000));
 
     const titleInput = popover.createEl("input", {
       type: "text",
@@ -1693,6 +1697,15 @@ export class DeskleafCalendarView extends ItemView {
     endInput.step = "60";
     endInput.value = minsToTimeStr(endMin);
     endInput.disabled = readOnly;
+    const keepValidEndAfterStartChange = () => {
+      if (readOnly) return;
+      const s = parseTime(startInput.value);
+      const e = parseTime(endInput.value);
+      if (endInput.value && e > s) return;
+      endInput.value = minsToTimeStr(Math.min(23 * 60 + 59, s + durationMin));
+    };
+    startInput.addEventListener("input", keepValidEndAfterStartChange);
+    startInput.addEventListener("change", keepValidEndAfterStartChange);
 
     const locationInput = popover.createEl("input", {
       type: "text",
@@ -1769,8 +1782,8 @@ export class DeskleafCalendarView extends ItemView {
       if (!endInput.value || e <= s) { endInput.style.borderColor = "var(--color-red)"; endInput.focus(); return null; }
       return {
         title,
-        start: minsToISO(date, s),
-        end: minsToISO(date, e),
+        start: minsToISO(startDate, s),
+        end: minsToISO(endDate, e),
         location: locationInput.value.trim(),
         notes: descInput.value.trim(),
         calendar: calendarValue,
@@ -2059,6 +2072,8 @@ export class DeskleafCalendarView extends ItemView {
     let endMins =
       new Date(event.end).getHours() * 60 + new Date(event.end).getMinutes();
     const dayBody = cardEl.closest<HTMLElement>(".dl-day-body");
+    const startDate = toDateStr(new Date(event.start));
+    const endDate = toDateStr(new Date(event.end));
     const origTop = cardEl.offsetTop;
     const origH = cardEl.offsetHeight;
 
@@ -2094,8 +2109,8 @@ export class DeskleafCalendarView extends ItemView {
       try {
         await this.plugin.calendarReader.moveEvent(
           event.id,
-          minsToISO(date, startMins),
-          minsToISO(date, endMins),
+          minsToISO(startDate, startMins),
+          minsToISO(endDate, endMins),
         );
       } catch (err: any) {
         new Notice(`Fehler beim Ändern: ${err?.message ?? err}`);

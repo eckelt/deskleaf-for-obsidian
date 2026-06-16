@@ -759,6 +759,16 @@
     background: rgba(255, 255, 255, 0.2);
 }
 
+.dl-event-note-action--exists svg path {
+    fill: currentColor;
+}
+
+.dl-event-note-action--missing svg path {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 10;
+}
+
 /* Multi-day continuation: square off the cut edge */
 .dl-event-card--continues-after {
     border-bottom: none;
