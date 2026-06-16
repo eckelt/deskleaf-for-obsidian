@@ -38,7 +38,7 @@ _None_
 ## Design Decisions
 - Non-organizer events are read-only for this feature. RSVP and proposing a new time need a separate spec.
 - Mobile Long-Press is reassigned to the detail editor. The previous mobile move/resize mode can be removed or moved behind a future control, but it is not required for this feature.
-- CalDAV calendar switching is implemented as PUT to the target calendar collection followed by DELETE of the old resource. The old event must not be deleted if the target PUT fails.
+- CalDAV calendar switching is implemented by updating the existing resource and then moving it to the target calendar collection with CalDAV `MOVE`.
 - EventKit calendar switching is implemented in the Swift binary by changing `EKEvent.calendar` before saving.
 - Recurring edit scope is exposed in the UI as `"this"` vs `"series"`. The backend accepts that span explicitly.
 - Linked note synchronization happens only after the calendar backend save succeeds. If note sync fails after the calendar save, Deskleaf reports the note-sync error but does not roll back the calendar change.
@@ -160,11 +160,11 @@ Erforderliche Änderung:
 - Für Kalenderwechsel:
   1. altes `href` über `hrefMap` ermitteln.
   2. target calendar über `calendar` displayName auflösen.
-  3. aktualisiertes VEVENT per `PUT` in target calendar schreiben.
-  4. altes `href` erst danach per `DELETE` entfernen, wenn target href anders ist.
+  3. aktualisiertes VEVENT per `PUT` auf die bestehende Ressource schreiben.
+  4. bestehende Ressource per CalDAV `MOVE` in die target calendar collection verschieben, wenn target href anders ist.
   5. `fetchAll()` ausführen.
 - Bei fehlgeschlagenem PUT bleibt das alte Event unverändert.
-- Bei fehlgeschlagenem DELETE nach erfolgreichem PUT kann ein Duplikat entstehen. Dieser Fehler muss sichtbar gemeldet werden; automatisches Rollback ist nicht erforderlich.
+- Bei fehlgeschlagenem MOVE nach erfolgreichem PUT bleibt das aktualisierte Event im alten Kalender. Dieser Fehler muss sichtbar gemeldet werden; automatisches Rollback ist nicht erforderlich.
 
 Recurring:
 - `"this"` soll auf dem aktuell gefundenen Resource-Href arbeiten.
@@ -226,7 +226,7 @@ Regeln:
 
 | Risiko | Schwere | Entscheidung |
 |---|---|---|
-| CalDAV-Kalenderwechsel erzeugt Duplikat, wenn DELETE nach PUT fehlschlägt | Mittel | Fehler sichtbar melden, kein automatisches Rollback |
+| CalDAV-Kalenderwechsel schlägt nach erfolgreichem Feld-Update beim MOVE fehl | Mittel | Fehler sichtbar melden, kein automatisches Rollback |
 | Recurring-Serie ist backendabhängig | Hoch | Scope-Dialog, konservative Backend-Fehler statt stiller falscher Änderung |
 | Doppelklick öffnet versehentlich Notiz | Mittel | Click/Dblclick-Verhalten explizit testen |
 | Note-Sync nach Kalender-Save schlägt fehl | Mittel | Kalenderänderung bleibt bestehen; Nutzer sieht Fehler |
@@ -265,7 +265,7 @@ Regeln:
 
 ### Notes
 
-- CalDAV calendar switching writes to the target calendar before deleting the old resource. If the final delete fails after a successful PUT, Deskleaf reports an error but does not roll back.
+- CalDAV calendar switching updates the existing resource and then moves it to the target calendar with CalDAV `MOVE`. If the final MOVE fails after a successful PUT, Deskleaf reports an error but does not roll back.
 - CalDAV series editing remains conservative: expanded recurrence resources with `RECURRENCE-ID` reject `"series"` instead of silently editing the wrong object.
 - Existing event-note files are not renamed during note sync.
 
@@ -278,3 +278,10 @@ Manual QA found two blockers:
 Fix:
 - Edit popover now has viewport-safe width, max-width, max-height and overflow handling.
 - Read-only gating no longer uses `isOrganizer === false` as a blanket block. iCal feed events, cancelled events and all-day events remain read-only.
+
+### QA Feedback 2026-06-16, CalDAV move
+
+Manual QA found that PUT-to-target before deleting the old resource fails on CalDAV providers that enforce UID uniqueness across calendar collections (`unique-scheduling-object-resource`).
+
+Fix:
+- Calendar switching now updates the existing CalDAV resource in place, then moves that resource to the target calendar with CalDAV `MOVE`.

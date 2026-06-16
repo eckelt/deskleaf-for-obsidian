@@ -141,6 +141,14 @@ export class CalDAVClient {
     if (resp.status >= 400 && resp.status !== 404) throw new Error(`CalDAV DELETE ${resp.status}`);
   }
 
+  async moveEvent(sourceHref: string, destinationHref: string): Promise<void> {
+    const resp = await this.req("MOVE", sourceHref, undefined, {
+      Destination: this.abs(destinationHref),
+      Overwrite: "F",
+    });
+    if (resp.status >= 400) throw new Error(`CalDAV MOVE ${resp.status}: ${resp.text.slice(0, 300)}`);
+  }
+
   hrefForEvent(calendarHref: string, uid: string): string {
     const base = this.abs(calendarHref.endsWith("/") ? calendarHref : calendarHref + "/");
     return `${base}${uid}.ics`;

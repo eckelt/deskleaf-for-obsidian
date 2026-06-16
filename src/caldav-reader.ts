@@ -217,8 +217,8 @@ export class CalDAVReader {
     if (!currentCalendarHref || currentCalendarHref === targetCalendar.href) {
       await this.client.putEvent(href, updatedIcal, false);
     } else {
-      await this.client.putEvent(targetHref, updatedIcal, true);
-      await this.client.deleteEvent(href);
+      await this.client.putEvent(href, updatedIcal, false);
+      await this.client.moveEvent(href, targetHref);
     }
     await this.fetchAll();
   }
