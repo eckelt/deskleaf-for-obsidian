@@ -322,3 +322,18 @@ Fix:
 - Start/end updates now derive their date from the actual event timestamps instead of the rendered day column.
 - The detail editor keeps the end time valid when the start time is moved after the previous end time.
 - Existing notes render a filled Obsidian icon; missing notes render an outlined Obsidian icon.
+
+### QA Feedback 2026-06-16, CalDAV DTSTART target
+
+Manual QA still found that only the end time persisted when changing an event start.
+
+Root cause:
+- Real CalDAV `.ics` resources may contain `VTIMEZONE` blocks before `VEVENT`.
+- Those blocks can contain their own `DTSTART`.
+- The previous writer replaced the first `DTSTART` in the whole file, which changed the timezone block instead of the event start.
+- `DTEND` appeared to work because timezone blocks usually do not contain `DTEND`.
+
+Fix:
+- `updateVEventTimes()` now updates `DTSTART` and `DTEND` only inside the first `VEVENT`.
+- Summary, location and description upserts are also scoped to `VEVENT`.
+- Added a regression test with `VTIMEZONE DTSTART` before the event.

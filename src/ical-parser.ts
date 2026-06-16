@@ -246,9 +246,11 @@ export function updateVEventTimes(icalText: string, newStart: string, newEnd: st
     ? `DTEND;VALUE=DATE:${newEnd.replace(/-/g, "")}`
     : `DTEND:${fmtDT(new Date(newEnd))}`;
 
-  return icalText
-    .replace(/^DTSTART[^\r\n]*/m, dtStartLine)
-    .replace(/^DTEND[^\r\n]*/m, dtEndLine);
+  return updateFirstVEvent(icalText, (eventText) => {
+    let next = upsertEventLine(eventText, "DTSTART", dtStartLine);
+    next = upsertEventLine(next, "DTEND", dtEndLine);
+    return next;
+  });
 }
 
 function lineForTextProp(name: string, value: string | undefined): string | null {
@@ -256,20 +258,32 @@ function lineForTextProp(name: string, value: string | undefined): string | null
   return trimmed ? `${name}:${escapeText(trimmed)}` : null;
 }
 
-function upsertLine(icalText: string, propName: string, line: string | null): string {
+function updateFirstVEvent(icalText: string, update: (eventText: string) => string): string {
+  return icalText.replace(/BEGIN:VEVENT[\s\S]*?END:VEVENT/, update);
+}
+
+function upsertEventLine(eventText: string, propName: string, line: string | null): string {
   const re = new RegExp(`^${propName}[^\\r\\n]*`, "m");
-  if (re.test(icalText)) {
-    if (line) return icalText.replace(re, line);
-    return icalText.replace(new RegExp(`^${propName}[^\\r\\n]*(\\r?\\n)?`, "m"), "");
+  if (re.test(eventText)) {
+    if (line) return eventText.replace(re, line);
+    return eventText.replace(new RegExp(`^${propName}[^\\r\\n]*(\\r?\\n)?`, "m"), "");
   }
-  if (!line) return icalText;
-  return icalText.replace(/^END:VEVENT/m, `${line}\r\nEND:VEVENT`);
+  if (!line) return eventText;
+  return eventText.replace(/^END:VEVENT/m, `${line}\r\nEND:VEVENT`);
 }
 
 export function updateVEvent(icalText: string, update: EventUpdate): string {
   let next = updateVEventTimes(icalText, update.start, update.end);
-  next = upsertLine(next, "SUMMARY", `SUMMARY:${escapeText(update.title)}`);
-  next = upsertLine(next, "LOCATION", lineForTextProp("LOCATION", update.location));
-  next = upsertLine(next, "DESCRIPTION", lineForTextProp("DESCRIPTION", update.notes));
+  next = updateFirstVEvent(next, (eventText) =>
+    upsertEventLine(
+      upsertEventLine(
+        upsertEventLine(eventText, "SUMMARY", `SUMMARY:${escapeText(update.title)}`),
+        "LOCATION",
+        lineForTextProp("LOCATION", update.location),
+      ),
+      "DESCRIPTION",
+      lineForTextProp("DESCRIPTION", update.notes),
+    )
+  );
   return next;
 }
