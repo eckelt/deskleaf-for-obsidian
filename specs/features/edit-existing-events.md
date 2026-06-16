@@ -1,7 +1,7 @@
 # Feature: Edit Existing Events
 
 ## Status
-`ux-reviewed`
+`design-reviewed`
 <!-- draft → ux-reviewed → design-reviewed → approved → in-development → qa → done -->
 
 ## User Story
@@ -20,6 +20,7 @@ Als Nutzer möchte ich bestehende Kalenderereignisse auf Desktop und Mobile übe
 - [ ] AC10: Teilnehmer werden in der ersten Version nicht bearbeitet.
 - [ ] AC11: Nach erfolgreichem Speichern aktualisiert Deskleaf eine bereits verknüpfte Event-Notiz: `event-id`, relevante Frontmatter-Felder, Titel und Beschreibung werden an die geänderten Event-Daten angepasst.
 - [ ] AC12: Das bestehende Verhalten zum Öffnen oder Erstellen einer verknüpften Event-Notiz bleibt außerhalb des neuen Edit-Zugangs erhalten.
+- [ ] AC13: Events, bei denen der Nutzer nicht Organizer ist, sind in dieser Version read-only und zeigen keine Speichern-Option.
 
 ## Out of Scope
 - Teilnehmerbearbeitung.
@@ -32,10 +33,15 @@ Als Nutzer möchte ich bestehende Kalenderereignisse auf Desktop und Mobile übe
 - Community-Plugin-Submission oder Installationsmechanik.
 
 ## Open Questions
-1. Wie genau wird "ganze Serie ändern" für CalDAV implementiert, wenn ein einzelnes expandiertes VEvent aus einem recurring Event editiert wird?
-2. Wie genau wird ein Kalenderwechsel in CalDAV umgesetzt: DELETE im alten Calendar Collection + PUT im neuen Calendar Collection, oder wird ein anderer CalDAV-Move-Mechanismus benötigt?
-3. Wie sollen nicht vom Nutzer organisierte Events im ersten implementierbaren Scope behandelt werden: komplette Edit-Maske read-only, nur Zeitänderung als lokale Änderung, oder explizit "nicht bearbeitbar"? RSVP und neue Zeit vorschlagen sind für diese Spec aus Scope genommen.
-4. Soll die bisherige mobile Long-Press-Move/Resize-Funktion vollständig ersetzt werden, oder braucht sie einen neuen Zugang?
+_None_
+
+## Design Decisions
+- Non-organizer events are read-only for this feature. RSVP and proposing a new time need a separate spec.
+- Mobile Long-Press is reassigned to the detail editor. The previous mobile move/resize mode can be removed or moved behind a future control, but it is not required for this feature.
+- CalDAV calendar switching is implemented as PUT to the target calendar collection followed by DELETE of the old resource. The old event must not be deleted if the target PUT fails.
+- EventKit calendar switching is implemented in the Swift binary by changing `EKEvent.calendar` before saving.
+- Recurring edit scope is exposed in the UI as `"this"` vs `"series"`. The backend accepts that span explicitly.
+- Linked note synchronization happens only after the calendar backend save succeeds. If note sync fails after the calendar save, Deskleaf reports the note-sync error but does not roll back the calendar change.
 
 ## Affected Areas
 - `src/calendar-view.ts`: Event-card interactions, context menu, edit mask UI, mobile long-press flow.
@@ -55,6 +61,7 @@ Als Nutzer möchte ich bestehende Kalenderereignisse auf Desktop und Mobile übe
 - Note-manager tests for updating linked event note frontmatter and description after event edits.
 - DOM-level tests for edit-mask rendering and save/discard behavior if feasible with the current test harness.
 - Regression tests that iCal feed events remain read-only.
+- Swift tests for parsing the new update command arguments where practical.
 
 ---
 
@@ -113,15 +120,117 @@ Aktueller Ziel-Scope:
 ---
 
 ## Design Review
-_Pending_
+### Ergebnis
 
-Design Review muss vor `approved` klären:
-- CalDAV-Feldupdate für SUMMARY, DTSTART, DTEND, LOCATION, DESCRIPTION.
-- CalDAV-Kalenderwechsel zwischen Collections.
-- EventKit-Feldupdate inklusive Kalenderwechsel.
-- Recurring-Semantik für einzelne Instanz vs. ganze Serie.
-- Verhalten für nicht vom Nutzer organisierte Events.
-- Note-Sync-Reihenfolge und Fehlerverhalten.
+Freigabe für `design-reviewed`, aber noch nicht `approved`. Die technische Richtung ist klar genug, um die Spec belastbar zu machen. Vor dem Builder-Handoff sollte der Planner die Acceptance Criteria noch finalisieren und auf `approved` setzen.
+
+### Backend Contract
+
+Die bestehenden Reader haben bereits `createEvent`, `moveEvent` und `cancelEvent`. Für dieses Feature soll ein neuer gemeinsamer Schreibpfad ergänzt werden:
+
+```ts
+updateEvent(id: string, update: EventUpdate): Promise<CalendarEvent | void>
+```
+
+`EventUpdate` sollte in `src/types.ts` liegen und mindestens enthalten:
+
+```ts
+{
+  title: string;
+  start: string;
+  end: string;
+  location?: string;
+  notes?: string;
+  calendar?: string;
+  span?: "this" | "series";
+}
+```
+
+Die UI darf nicht direkt zwischen CalDAV- und EventKit-Details unterscheiden. Sie ruft nur `calendarReader.updateEvent(...)` auf.
+
+### CalDAV Design
+
+Aktueller Stand:
+- `CalDAVReader.moveEvent` lädt das bestehende VEVENT per `GET`, ersetzt `DTSTART`/`DTEND` und schreibt per `PUT`.
+- `ical-parser.ts` hat mit `updateVEventTimes` bereits einen sehr engen Mutator.
+
+Erforderliche Änderung:
+- `ical-parser.ts` bekommt einen allgemeineren Mutator, z. B. `updateVEvent(icalText, update)`, der `SUMMARY`, `DTSTART`, `DTEND`, `LOCATION` und `DESCRIPTION` ersetzt oder ergänzt.
+- Textwerte müssen iCal-konform escaped werden: Backslash, newline, comma, semicolon.
+- Für Kalenderwechsel:
+  1. altes `href` über `hrefMap` ermitteln.
+  2. target calendar über `calendar` displayName auflösen.
+  3. aktualisiertes VEVENT per `PUT` in target calendar schreiben.
+  4. altes `href` erst danach per `DELETE` entfernen, wenn target href anders ist.
+  5. `fetchAll()` ausführen.
+- Bei fehlgeschlagenem PUT bleibt das alte Event unverändert.
+- Bei fehlgeschlagenem DELETE nach erfolgreichem PUT kann ein Duplikat entstehen. Dieser Fehler muss sichtbar gemeldet werden; automatisches Rollback ist nicht erforderlich.
+
+Recurring:
+- `"this"` soll auf dem aktuell gefundenen Resource-Href arbeiten.
+- `"series"` soll im ersten Builder-Scope nur unterstützt werden, wenn der gefundene Resource-Href das Master-VEVENT enthält. Wenn nur eine expandierte Instanz ohne Master-Href verfügbar ist, muss Deskleaf eine verständliche Fehlermeldung anzeigen.
+
+### EventKit / Swift Design
+
+Aktueller Stand:
+- Das Swift-Binary unterstützt `create`, `move`, `cancel`, `export`, `watch`.
+- `CalendarReader` ruft diese Befehle über `execFile` auf.
+
+Erforderliche Änderung:
+- Swift-Binary bekommt einen neuen Befehl `update`.
+- Argumente:
+  - `--id`
+  - `--title`
+  - `--start`
+  - `--end`
+  - `--location`
+  - `--notes`
+  - `--calendar`
+  - `--span this|series`
+- `findEvent` kann weiter genutzt werden.
+- Für `--span series` wird bei wiederkehrenden Events `EKSpan.futureEvents` oder eine passende Serienstrategie benötigt. Da EventKit nicht immer eine echte "ganze Serie ab Anfang"-Operation aus einer Instanz erlaubt, soll der erste Scope `series` als "diese und folgende" dokumentieren, falls EventKit keine vollständige Serie abdeckt.
+- Kalenderwechsel setzt `ev.calendar` auf den Kalender mit passendem Titel, wenn vorhanden.
+
+### UI Design
+
+- Desktop:
+  - Double-click öffnet die Edit-Maske.
+  - Single-click bleibt Notiz öffnen/erstellen.
+  - Drag und Resize behalten ihre aktuelle Bedienung.
+  - Bei Doppelklick muss die Single-click-Notizöffnung unterdrückt werden.
+- Mobile:
+  - Long-Press öffnet die Edit-Maske.
+  - Die bisherige mobile Move/Resize-Bar ist nicht mehr der Long-Press-Default.
+- Edit-Maske:
+  - Darf die bestehende Create-Popover-Optik wiederverwenden, sollte aber als eigener Pfad implementiert werden, damit Create und Edit nicht unübersichtlich koppeln.
+  - Enthält Titel, Startzeit, Endzeit, Ort, Beschreibung, Kalenderauswahl, Speichern, Abbrechen.
+  - Für recurring Events wird nach Klick auf Speichern ein kleiner Scope-Dialog angezeigt: `Nur dieser Termin` / `Serie`.
+  - Für read-only Events wird keine Speichern-Schaltfläche angezeigt.
+
+### Note Sync Design
+
+`NoteManager` bekommt eine neue Methode, z. B.:
+
+```ts
+syncEventNote(previousEvent: CalendarEvent, updatedEvent: CalendarEvent): Promise<void>
+```
+
+Regeln:
+- Nur ausführen, wenn bereits eine Note existiert.
+- Frontmatter aktualisieren: `event-id`, `title`, `date`, `start`, `end`, `location`.
+- Beschreibung aktualisieren oder ersetzen, wenn ein `## Beschreibung` Abschnitt existiert oder neue Beschreibung vorhanden ist.
+- Hauptüberschrift/Titel im Markdown soll aktualisiert werden, wenn sie klar dem alten Event-Titel entspricht.
+- Datei nicht automatisch umbenennen. Das vermeidet Link- und Pfad-Nebenwirkungen im ersten Scope.
+
+### Risiken
+
+| Risiko | Schwere | Entscheidung |
+|---|---|---|
+| CalDAV-Kalenderwechsel erzeugt Duplikat, wenn DELETE nach PUT fehlschlägt | Mittel | Fehler sichtbar melden, kein automatisches Rollback |
+| Recurring-Serie ist backendabhängig | Hoch | Scope-Dialog, konservative Backend-Fehler statt stiller falscher Änderung |
+| Doppelklick öffnet versehentlich Notiz | Mittel | Click/Dblclick-Verhalten explizit testen |
+| Note-Sync nach Kalender-Save schlägt fehl | Mittel | Kalenderänderung bleibt bestehen; Nutzer sieht Fehler |
+| Nicht-Organizer-Events erlauben Provider-spezifisch nur eingeschränkte Aktionen | Hoch | Read-only im ersten Scope |
 
 ---
 
