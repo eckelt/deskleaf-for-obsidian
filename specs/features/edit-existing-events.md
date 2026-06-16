@@ -1,7 +1,7 @@
 # Feature: Edit Existing Events
 
 ## Status
-`design-reviewed`
+`approved`
 <!-- draft → ux-reviewed → design-reviewed → approved → in-development → qa → done -->
 
 ## User Story
