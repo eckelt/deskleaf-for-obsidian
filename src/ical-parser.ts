@@ -263,10 +263,10 @@ function updateFirstVEvent(icalText: string, update: (eventText: string) => stri
 }
 
 function upsertEventLine(eventText: string, propName: string, line: string | null): string {
-  const re = new RegExp(`^${propName}[^\\r\\n]*`, "m");
+  const re = new RegExp(`^${propName}[^\\r\\n]*(?:\\r?\\n[ \\t][^\\r\\n]*)*`, "m");
   if (re.test(eventText)) {
     if (line) return eventText.replace(re, line);
-    return eventText.replace(new RegExp(`^${propName}[^\\r\\n]*(\\r?\\n)?`, "m"), "");
+    return eventText.replace(new RegExp(`^${propName}[^\\r\\n]*(?:\\r?\\n[ \\t][^\\r\\n]*)*(\\r?\\n)?`, "m"), "");
   }
   if (!line) return eventText;
   return eventText.replace(/^END:VEVENT/m, `${line}\r\nEND:VEVENT`);

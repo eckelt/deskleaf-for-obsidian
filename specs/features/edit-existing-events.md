@@ -375,3 +375,16 @@ Fix:
 - Note indicator dot is reduced to 5px and positioned inside the top-right corner radius.
 - Mobile double-tap detection now uses `touchend` directly instead of waiting for synthetic click events.
 - Synthetic clicks after mobile double-tap and long-press are suppressed to avoid opening the editor afterward.
+
+### QA Feedback 2026-06-16, folded CalDAV description duplication
+
+Manual QA found that editing an event description could append repeated stale text after the new description.
+
+Root cause:
+- Real CalDAV descriptions may be folded across multiple physical iCalendar lines.
+- The previous property updater replaced only the first `DESCRIPTION` line.
+- Folded continuation lines from the old description remained in the `VEVENT` and were unfolded into the new description on the next read.
+
+Fix:
+- `upsertEventLine()` now replaces or removes the complete folded property, including continuation lines.
+- Added a regression test with folded `DESCRIPTION` lines and an emoji update.

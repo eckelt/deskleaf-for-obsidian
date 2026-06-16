@@ -117,4 +117,35 @@ describe("updateVEvent", () => {
     expect(updated).toContain("LOCATION:Room\\, 1");
     expect(updated).toContain("DESCRIPTION:Line 1\\nLine 2");
   });
+
+  it("replaces folded description continuations instead of appending stale text", () => {
+    const folded = [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "BEGIN:VEVENT",
+      "UID:event-1",
+      "DTSTART:20260616T080000Z",
+      "DTEND:20260616T090000Z",
+      "SUMMARY:Old title",
+      "DESCRIPTION:Heute sucht Manuel außer der Reihe aus und der Termin",
+      " findet im Hofbräuhaus statt.findet im Hofbräuhaus statt.",
+      " findet im Hofbräuhaus statt.findet im Hofbräuhaus statt.",
+      "END:VEVENT",
+      "END:VCALENDAR",
+    ].join("\r\n") + "\r\n";
+
+    const updated = updateVEvent(folded, {
+      title: "Old title",
+      start: "2026-06-16T08:00:00Z",
+      end: "2026-06-16T09:00:00Z",
+      location: "",
+      notes: "Heute sucht Manuel außer der Reihe aus und der Termin findet im Hofbräuhaus statt. 🍻",
+    });
+
+    expect(updated).toContain("DESCRIPTION:Heute sucht Manuel außer der Reihe aus und der Termin findet im Hofbräuhaus statt. 🍻");
+    expect(updated).not.toContain("\r\n findet im Hofbräuhaus");
+
+    const [event] = parseICalendar(updated, "Work");
+    expect(event.body).toBe("Heute sucht Manuel außer der Reihe aus und der Termin findet im Hofbräuhaus statt. 🍻");
+  });
 });
