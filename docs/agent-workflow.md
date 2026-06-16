@@ -34,6 +34,18 @@ Responsibilities:
 
 The Feature Builder does not invent missing requirements. If the spec is unclear, it returns the issue to planning.
 
+### QA Agent
+The QA Agent verifies implemented features before they are accepted as done.
+
+Responsibilities:
+- Check latest issue comments before testing with `npm run check:issue -- <issue-number>`.
+- Test the feature against acceptance criteria and recent QA feedback.
+- Run automated checks and perform manual Obsidian QA for user-facing flows.
+- Try adjacent regression paths such as drag/drop, resize, note actions, popovers, and CalDAV writes.
+- Update the spec QA Report and mirror pass/fail status back to the GitHub issue.
+
+The QA Agent does not implement fixes. Failed QA returns the issue to the Feature Builder with concrete reproduction steps.
+
 ## Status Flow
 
 Feature specs use this status progression:
@@ -97,6 +109,18 @@ Builder to QA:
 - Relevant tests pass.
 - `npm run build` passes.
 - The QA section explains how each acceptance criterion was verified.
+
+QA back to Builder:
+- Spec remains `qa`.
+- The GitHub issue has a `QA failed` comment with exact reproduction steps.
+- The spec QA Report lists blockers and affected acceptance criteria.
+
+QA to Done:
+- Latest issue comments are checked.
+- Automated checks pass.
+- Required manual Obsidian QA passes or any skipped checks are explicitly justified.
+- Spec status is set to `done`.
+- GitHub issue is updated with a `QA passed` comment.
 
 ## Release Loop
 

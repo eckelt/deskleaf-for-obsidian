@@ -44,6 +44,7 @@ styles.css             Single flat stylesheet
 - Agent workflow: `docs/agent-workflow.md`
 - Feature Planner instructions: `docs/agents/feature-planner.md`
 - Feature Builder instructions: `docs/agents/feature-builder.md`
+- QA Agent instructions: `docs/agents/qa-agent.md`
 - ADRs: `docs/adr/`
 - Feature specs: `specs/features/`
 

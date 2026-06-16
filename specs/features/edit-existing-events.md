@@ -249,7 +249,7 @@ Regeln:
 
 | AC | Automated / Code Coverage | Status |
 |---|---|---|
-| AC1 Desktop double-click opens editor | Implemented in `calendar-view.ts`; needs manual Obsidian check for click vs double-click feel | Pending manual |
+| AC1 Desktop event card opens editor | Single-click on the card body opens the editor; note icon remains the note action | Pending manual |
 | AC2 Mobile long-press opens editor | Implemented by redirecting long-press from mobile move mode to edit popover | Pending manual |
 | AC3 Initial values in editor | Implemented for title, start/end, location, description, calendar | Pending manual |
 | AC4 Save/discard title/time/location/description/calendar | Implemented through `EventUpdate`, CalDAV update path, Swift `update` command | Pending backend manual |
@@ -260,8 +260,8 @@ Regeln:
 | AC9 iCal feed events read-only | Read-only detection includes `isFeedEvent(event)` | PASS by code inspection |
 | AC10 Participants excluded | No participant fields in editor or update contract | PASS |
 | AC11 Linked note sync | `NoteManager.syncEventNote()` implemented and covered by tests | PASS automated |
-| AC12 Existing note open/create behavior | Single-click path retained with double-click delay | Pending manual feel check |
-| AC13 Non-organizer read-only | Read-only detection includes `event.isOrganizer === false` | PASS by code inspection |
+| AC12 Existing note open/create behavior | Note icon click target opens or creates the linked note | Pending manual feel check |
+| AC13 Non-organizer read-only | CalDAV no longer trusts `isOrganizer === false` for blanket read-only gating | PASS by code inspection |
 
 ### Notes
 
@@ -298,3 +298,16 @@ Fix:
 - Event card click opens the edit form; the note action keeps the note workflow.
 - Edit form now includes a danger action for delete/decline.
 - Added `scripts/check-issue-comments.mjs` and `npm run check:issue -- <issue>` to detect unchecked human comments.
+
+### QA Feedback 2026-06-16, desktop drag and time editing
+
+Manual QA found three desktop blockers:
+- Moving an event by dragging the card body did not work reliably after single-click edit was added.
+- Resizing with drag handles did not work reliably.
+- The editor could not set a start time such as `18:30`.
+
+Fix:
+- Desktop event cards now suppress the next click after drag or resize so the editor does not steal the interaction.
+- Desktop event cards now expose separate top and bottom resize handles for changing start and end time.
+- Time inputs now use minute-level stepping so half-hour and other minute values are accepted.
+- Added a documented `QA Agent` role with mandatory issue-comment checks and manual Obsidian QA coverage for calendar interactions.

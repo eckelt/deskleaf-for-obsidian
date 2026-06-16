@@ -1206,28 +1206,42 @@ export class DeskleafCalendarView extends ItemView {
         this.showEventEditPopover(event, date, e, isReadOnly);
       });
     } else if (canEdit) {
-      // Resize handle at bottom edge
-      const resizeHandle = card.createDiv("dl-resize-handle");
-      resizeHandle.addEventListener("mousedown", (e) => {
+      let wasDrag = false;
+      let suppressNextClick = false;
+
+      const topResizeHandle = card.createDiv("dl-resize-handle dl-resize-handle--top");
+      topResizeHandle.addEventListener("mousedown", (e) => {
+        e.preventDefault();
         e.stopPropagation();
-        this.onResizeMouseDown(e, event, date, card);
+        suppressNextClick = true;
+        this.onResizeMouseDown(e, event, date, card, "start");
+      });
+
+      const bottomResizeHandle = card.createDiv("dl-resize-handle dl-resize-handle--bottom");
+      bottomResizeHandle.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        suppressNextClick = true;
+        this.onResizeMouseDown(e, event, date, card, "end");
       });
 
       // Drag-to-move: track drag vs click
-      let wasDrag = false;
       card.addEventListener("mousedown", (e) => {
         if (e.button !== 0) return;
         if ((e.target as HTMLElement).closest(".dl-resize-handle, .dl-event-note-action")) return;
+        e.preventDefault();
         e.stopPropagation();
         wasDrag = false;
         this.onEventMoveMouseDown(e, event, date, card, () => {
           wasDrag = true;
+          suppressNextClick = true;
         });
       });
       card.addEventListener("click", (e) => {
         e.stopPropagation();
-        if (wasDrag) {
+        if ((e.target as HTMLElement).closest(".dl-resize-handle, .dl-event-note-action") || wasDrag || suppressNextClick) {
           wasDrag = false;
+          suppressNextClick = false;
           return;
         }
         this.showEventEditPopover(event, date, e, false);
@@ -1547,11 +1561,11 @@ export class DeskleafCalendarView extends ItemView {
     // Time row
     const timeRow = popover.createDiv("dl-create-time-row");
     const startInput = timeRow.createEl("input", { type: "time", cls: "dl-create-time-input" } as any) as HTMLInputElement;
-    startInput.step = "900";
+    startInput.step = "60";
     startInput.value = minsToTimeStr(startMin);
     timeRow.createSpan({ cls: "dl-create-time-sep", text: "–" });
     const endInput = timeRow.createEl("input", { type: "time", cls: "dl-create-time-input" } as any) as HTMLInputElement;
-    endInput.step = "900";
+    endInput.step = "60";
     endInput.value = minsToTimeStr(endMin);
 
     // Description
@@ -1671,12 +1685,12 @@ export class DeskleafCalendarView extends ItemView {
 
     const timeRow = popover.createDiv("dl-create-time-row");
     const startInput = timeRow.createEl("input", { type: "time", cls: "dl-create-time-input" } as any) as HTMLInputElement;
-    startInput.step = "900";
+    startInput.step = "60";
     startInput.value = minsToTimeStr(startMin);
     startInput.disabled = readOnly;
     timeRow.createSpan({ cls: "dl-create-time-sep", text: "-" });
     const endInput = timeRow.createEl("input", { type: "time", cls: "dl-create-time-input" } as any) as HTMLInputElement;
-    endInput.step = "900";
+    endInput.step = "60";
     endInput.value = minsToTimeStr(endMin);
     endInput.disabled = readOnly;
 
@@ -2034,23 +2048,30 @@ export class DeskleafCalendarView extends ItemView {
     event: CalendarEvent,
     date: string,
     cardEl: HTMLElement,
+    edge: "start" | "end",
   ) {
     if (e.button !== 0) return;
     e.preventDefault();
 
-    const startMins =
+    let startMins =
       new Date(event.start).getHours() * 60 +
       new Date(event.start).getMinutes();
     let endMins =
       new Date(event.end).getHours() * 60 + new Date(event.end).getMinutes();
     const dayBody = cardEl.closest<HTMLElement>(".dl-day-body");
+    const origTop = cardEl.offsetTop;
     const origH = cardEl.offsetHeight;
 
     const onMove = (ev: MouseEvent) => {
       if (!dayBody) return;
       const dayRect = dayBody.getBoundingClientRect();
       const rawMins = ((ev.clientY - dayRect.top) / HOUR_PX) * 60;
-      endMins = Math.max(startMins + 15, Math.min(24 * 60, snapMins(rawMins)));
+      if (edge === "start") {
+        startMins = Math.max(0, Math.min(endMins - 15, snapMins(rawMins)));
+        cardEl.style.top = `${(startMins / 60) * HOUR_PX + 1}px`;
+      } else {
+        endMins = Math.max(startMins + 15, Math.min(24 * 60, snapMins(rawMins)));
+      }
       const newH = Math.max(20, ((endMins - startMins) / 60) * HOUR_PX) - 2;
       cardEl.style.height = `${newH}px`;
     };
@@ -2059,12 +2080,16 @@ export class DeskleafCalendarView extends ItemView {
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onUp);
       document.body.style.userSelect = "";
+      cardEl.style.top = `${origTop}px`;
       cardEl.style.height = `${origH}px`;
       this.dragResize = null;
 
+      const origStartMins =
+        new Date(event.start).getHours() * 60 +
+        new Date(event.start).getMinutes();
       const origEndMins =
         new Date(event.end).getHours() * 60 + new Date(event.end).getMinutes();
-      if (endMins === origEndMins) return;
+      if (startMins === origStartMins && endMins === origEndMins) return;
 
       try {
         await this.plugin.calendarReader.moveEvent(

@@ -64,4 +64,12 @@ Implement specs/features/<feature-name>.md.
 Run npm test and npm run build.
 ```
 
+For QA:
+
+```text
+Act as docs/agents/qa-agent.md.
+Use GitHub issue #<number> and specs/features/<feature-name>.md as input.
+Check latest comments, run automated checks, and perform manual Obsidian QA.
+```
+
 See `AGENTS.md` and `docs/agent-workflow.md` for the full agent workflow.
