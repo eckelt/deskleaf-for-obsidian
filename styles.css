@@ -678,7 +678,7 @@
     border: none;
     border-left: 4px solid hsl(var(--cal-h, var(--accent-h)), 88%, 47%);
     color: hsl(var(--cal-h, var(--accent-h)), 88%, 24%);
-    padding: 4px 6px 3px;
+    padding: 4px 31px 3px 6px;
     cursor: pointer;
     overflow: hidden;
     border-radius: 5px;
@@ -1253,6 +1253,7 @@
     display: flex;
     align-items: center;
     gap: 2px;
+    min-width: 0;
 }
 
 .dl-event-time {
@@ -1263,6 +1264,7 @@
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
+    min-width: 0;
 }
 
 .dl-event-recurring-icon {
@@ -1275,6 +1277,7 @@
     display: flex;
     align-items: center;
     gap: 3px;
+    min-width: 0;
 }
 
 .dl-event-title {
@@ -1284,6 +1287,7 @@
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
+    min-width: 0;
 }
 
 .dl-event-location {
@@ -1297,6 +1301,7 @@
     white-space: nowrap;
     text-overflow: ellipsis;
     opacity: 0.82;
+    min-width: 0;
 }
 
 .dl-event-location--teams {

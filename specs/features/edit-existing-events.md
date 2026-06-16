@@ -347,3 +347,11 @@ Fix:
 - Top and bottom handles can be adjusted repeatedly while the edit mode stays open.
 - Changes are committed when tapping outside the event/edit controls.
 - The close button exits the edit mode without committing additional changes.
+
+### QA Feedback 2026-06-16, note icon overlap
+
+Manual QA found that the clickable Obsidian note icon overlapped heavily with the event title.
+
+Fix:
+- Event cards now reserve right-side padding for the note action target.
+- Title, time and location rows explicitly allow flex shrinking and ellipsis instead of rendering under the icon.
