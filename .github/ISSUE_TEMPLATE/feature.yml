@@ -1,0 +1,59 @@
+name: Feature
+description: Propose a Deskleaf feature for planner review
+title: "[Feature]: "
+labels:
+  - type:feature
+  - status:draft
+body:
+  - type: markdown
+    attributes:
+      value: |
+        GitHub issues are the inbox and discussion surface. The feature spec in `specs/features/[feature-name].md` becomes the source of truth once planning starts.
+  - type: input
+    id: spec-path
+    attributes:
+      label: Spec path
+      description: Leave empty if the Feature Planner should create it.
+      placeholder: specs/features/example-feature.md
+    validations:
+      required: false
+  - type: textarea
+    id: idea
+    attributes:
+      label: Idea
+      description: What should Deskleaf be able to do?
+      placeholder: Describe the feature in plain language.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Why does this matter, and when would you use it?
+      placeholder: Current workflow, pain point, examples, related behavior.
+    validations:
+      required: false
+  - type: textarea
+    id: desired-outcome
+    attributes:
+      label: Desired outcome
+      description: What should be true after the feature exists?
+      placeholder: Describe the observable result.
+    validations:
+      required: true
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Constraints or non-goals
+      description: Anything that should explicitly not be part of this feature?
+      placeholder: Optional.
+    validations:
+      required: false
+  - type: textarea
+    id: links
+    attributes:
+      label: Links and references
+      description: Related issues, screenshots, specs, notes, or examples.
+      placeholder: Optional.
+    validations:
+      required: false

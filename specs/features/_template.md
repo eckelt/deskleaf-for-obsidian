@@ -17,6 +17,12 @@ _TBD_
 ## Open Questions
 _None_
 
+## Affected Areas
+_TBD_
+
+## Test Expectations
+_TBD_
+
 ---
 
 ## UX Review
