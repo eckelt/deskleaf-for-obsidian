@@ -12,8 +12,8 @@ jobs:
     name: TypeScript Tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: npm
@@ -27,14 +27,14 @@ jobs:
       run:
         working-directory: swift
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - run: swift test
       - run: |
           swift build -c release --arch arm64 --arch x86_64
           cp .build/apple/Products/Release/DeskleafCalendarSync ../deskleaf-calendar-sync
           chmod +x ../deskleaf-calendar-sync
           codesign --force --sign - ../deskleaf-calendar-sync
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: deskleaf-calendar-sync
           path: deskleaf-calendar-sync
@@ -46,20 +46,20 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: npm
       - run: npm ci
       - run: npm run build
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           name: deskleaf-calendar-sync
       - run: chmod +x deskleaf-calendar-sync
       - name: Package plugin
         run: zip -r deskleaf-for-obsidian.zip main.js styles.css manifest.json deskleaf-calendar-sync
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           tag_name: latest
           name: Latest Build
