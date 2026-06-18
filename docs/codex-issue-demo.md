@@ -31,3 +31,7 @@ If `CODEX_DEMO_MODEL` is not set, the workflow uses `gpt-5.5`.
 - Does not create branches or pull requests.
 
 This is intentionally a read-only demo for repository contents. A later workflow can build on the same trigger pattern to create branches and pull requests.
+
+## Production Agent Path
+
+The feature-planning workflow uses the official `openai/codex-action@v1` action and repository prompt files instead of this raw Responses API demo. Keep this demo small; evolve the production workflows separately.

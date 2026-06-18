@@ -21,6 +21,8 @@ Responsibilities:
 
 The Feature Planner does not implement production code.
 
+The Feature Planner follows a `grill-with-docs` discipline: it challenges fuzzy language, probes concrete scenarios, updates project terminology when stable terms emerge, and proposes ADRs only for decisions that are hard to reverse, surprising without context, and based on a real trade-off.
+
 ### Feature Builder
 The Feature Builder implements approved specs.
 
@@ -69,6 +71,8 @@ Status meanings:
 Use labels as a lightweight operational layer:
 
 ```text
+agent:planner
+agent:builder
 type:feature
 status:draft
 status:planning

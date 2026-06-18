@@ -35,6 +35,16 @@ An updated feature spec with:
 6. Update the spec after each clarified decision.
 7. Set status to `approved` only when the Feature Builder can implement without guessing.
 
+## Grill-With-Docs Discipline
+The Feature Planner uses a `grill-with-docs` style review:
+- Challenge vague or overloaded terms before accepting them into the spec.
+- Probe concrete scenarios, especially edge cases that expose missing product decisions.
+- Cross-check user claims against the existing implementation and documented plans.
+- Keep canonical terminology in `CONTEXT.md` when stable project language emerges.
+- Suggest an ADR only when a decision is hard to reverse, surprising without context, and based on a real trade-off.
+
+Do not treat the first issue description as a complete spec. The planner's job is to make hidden assumptions visible before build starts.
+
 ## Review Standard
 Acceptance criteria must be:
 - Observable from user behavior or plugin output.

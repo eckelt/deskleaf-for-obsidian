@@ -1,0 +1,99 @@
+name: Feature Planner
+
+on:
+  issues:
+    types: [opened, edited, reopened, labeled]
+  issue_comment:
+    types: [created]
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  plan:
+    name: Plan feature issue
+    runs-on: ubuntu-latest
+    if: |
+      (github.event_name == 'issues' &&
+        contains(github.event.issue.labels.*.name, 'agent:planner')) ||
+      (github.event_name == 'issue_comment' &&
+        contains(github.event.issue.labels.*.name, 'agent:planner') &&
+        !github.event.issue.pull_request)
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Write issue context
+        env:
+          EVENT_JSON: ${{ toJson(github.event) }}
+        run: |
+          mkdir -p .github/codex
+          printf '%s\n' "$EVENT_JSON" > .github/codex/issue-context.md
+      - name: Run Feature Planner
+        id: run_codex
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          prompt-file: .github/codex/prompts/feature-planner.md
+          output-file: codex-feature-planner-output.md
+          sandbox: workspace-write
+      - name: Remove transient issue context
+        run: rm -f .github/codex/issue-context.md
+      - name: Create planning pull request
+        id: create_pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          branch="agent/planner-issue-${ISSUE_NUMBER}"
+          git switch -C "$branch"
+          git add CONTEXT.md docs specs .github/agents .github/codex/prompts
+
+          if git diff --cached --quiet; then
+            echo "created=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git commit -m "Plan feature issue #${ISSUE_NUMBER}"
+          git push --force-with-lease origin "$branch"
+
+          pr_url="$(gh pr view "$branch" --json url --jq .url 2>/dev/null || gh pr create \
+            --title "Plan feature issue #${ISSUE_NUMBER}" \
+            --body "Planner output for #${ISSUE_NUMBER}. Review and merge when the spec changes are acceptable." \
+            --base main \
+            --head "$branch")"
+
+          echo "created=true" >> "$GITHUB_OUTPUT"
+          echo "url=$pr_url" >> "$GITHUB_OUTPUT"
+      - name: Comment planner result
+        uses: actions/github-script@v8
+        env:
+          CODEX_FINAL_MESSAGE: ${{ steps.run_codex.outputs.final-message }}
+          PLANNER_PR_URL: ${{ steps.create_pr.outputs.url }}
+          PLANNER_PR_CREATED: ${{ steps.create_pr.outputs.created }}
+        with:
+          script: |
+            const lines = [
+              "<!-- feature-planner-response -->",
+              "**Feature Planner**",
+              "",
+              process.env.CODEX_FINAL_MESSAGE || "_No planner output returned._",
+            ];
+
+            if (process.env.PLANNER_PR_CREATED === "true") {
+              lines.push("", `Planning PR: ${process.env.PLANNER_PR_URL}`);
+            }
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: lines.join("\n"),
+            });
