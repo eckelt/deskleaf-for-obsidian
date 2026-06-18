@@ -94,6 +94,19 @@ risk:high
 
 The spec status is authoritative. GitHub labels should reflect it but do not replace it.
 
+## GitHub Action Configuration
+
+Agent workflows require `OPENAI_API_KEY` as a repository secret.
+
+The Feature Planner can be tuned with repository variables:
+
+```text
+FEATURE_PLANNER_MODEL
+FEATURE_PLANNER_EFFORT
+```
+
+If unset, the planner uses `gpt-5.5` with `medium` effort.
+
 ## Handoff Rules
 
 Planner to Builder:

@@ -8,6 +8,8 @@ on:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  FEATURE_PLANNER_MODEL: ${{ vars.FEATURE_PLANNER_MODEL || 'gpt-5.5' }}
+  FEATURE_PLANNER_EFFORT: ${{ vars.FEATURE_PLANNER_EFFORT || 'medium' }}
 
 jobs:
   plan:
@@ -36,15 +38,48 @@ jobs:
       - name: Run Feature Planner
         id: run_codex
         uses: openai/codex-action@v1
+        continue-on-error: true
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           prompt-file: .github/codex/prompts/feature-planner.md
+          model: ${{ env.FEATURE_PLANNER_MODEL }}
+          effort: ${{ env.FEATURE_PLANNER_EFFORT }}
           output-file: codex-feature-planner-output.md
           sandbox: workspace-write
       - name: Remove transient issue context
+        if: always()
         run: rm -f .github/codex/issue-context.md
+      - name: Comment planner failure
+        if: steps.run_codex.outcome == 'failure'
+        uses: actions/github-script@v8
+        env:
+          FEATURE_PLANNER_MODEL: ${{ env.FEATURE_PLANNER_MODEL }}
+          FEATURE_PLANNER_EFFORT: ${{ env.FEATURE_PLANNER_EFFORT }}
+        with:
+          script: |
+            const body = [
+              "<!-- feature-planner-response -->",
+              "**Feature Planner failed**",
+              "",
+              "Codex did not complete this planning run.",
+              "",
+              `Model: \`${process.env.FEATURE_PLANNER_MODEL}\``,
+              `Effort: \`${process.env.FEATURE_PLANNER_EFFORT}\``,
+              "",
+              "Most likely cause if the action log says `Quota exceeded`: the OpenAI project or organization behind `OPENAI_API_KEY` has no remaining API quota or billing is not enabled.",
+              "",
+              "After fixing billing/quota, re-run the workflow or add a new comment to this issue.",
+            ].join("\n");
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
       - name: Create planning pull request
         id: create_pr
+        if: steps.run_codex.outcome == 'success'
         env:
           GH_TOKEN: ${{ github.token }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
@@ -73,6 +108,7 @@ jobs:
           echo "created=true" >> "$GITHUB_OUTPUT"
           echo "url=$pr_url" >> "$GITHUB_OUTPUT"
       - name: Comment planner result
+        if: steps.run_codex.outcome == 'success'
         uses: actions/github-script@v8
         env:
           CODEX_FINAL_MESSAGE: ${{ steps.run_codex.outputs.final-message }}
