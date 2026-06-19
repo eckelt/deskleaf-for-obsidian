@@ -1427,9 +1427,19 @@
     overflow: hidden;
 }
 
-/* Toolbar uses Obsidian's nav-header/nav-action-button (file-explorer look) */
-.dl-sidebar-root > .nav-header {
+/* Toolbar keeps Obsidian nav-action-button styling without inheriting mobile nav-header layout. */
+.dl-sidebar-toolbar {
     flex-shrink: 0;
+    min-height: 0;
+    padding: 0;
+}
+
+.dl-sidebar-toolbar > .nav-buttons-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    margin: 0;
 }
 
 .dl-sidebar-root .nav-action-button {
@@ -1455,23 +1465,15 @@
 }
 
 @media (max-width: 600px) {
-    .dl-sidebar-root > .nav-header {
-        margin-top: 0;
-        margin-bottom: 0;
-        min-height: 0;
+    .dl-sidebar-toolbar {
         height: 48px;
-        padding: 0;
         display: flex;
         align-items: center;
         justify-content: center;
     }
 
-    .dl-sidebar-root > .nav-header .nav-buttons-container {
+    .dl-sidebar-toolbar > .nav-buttons-container {
         height: 48px;
-        padding: 0;
-        margin: 0;
-        align-items: center;
-        justify-content: center;
     }
 
     .dl-sidebar-root .nav-action-button {

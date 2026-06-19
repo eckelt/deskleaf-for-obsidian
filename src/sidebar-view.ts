@@ -251,7 +251,7 @@ export class DeskleafSidebarView extends ItemView {
   }
 
   private renderToolbar(container: HTMLElement) {
-    const header = container.createDiv("nav-header");
+    const header = container.createDiv("dl-sidebar-toolbar");
     const toolbar = header.createDiv("nav-buttons-container");
 
     for (const section of this.sectionOrder) {
