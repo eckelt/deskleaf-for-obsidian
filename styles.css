@@ -1477,10 +1477,6 @@
     .dl-sidebar-root .nav-action-button {
         margin: 0;
     }
-
-    .dl-sidebar-root .dl-sidebar-section--flex {
-        flex: 0 1 auto;
-    }
 }
 
 /* Resizable section wrappers */
