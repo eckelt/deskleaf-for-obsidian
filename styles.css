@@ -1457,11 +1457,25 @@
 @media (max-width: 600px) {
     .dl-sidebar-root > .nav-header {
         margin-top: 0;
-        padding-top: 0;
+        margin-bottom: 0;
+        min-height: 0;
+        height: 48px;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
 
     .dl-sidebar-root > .nav-header .nav-buttons-container {
+        height: 48px;
+        padding: 0;
+        margin: 0;
+        align-items: center;
         justify-content: center;
+    }
+
+    .dl-sidebar-root .nav-action-button {
+        margin: 0;
     }
 
     .dl-sidebar-root .dl-sidebar-section--flex {
