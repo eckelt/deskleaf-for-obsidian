@@ -134,7 +134,9 @@ using the 64px/hour scale.
 | `--continues-after` | Multi-day, not the end day | Bottom border + radius removed |
 
 Cards show: start time, recurring icon (↻), title, location (if card height > 42px),
-removal hint (`⏱ <date>`) if the linked note has `toBeRemoved: true`.
+removal hint (`⏱ <date>`) if the linked note has `toBeRemoved: true`. Generic
+location values use the location icon; generic URL values use a globe icon. Known
+video providers such as Teams, Google Meet and Jitsi keep their provider-specific icons.
 
 ### Drag interactions on event cards (desktop only, organizer events only)
 

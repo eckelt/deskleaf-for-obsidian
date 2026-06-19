@@ -189,6 +189,15 @@ export function locationIconSvg(size: number): string {
   );
 }
 
+export function globeIconSvg(size: number): string {
+  return (
+    `<svg width="${size}" height="${size}" viewBox="0 0 20 20" style="display:inline-block;vertical-align:middle;flex-shrink:0;fill-rule:evenodd;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round">` +
+    `<circle cx="10" cy="10" r="8" style="fill:none;stroke:currentColor;stroke-width:1.25px"/>` +
+    `<path d="M2.5,10L17.5,10M10,2C12.1,4.2 13.1,7.1 13.1,10C13.1,12.9 12.1,15.8 10,18C7.9,15.8 6.9,12.9 6.9,10C6.9,7.1 7.9,4.2 10,2Z" style="fill:none;stroke:currentColor;stroke-width:1.25px"/>` +
+    `</svg>`
+  );
+}
+
 export function clockIconSvg(size: number): string {
   return (
     `<svg width="${size}" height="${size}" viewBox="0 0 20 20" style="display:inline-block;vertical-align:middle;flex-shrink:0;fill-rule:evenodd;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round">` +
@@ -196,6 +205,10 @@ export function clockIconSvg(size: number): string {
     `<g transform="matrix(1,0,0,1,0,1)"><path d="M14,5L10,9L8,7" style="fill:none;stroke:currentColor;stroke-width:1.25px"/></g>` +
     `</svg>`
   );
+}
+
+export function isUrlLocation(location: string | null | undefined): boolean {
+  return /\b(?:https?:\/\/|www\.)\S+/i.test(location?.trim() ?? "");
 }
 
 // ── Time grid constants ──────────────────────────────────────────────
@@ -1158,7 +1171,7 @@ export class DeskleafCalendarView extends ItemView {
         const loc = card.createDiv({ cls: "dl-event-location" });
         const iconWrap = loc.createSpan({ cls: "dl-event-icon-wrap" });
         iconWrap.setAttribute("aria-hidden", "true");
-        iconWrap.innerHTML = locationIconSvg(9);
+        iconWrap.innerHTML = isUrlLocation(event.location) ? globeIconSvg(9) : locationIconSvg(9);
         loc.createSpan({ text: event.location.replace(/\n/g, ", ") });
       }
     }
