@@ -23,6 +23,10 @@ Internal links rendered by `MarkdownRenderer` get explicit click handling via
 `app.workspace.openLinkText` — required because custom `ItemView` containers don't wire
 Obsidian link navigation automatically.
 
+The section toolbar uses Obsidian `nav-header` / `nav-action-button` structure and
+Obsidian icon names so it visually matches the mobile file explorer. On narrow/mobile
+layouts, sections do not stretch only to create blank space above the toolbar.
+
 ---
 
 ## Topics section

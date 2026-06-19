@@ -1454,6 +1454,21 @@
     opacity: 1;
 }
 
+@media (max-width: 600px) {
+    .dl-sidebar-root > .nav-header {
+        margin-top: 0;
+        padding-top: 0;
+    }
+
+    .dl-sidebar-root > .nav-header .nav-buttons-container {
+        justify-content: center;
+    }
+
+    .dl-sidebar-root .dl-sidebar-section--flex {
+        flex: 0 1 auto;
+    }
+}
+
 /* Resizable section wrappers */
 .dl-sidebar-section {
     display: flex;

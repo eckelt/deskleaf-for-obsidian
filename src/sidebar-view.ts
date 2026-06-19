@@ -3,18 +3,11 @@ import type DeskleafPlugin from "./main";
 import { toDateStr, addDays, parseDate, weekStart, getWeekNumber } from "./date-utils";
 import { openFile } from "./open-file";
 
-function getSectionIconSvg(section: "calendar" | "topics" | "todos", size: number): string {
-  const s = `style="display:inline-block;vertical-align:middle;flex-shrink:0;fill-rule:evenodd;clip-rule:evenodd"`;
+function getSectionIconName(section: "calendar" | "topics" | "todos"): string {
   switch (section) {
-    case "calendar":
-      // calandar.svg: viewBox 0 0 20 20, transform matrix(1,0,0,1,-2,6)
-      return `<svg width="${size}" height="${size}" viewBox="0 0 20 20" ${s}><g transform="matrix(1,0,0,1,-2,6)"><path fill="currentColor" d="M4,10.003L4,-1.003C4,-1.544 4.217,-2.047 4.585,-2.415C4.953,-2.783 5.456,-3 5.997,-3L18.003,-3C18.544,-3 19.047,-2.783 19.415,-2.415C19.783,-2.047 20,-1.544 20,-1.003L20,10.003C20,11.106 19.106,12 18.003,12L5.997,12C4.894,12 4,11.106 4,10.003ZM5.042,1L5.042,10.003C5.042,10.531 5.469,10.958 5.997,10.958L18.003,10.958C18.531,10.958 18.958,10.531 18.958,10.003L18.958,1L5.042,1ZM7,5C7.552,5 8,5.448 8,6C8,6.552 7.552,7 7,7C6.448,7 6,6.552 6,6C6,5.448 6.448,5 7,5ZM10,8C10.552,8 11,8.448 11,9C11,9.552 10.552,10 10,10C9.448,10 9,9.552 9,9C9,8.448 9.448,8 10,8ZM16,2C16.552,2 17,2.448 17,3C17,3.552 16.552,4 16,4C15.448,4 15,3.552 15,3C15,2.448 15.448,2 16,2ZM7,8C7.552,8 8,8.448 8,9C8,9.552 7.552,10 7,10C6.448,10 6,9.552 6,9C6,8.448 6.448,8 7,8ZM10,5C10.552,5 11,5.448 11,6C11,6.552 10.552,7 10,7C9.448,7 9,6.552 9,6C9,5.448 9.448,5 10,5ZM13,5C13.552,5 14,5.448 14,6C14,6.552 13.552,7 13,7C12.448,7 12,6.552 12,6C12,5.448 12.448,5 13,5ZM16,5C16.552,5 17,5.448 17,6C17,6.552 16.552,7 16,7C15.448,7 15,6.552 15,6C15,5.448 15.448,5 16,5ZM13,2C13.552,2 14,2.448 14,3C14,3.552 13.552,4 13,4C12.448,4 12,3.552 12,3C12,2.448 12.448,2 13,2ZM10,2C10.552,2 11,2.448 11,3C11,3.552 10.552,4 10,4C9.448,4 9,3.552 9,3C9,2.448 9.448,2 10,2Z"/></g></svg>`;
-    case "topics":
-      // topic.svg: viewBox 0 0 20 20
-      return `<svg width="${size}" height="${size}" viewBox="0 0 20 20" ${s}><path fill="currentColor" d="M16,6L16,18L4,18L4,2L12.054,2L16,6ZM15.167,6.342L11.706,2.833L4.833,2.833L4.833,17.167L15.167,17.167L15.167,6.342Z"/><path fill="currentColor" d="M11,2L12.001,1.983L15.954,5.965L16,7L11,7L11,2ZM11.833,2.997L11.833,6.167L14.979,6.167L11.833,2.997Z"/><rect fill="currentColor" x="7" y="6.167" width="3" height="1.667"/><path fill="currentColor" d="M6.994,9.922L7,9.089L12.994,9.089L12.994,9.922L6.994,9.922Z"/><path fill="currentColor" d="M6.994,12.922L6.994,12.089L12.994,12.089L12.994,12.922L6.994,12.922Z"/><path fill="currentColor" d="M6.994,15.924L6.994,15.091L12.994,15.091L12.994,15.924L6.994,15.924Z"/></svg>`;
-    case "todos":
-      // todos.svg: viewBox 0 0 20 20
-      return `<svg width="${size}" height="${size}" viewBox="0 0 20 20" ${s}><path fill="currentColor" d="M13.666,4.042L4.937,4.042C4.699,4.042 4.472,4.136 4.304,4.304C4.136,4.472 4.042,4.699 4.042,4.937L4.042,15.063C4.042,15.301 4.136,15.528 4.304,15.696C4.472,15.864 4.699,15.958 4.937,15.958L15.063,15.958C15.301,15.958 15.528,15.864 15.696,15.696C15.864,15.528 15.958,15.301 15.958,15.063L15.958,7.974L17,6.542L17,15.063C17,15.577 16.796,16.07 16.433,16.433C16.07,16.796 15.577,17 15.063,17L4.937,17C4.423,17 3.93,16.796 3.567,16.433C3.204,16.07 3,15.577 3,15.063L3,4.937C3,4.423 3.204,3.93 3.567,3.567C3.93,3.204 4.423,3 4.937,3L14.424,3L13.666,4.042ZM18.011,3.735L10.011,14.735L8,14.75L5,10.75L7,9.25L8.985,11.896L15.989,2.265L18.011,3.735Z"/></svg>`;
+    case "calendar": return "calendar-days";
+    case "topics": return "file-text";
+    case "todos": return "square-check-big";
   }
 }
 
@@ -272,7 +265,7 @@ export class DeskleafSidebarView extends ItemView {
       btn.setAttribute("data-section", section);
       btn.setAttribute("aria-label", this.getSectionLabel(section));
       btn.draggable = true;
-      btn.innerHTML = getSectionIconSvg(section, 16);
+      setIcon(btn, getSectionIconName(section));
 
       btn.addEventListener("click", () => {
         this.sectionVisibility.set(section, !isVisible);
