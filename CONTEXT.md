@@ -27,3 +27,19 @@ _Avoid_: Developer bot, implementer
 **Handoff**:
 The explicit transition from one agent role to another after the current role's stop conditions are satisfied.
 _Avoid_: Assignment, takeover
+
+**Business Hours**:
+The user-configured recurring time window in the calendar grid that represents the normal working period. Deskleaf treats Business Hours as global plugin settings, not as calendar-provider data.
+_Avoid_: Office hours, availability
+
+**Non-Business Hours**:
+All calendar-grid time outside the configured Business Hours. Non-Business Hours are the baseline grid state; Business Hours may be visually highlighted against them.
+_Avoid_: Free time, off hours
+
+**Calendar Time Grid**:
+The 24-hour visual grid in the Deskleaf calendar view where timed events, hour lines, the now line, and background time-state cues are rendered.
+_Avoid_: Timeline, calendar canvas
+
+**Event Location**:
+A free-text event field that identifies where or how an event takes place. It may contain a physical address, a room name, or a video-call link.
+_Avoid_: Venue-only field, meeting room

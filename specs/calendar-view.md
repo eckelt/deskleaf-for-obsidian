@@ -200,7 +200,8 @@ When the active file changes:
 Mousedown on an empty area in a day body starts a drag-to-create gesture:
 
 1. A ghost element appears, snapping start/end times to 15-minute intervals.
-2. On mouseup: a **popover** appears near the cursor with a title input field and
+2. On mouseup: a **popover** appears near the cursor with title, start/end time,
+   optional location, optional description, calendar selection when needed, and
    Erstellen / Abbrechen buttons.
 3. On confirmation: calls `calendarReader.createEvent()` (→ `deskleaf-calendar-sync create`).
 4. Pressing Escape or clicking outside the popover cancels without creating.

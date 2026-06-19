@@ -1,26 +1,27 @@
 # Feature: Edit Existing Events
 
 ## Status
-`qa`
+`done`
 <!-- draft → ux-reviewed → design-reviewed → approved → in-development → qa → done -->
 
 ## User Story
 Als Nutzer möchte ich bestehende Kalenderereignisse auf Desktop und Mobile über eine Detailmaske bearbeiten können, damit ich Titel, Zeit, Ort, Beschreibung und Kalenderzuordnung korrigieren kann, ohne den Kalender außerhalb von Deskleaf öffnen zu müssen.
 
 ## Acceptance Criteria
-- [ ] AC1: Auf Desktop öffnet ein Doppelklick auf eine timed Event-Card eine Edit-Maske für dieses Event.
-- [ ] AC2: Auf Mobile öffnet ein Long-Press auf eine timed Event-Card direkt die Edit-Maske.
-- [ ] AC3: Die Edit-Maske zeigt initial die aktuellen Event-Werte für Titel, Startzeit, Endzeit, Ort, Beschreibung und Kalender an.
-- [ ] AC4: Änderungen an Titel, Startzeit, Endzeit, Ort, Beschreibung und Kalender können gespeichert oder verworfen werden.
-- [ ] AC5: Beim Verwerfen bleiben Event, Kalenderansicht und verknüpfte Event-Notiz unverändert.
-- [ ] AC6: Beim Speichern wird das Event im aktiven Backend aktualisiert und die Kalenderansicht anschließend neu geladen.
-- [ ] AC7: Wenn ein wiederkehrendes Event gespeichert wird, fragt Deskleaf vor dem Schreiben, ob nur diese Instanz oder die ganze Serie geändert werden soll.
-- [ ] AC8: Ungültige Eingaben blockieren das Speichern sichtbar, mindestens: leerer Titel, fehlende Start-/Endzeit, Endzeit nicht nach Startzeit.
-- [ ] AC9: Für iCal-Feed-Events öffnet die Edit-Maske höchstens read-only und verändert das Event nicht.
-- [ ] AC10: Teilnehmer werden in der ersten Version nicht bearbeitet.
-- [ ] AC11: Nach erfolgreichem Speichern aktualisiert Deskleaf eine bereits verknüpfte Event-Notiz: `event-id`, relevante Frontmatter-Felder, Titel und Beschreibung werden an die geänderten Event-Daten angepasst.
-- [ ] AC12: Das bestehende Verhalten zum Öffnen oder Erstellen einer verknüpften Event-Notiz bleibt außerhalb des neuen Edit-Zugangs erhalten.
-- [ ] AC13: Events, bei denen der Nutzer nicht Organizer ist, sind in dieser Version read-only und zeigen keine Speichern-Option.
+- [x] AC1: Auf Desktop öffnet ein Single-Click auf eine timed Event-Card die Edit-Maske; Double-Click öffnet oder erstellt die verknüpfte Event-Notiz.
+- [x] AC2: Auf Mobile öffnet ein Single-Tap auf eine timed Event-Card die Edit-Maske; Double-Tap öffnet oder erstellt die verknüpfte Event-Notiz.
+- [x] AC3: Auf Mobile aktiviert ein Long-Press die Start-/Endzeit-Handles und hält den Edit-Modus offen, bis außerhalb getippt wird.
+- [x] AC4: Die Edit-Maske zeigt initial die aktuellen Event-Werte für Titel, Startzeit, Endzeit, Ort, Beschreibung und Kalender an.
+- [x] AC5: Änderungen an Titel, Startzeit, Endzeit, Ort, Beschreibung und Kalender können gespeichert oder verworfen werden.
+- [x] AC6: Beim Verwerfen bleiben Event, Kalenderansicht und verknüpfte Event-Notiz unverändert.
+- [x] AC7: Beim Speichern wird das Event im aktiven Backend aktualisiert und die Kalenderansicht anschließend neu geladen.
+- [x] AC8: Wenn ein wiederkehrendes Event gespeichert wird, fragt Deskleaf vor dem Schreiben, ob nur diese Instanz oder die ganze Serie geändert werden soll.
+- [x] AC9: Ungültige Eingaben blockieren das Speichern sichtbar, mindestens: leerer Titel, fehlende Start-/Endzeit, Endzeit nicht nach Startzeit.
+- [x] AC10: Für iCal-Feed-Events öffnet die Edit-Maske höchstens read-only und verändert das Event nicht.
+- [x] AC11: Teilnehmer werden in der ersten Version nicht bearbeitet.
+- [x] AC12: Nach erfolgreichem Speichern aktualisiert Deskleaf eine bereits verknüpfte Event-Notiz: `event-id`, relevante Frontmatter-Felder, Titel und Beschreibung werden an die geänderten Event-Daten angepasst.
+- [x] AC13: Das bestehende Verhalten zum Öffnen oder Erstellen einer verknüpften Event-Notiz bleibt über Double-Click beziehungsweise Double-Tap erhalten.
+- [x] AC14: Events, bei denen der Nutzer nicht Organizer ist, sind in dieser Version read-only und zeigen keine Speichern-Option.
 
 ## Out of Scope
 - Teilnehmerbearbeitung.

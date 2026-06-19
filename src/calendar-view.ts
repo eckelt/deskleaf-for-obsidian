@@ -1640,6 +1640,10 @@ export class DeskleafCalendarView extends ItemView {
     endInput.step = "60";
     endInput.value = minsToTimeStr(endMin);
 
+    const locationInput = popover.createEl("input", {
+      type: "text", cls: "dl-create-input", placeholder: "Ort",
+    } as any) as HTMLInputElement;
+
     // Description
     const descInput = popover.createEl("textarea", {
       cls: "dl-create-desc", placeholder: "Beschreibung (optional)",
@@ -1681,6 +1685,7 @@ export class DeskleafCalendarView extends ItemView {
           start: minsToISO(date, s),
           end: minsToISO(date, e),
           ...(calName ? { calendar: calName } : {}),
+          ...(locationInput.value.trim() ? { location: locationInput.value.trim() } : {}),
           ...(descInput.value.trim() ? { notes: descInput.value.trim() } : {}),
         });
       } catch (err: any) {
