@@ -352,15 +352,15 @@ dispatch() {
     fi
 
     case "$stage" in
-        new)             assess "$number" "$title" "$labels" "$body" ;;
-        planning)        plan "$number" "$title" "$body" ;;
-        ready-for-build) build "$number" "$spec_path" ;;
-        reviewing)       [[ -n "$pr_number" ]] && review "$number" "$pr_number" ;;
-        qa)              run_qa "$number" "$spec_path" ;;
+        new)             assess "$number" "$title" "$labels" "$body" || echo "  [#${number}] assess fehlgeschlagen" ;;
+        planning)        plan "$number" "$title" "$body" || echo "  [#${number}] plan fehlgeschlagen" ;;
+        ready-for-build) build "$number" "$spec_path" || echo "  [#${number}] build fehlgeschlagen" ;;
+        reviewing)       [[ -n "$pr_number" ]] && { review "$number" "$pr_number" || echo "  [#${number}] review fehlgeschlagen"; } ;;
+        qa)              run_qa "$number" "$spec_path" || echo "  [#${number}] qa fehlgeschlagen" ;;
         done|skipped)    echo "  [#${number}] Ueberspringe (${stage})." ;;
     esac
 
-    set_issue_field_str "$number" "lastUpdatedAt" "$updated_at"
+    set_issue_field_str "$number" "lastUpdatedAt" "$updated_at" || true
 }
 
 # ── Polling ────────────────────────────────────────────────────────────────────
@@ -385,7 +385,8 @@ poll() {
         if [[ "$updated_at" > "$last_seen" ]]; then
             existing=$(jq -r --arg n "$number" '.issues[$n] // empty' "$STATE_FILE")
             [[ -z "$existing" ]] && init_issue "$number" "$updated_at"
-            dispatch "$number" "$title" "$labels_str" "$body" "$updated_at"
+            dispatch "$number" "$title" "$labels_str" "$body" "$updated_at" \
+                || echo "  [#${number}] Dispatch fehlgeschlagen, weiter mit nächstem Issue."
         fi
     done < <(echo "$issues_json" | jq -c '.[]')
 
@@ -408,7 +409,7 @@ main() {
     while true; do
         local ts; ts=$(date +%H:%M:%S)
         echo "[${ts}] Poll..."
-        poll
+        poll || echo "[WARN] Poll fehlgeschlagen, weiter im ${POLL_INTERVAL}s-Takt."
         ts=$(date +%H:%M:%S)
         echo "[${ts}] Naechste Pruefung in ${POLL_INTERVAL}s."
         sleep "$POLL_INTERVAL"
