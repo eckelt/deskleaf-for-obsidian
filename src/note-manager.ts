@@ -149,6 +149,7 @@ export class NoteManager {
 
   private inferType(event: CalendarEvent): NoteType {
     const t = event.title.toLowerCase();
+    if (/\b(fokus|focus|deep\s*work|deepwork)\b/i.test(t)) return "focus";
     if (t.includes("interview") || t.includes("bewerbung")) return "interview";
     if (event.isRecurring) return "recurring";
     return "meeting";
@@ -173,7 +174,8 @@ export class NoteManager {
       .replace(/\{\{attendees\}\}/g, this.buildAttendeesList(event))
       .replace(/\{\{location\}\}/g, (event.location ?? "").replace(/\n/g, ", "))
       .replace(/\{\{body\}\}/g, this.buildBodySection(event))
-      .replace(/\{\{carried_todos\}\}/g, this.buildCarriedTodosQuery(event));
+      .replace(/\{\{carried_todos\}\}/g, this.buildCarriedTodosQuery(event))
+      .replace(/\{\{focus_todos\}\}/g, this.buildFocusTodosQuery());
 
     return `${frontmatter}\n${body}`;
   }
@@ -194,6 +196,31 @@ export class NoteManager {
       `  .file.tasks.where(t => !t.completed);\n` +
       `if (tasks.length > 0) dv.taskList(tasks, false);\n` +
       `else dv.paragraph("_Keine offenen Todos aus vorherigen Instanzen._");\n` +
+      "```"
+    );
+  }
+
+  /**
+   * Returns a DataviewJS block that mirrors the Sidebar Todos source set:
+   * files in notesFolder plus files tagged #topic/topic, excluding Kanban boards.
+   */
+  private buildFocusTodosQuery(): string {
+    const folder = this.settings.notesFolder;
+    return (
+      "```dataviewjs\n" +
+      `const folder = "${folder.replace(/"/g, '\\"')}";\n` +
+      `const pages = dv.pages()\n` +
+      `  .where(p => !p["kanban-plugin"])\n` +
+      `  .where(p => p.file.path.startsWith(folder + "/") || (p.file.tags ?? []).includes("#topic"));\n` +
+      `const seed = dv.current().file.path;\n` +
+      `const hash = (value) => [...value].reduce((h, ch) => ((h << 5) - h + ch.charCodeAt(0)) | 0, 0);\n` +
+      `const tasks = pages.file.tasks\n` +
+      `  .where(t => !t.completed)\n` +
+      `  .array()\n` +
+      `  .sort((a, b) => hash(seed + a.path + a.line + a.text) - hash(seed + b.path + b.line + b.text))\n` +
+      `  .slice(0, 3);\n` +
+      `if (tasks.length > 0) dv.taskList(tasks, false);\n` +
+      `else dv.paragraph("_Keine offenen Todos._");\n` +
       "```"
     );
   }
@@ -232,6 +259,7 @@ export class NoteManager {
       case "interview":  return `## Kandidat\nName: {{title}}\nPosition:\nQuelle:\n\n## Lebenslauf-Highlights\n\n## Fragen\n\n## Eindrücke\n\n## Todos\n- [ ]\n\n## Bewertung\n[ ] Weiterführen  [ ] Absage\n`;
       case "recurring":  return `## Offene Todos (aus letzter Instanz)\n{{carried_todos}}\n\n## Status letztes Mal\n\n## Heute\n\n## Todos\n- [ ]\n`;
       case "task":       return `## Kontext\n\n## Notizen\n\n## Todos\n- [ ]\n`;
+      case "focus":      return `{{body}}## Fokus-Todos\n{{focus_todos}}\n\n## Fokus\n\n## Notizen\n`;
     }
   }
 

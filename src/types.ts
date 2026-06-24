@@ -42,7 +42,7 @@ export interface EventNoteFrontmatter {
   topics: string[];
 }
 
-export type NoteType = "meeting" | "interview" | "recurring" | "task";
+export type NoteType = "meeting" | "interview" | "recurring" | "task" | "focus";
 
 // 6 Monokai Pro calendar hues: pink · orange · yellow · green · cyan · purple
 export const CAL_COLOR_PALETTE = [346, 21, 48, 96, 188, 252] as const;

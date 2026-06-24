@@ -43,3 +43,19 @@ _Avoid_: Timeline, calendar canvas
 **Event Location**:
 A free-text event field that identifies where or how an event takes place. It may contain a physical address, a room name, or a video-call link.
 _Avoid_: Venue-only field, meeting room
+
+**Event Note**:
+A Markdown note linked to a calendar event through Deskleaf frontmatter such as `event-id`. Event Notes hold agenda, notes, todos, and follow-up context for a concrete calendar event.
+_Avoid_: Appointment note, meeting file
+
+**Calendar Series**:
+A set of related recurring calendar events that share the same recurrence pattern or user-facing event title. Deskleaf treats series behavior carefully because changing one instance and changing the series have different consequences.
+_Avoid_: CalSeries, repeating blob
+
+**Focus Block**:
+An existing calendar event reserved for focused work or deep work. Deskleaf identifies it primarily through Event Note frontmatter `type: focus`, with title-pattern and explicit user selection fallbacks.
+_Avoid_: Blocker, focus appointment
+
+**Todo Assignment**:
+A user-approved link between an existing source todo and a Focus Block. The source todo remains authoritative; the assignment gives the Focus Block a way to show and toggle that task without creating an independent duplicate.
+_Avoid_: Todo copy, task clone

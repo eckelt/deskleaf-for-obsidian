@@ -69,7 +69,7 @@ start: "10:00"
 end: "11:00"
 location: ""
 attendees: ["[[Alice Smith]]", "[[Bob Jones]]"]
-type: meeting          # meeting | interview | recurring | task
+type: meeting          # meeting | interview | recurring | task | focus
 toBeRemoved: false
 removalDate: null
 topics: []
@@ -115,7 +115,9 @@ interface DeskleafSettings {
   notesFolder: string;        // default: "notes"
   topicsFolder: string;       // default: "topics"
   topicsOrder: string[];      // ordered file paths for sidebar sort
+  businessHours: BusinessHoursSettings;
   caldav: CalDAVSettings;
+  icalSubscriptions: ICalFeedSubscription[];
 }
 ```
 

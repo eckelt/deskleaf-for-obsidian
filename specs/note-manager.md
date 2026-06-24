@@ -47,6 +47,7 @@ truncates to 100 characters.
 
 | Type | Condition |
 |---|---|
+| `focus` | title matches "fokus", "focus", "deep work", or "deepwork" (case-insensitive) |
 | `interview` | title contains "interview" or "bewerbung" (case-insensitive) |
 | `recurring` | `event.isRecurring === true` |
 | `meeting` | fallback |
@@ -70,6 +71,7 @@ a built-in default is used.
 | `{{location}}` | `event.location ?? ""` |
 | `{{body}}` | `## Beschreibung\n<cleaned body>\n\n` (empty string if no body) |
 | `{{carried_todos}}` | DataviewJS live query block (see below) |
+| `{{focus_todos}}` | DataviewJS live task query for Focus Block notes (see below) |
 
 ### Default templates
 
@@ -129,6 +131,16 @@ Quelle:
 - [ ]
 ```
 
+**focus**
+```
+{{body}}## Fokus-Todos
+{{focus_todos}}
+
+## Fokus
+
+## Notizen
+```
+
 ### `{{carried_todos}}` — DataviewJS live query
 
 Expands to a DataviewJS code block that queries open tasks from older notes with the same
@@ -144,6 +156,31 @@ if (tasks.length > 0) dv.taskList(tasks, false);
 else dv.paragraph("_Keine offenen Todos aus vorherigen Instanzen._");
 ```
 
+### `{{focus_todos}}` — DataviewJS live query
+
+Expands to a DataviewJS block that mirrors the Sidebar Todos source set: files in
+`notesFolder/` plus files tagged `#topic`, excluding Kanban boards. It shows exactly
+three open tasks. The selection is semistable: tasks are deterministically shuffled by
+the current Focus Block note path, so the list stays stable within one note while different
+Focus Blocks can surface different tasks. Dataview is required for live rendering and
+source-task toggling.
+
+```js
+const folder = "<notesFolder>";
+const pages = dv.pages()
+  .where(p => !p["kanban-plugin"])
+  .where(p => p.file.path.startsWith(folder + "/") || (p.file.tags ?? []).includes("#topic"));
+const seed = dv.current().file.path;
+const hash = (value) => [...value].reduce((h, ch) => ((h << 5) - h + ch.charCodeAt(0)) | 0, 0);
+const tasks = pages.file.tasks
+  .where(t => !t.completed)
+  .array()
+  .sort((a, b) => hash(seed + a.path + a.line + a.text) - hash(seed + b.path + b.line + b.text))
+  .slice(0, 3);
+if (tasks.length > 0) dv.taskList(tasks, false);
+else dv.paragraph("_Keine offenen Todos._");
+```
+
 ---
 
 ## Frontmatter written on creation
@@ -156,7 +193,7 @@ start: "<HH:MM>"
 end: "<HH:MM>"
 location: "<location>"
 attendees: ["[[First Last]]", …]
-type: <meeting|interview|recurring|task>
+type: <meeting|interview|recurring|task|focus>
 toBeRemoved: false
 removalDate: null
 topics: []
