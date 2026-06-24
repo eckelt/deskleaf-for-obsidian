@@ -323,6 +323,8 @@ check_human_reply() {
     local last_comment; last_comment=$(get_last_comment "$number")
     if echo "$last_comment" | grep -qi "weiter"; then
         set_issue_field_json "$number" "awaitingHuman" "false"
+        # Bump loopCount by 1 so count % MAX_LOOPS != 0 and the trigger doesn't fire again immediately
+        increment_loop "$number" > /dev/null
         post_comment "$number" "🤖 **Pipeline**: Verstanden — Pipeline laeuft weiter."
         return 0
     fi
