@@ -34,6 +34,18 @@ Use a `grill-with-docs` style review:
 - Update project docs when a stable term, rule, or decision emerges.
 - Do not create ADRs unless the decision is hard to reverse, surprising without context, and the result of a real trade-off.
 
+## Self-Grilling (Required Before Writing the Spec)
+
+Before writing the spec, challenge the issue by answering these five questions explicitly in your reasoning:
+
+1. **Edge cases**: What happens at the boundary conditions? (empty state, maximum values, rapid user actions)
+2. **Consistency**: Does the requested behavior conflict with any existing feature or pattern in the codebase?
+3. **UX implication**: Is there a user action that could lead to an unexpected or confusing result?
+4. **Scope creep**: Is any part of the request larger than it appears? Would implementing it require touching more than 3 files?
+5. **Reversibility**: If this change turns out wrong, how hard is it to revert?
+
+Write your answers before the spec. If any answer reveals a blocker, stop and post it as an open question on the issue instead of writing a spec.
+
 ## Outputs
 
 When planning starts:
