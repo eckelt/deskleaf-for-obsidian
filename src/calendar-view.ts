@@ -39,6 +39,7 @@ import {
   minsToISO,
 } from "./event-layout";
 import type { EventLayout } from "./event-layout";
+import { getBusinessHoursSegment } from "./business-hours";
 
 export const VIEW_TYPE_CALENDAR = "deskleaf-calendar";
 
@@ -1047,6 +1048,13 @@ export class DeskleafCalendarView extends ItemView {
     if (date === today) el.addClass("dl-day-body--today");
     if (date === this.selectedDate) el.addClass("dl-day-body--selected");
     el.style.height = `${gridHeight}px`;
+
+    const segment = getBusinessHoursSegment(parseDate(date), this.plugin.settings.businessHours);
+    if (segment) {
+      const highlight = el.createDiv("dl-business-hours-segment");
+      highlight.style.top = `${(segment.topMinutes / 60) * HOUR_PX}px`;
+      highlight.style.height = `${(segment.durationMinutes / 60) * HOUR_PX}px`;
+    }
 
     for (let h = 0; h < TOTAL_HOURS; h++) {
       const line = el.createDiv("dl-hour-line");

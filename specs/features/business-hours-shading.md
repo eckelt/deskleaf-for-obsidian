@@ -1,7 +1,7 @@
 # Feature: Business Hours Shading
 
 ## Status
-`approved`
+`qa`
 <!-- draft -> ux-reviewed -> design-reviewed -> approved -> in-development -> qa -> done -->
 
 ## Source
@@ -111,4 +111,21 @@ Freigabe für `approved`. Der Builder kann ohne weitere Produktfragen implementi
 ---
 
 ## QA Report
-_Pending_
+Implementation ready for QA.
+
+Automated verification:
+- `npm test` passed: 10 test files, 171 tests.
+- `npm run build` passed.
+
+Implemented acceptance coverage:
+- AC1/AC2: Calendar day bodies render subtle Business Hours highlight segments; Non-Business Hours keep the baseline grid background.
+- AC3: Segments render before hour lines, now line, drag ghosts, and event cards, use `pointer-events: none`, and sit at z-index 0.
+- AC4: The same day-body rendering path is used for Single-Day, N-Day, Week View, and each Sa|So internal subcolumn.
+- AC5/AC7: Defaults and segment calculation are covered by `tests/business-hours.test.ts`.
+- AC6: Global Business Hours settings are saved in `DeskleafSettings` and exposed in Settings.
+- AC8: Light/Dark CSS uses low-opacity accent washes below event and selection states.
+
+Manual QA still recommended in Obsidian:
+- Light and Dark Mode visual contrast.
+- Week View, Single-Day View, and Sa|So shared column.
+- Drag-to-create, event drag/resize, selected date, selected event, and now line layering.

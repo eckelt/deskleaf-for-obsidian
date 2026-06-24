@@ -616,6 +616,22 @@
     border-left: 1px solid rgba(128, 128, 128, 0.12);
 }
 
+.dl-business-hours-segment {
+    position: absolute;
+    left: 0;
+    right: 0;
+    background: hsla(var(--accent-h), var(--accent-s), var(--accent-l), 0.055);
+    border-top: 1px solid hsla(var(--accent-h), var(--accent-s), var(--accent-l), 0.12);
+    border-bottom: 1px solid hsla(var(--accent-h), var(--accent-s), var(--accent-l), 0.12);
+    pointer-events: none;
+    z-index: 0;
+}
+
+.theme-dark .dl-business-hours-segment {
+    background: hsla(var(--accent-h), var(--accent-s), var(--accent-l), 0.085);
+    border-color: hsla(var(--accent-h), var(--accent-s), var(--accent-l), 0.16);
+}
+
 /* Hour lines */
 .dl-hour-line {
     position: absolute;

@@ -69,6 +69,13 @@ export interface ICalFeedSubscription {
   color?: number; // Hue from CAL_COLOR_PALETTE; optional for backward compatibility
 }
 
+export interface BusinessHoursSettings {
+  enabled: boolean;
+  start: string; // HH:MM
+  end: string; // HH:MM
+  days: number[]; // JavaScript weekday numbers: 1 = Monday, ... 5 = Friday
+}
+
 export interface DeskleafSettings {
   binaryPath: string; // empty = auto-detect deskleaf-calendar-sync in plugin directory
   weekStartsOn: "monday";
@@ -76,6 +83,7 @@ export interface DeskleafSettings {
   notesFolder: string;
   topicsFolder: string;
   topicsOrder: string[];
+  businessHours: BusinessHoursSettings;
   caldav: CalDAVSettings;
   icalSubscriptions: ICalFeedSubscription[];
 }
@@ -87,6 +95,12 @@ export const DEFAULT_SETTINGS: DeskleafSettings = {
   notesFolder: "notes",
   topicsFolder: "topics",
   topicsOrder: [],
+  businessHours: {
+    enabled: true,
+    start: "09:00",
+    end: "17:00",
+    days: [1, 2, 3, 4, 5],
+  },
   caldav: {
     url: "https://caldav.fastmail.com",
     username: "",

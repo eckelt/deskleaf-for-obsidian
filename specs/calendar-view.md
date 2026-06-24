@@ -68,6 +68,9 @@ Sa and So are **always** shown as a single merged double-column, regardless of v
 
 - Full 24-hour grid (`DAY_START=0`, `DAY_END=24`). Each hour = 64px. Total height = 1536px.
 - Hour lines at every hour; half-opacity lines at every half-hour.
+- Business Hours are rendered as subtle background segments inside each day body. Defaults:
+  Monday-Friday, 09:00-17:00. Saturday and Sunday remain baseline grid background unless
+  future settings enable them.
 - Sticky column-header row at the top.
 - All-day strip rendered only when ≥ 1 all-day event is visible in the current range.
 - Scrollable body; on first render scrolls to 30 minutes before the earliest event in
@@ -95,6 +98,7 @@ each sub-header gets the same `--today` / `--selected` modifiers independently.
 |---|---|---|
 | Today | `dl-day-body--today` | Light accent tint |
 | Selected date | `dl-day-body--selected` | Very light accent wash |
+| Business Hours | `dl-business-hours-segment` | Subtle accent wash behind grid lines and cards |
 
 `dl-day-body--selected` is applied only when the **daily note** for that date is the active
 tab. Event selection does **not** highlight the day body — only the event card itself gets
@@ -102,6 +106,12 @@ tab. Event selection does **not** highlight the day body — only the event card
 
 A red "now line" with a circular dot is rendered in today's column at the current time.
 The now line is updated every 60 seconds via a repeating interval timer.
+
+Business Hours segments are rendered before hour lines, the now line, drag ghosts, and
+event cards. They are `pointer-events: none`, so drag-to-create, event dragging, and
+card interaction remain unchanged. In the Sa|So shared column the segment is rendered per
+internal sub-column; with the v1 default this means neither weekend sub-column is
+highlighted.
 
 ---
 

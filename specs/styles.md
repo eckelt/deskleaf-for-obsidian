@@ -77,6 +77,7 @@ Defined on `:root`, overridden per theme.
 | `.dl-day-body--sub` | Individual body within a double column |
 | `.dl-day-body--today` | Today tint |
 | `.dl-day-body--selected` | Selected date tint |
+| `.dl-business-hours-segment` | Subtle Business Hours background highlight |
 | `.dl-now-line` + `.dl-now-dot` | Current time indicator |
 
 ### Event cards
