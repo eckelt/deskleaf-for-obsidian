@@ -1,7 +1,9 @@
 import type { CalendarEvent } from "./types";
 
-export const HOUR_PX = 64;
+export const DEFAULT_HOUR_PX = 64;
 const DAY_START = 0;
+const DAY_HOURS = 24;
+const MIN_VISIBLE_HOURS = 4;
 
 export interface EventLayout {
   event: CalendarEvent;
@@ -9,14 +11,41 @@ export interface EventLayout {
   totalCols: number;
 }
 
-export function topFromISO(iso: string): number {
+export function topFromISO(iso: string, hourPx = DEFAULT_HOUR_PX): number {
   const d = new Date(iso);
-  return (((d.getHours() - DAY_START) * 60 + d.getMinutes()) / 60) * HOUR_PX;
+  return (((d.getHours() - DAY_START) * 60 + d.getMinutes()) / 60) * hourPx;
 }
 
-export function heightFromISO(start: string, end: string): number {
+export function heightFromISO(start: string, end: string, hourPx = DEFAULT_HOUR_PX): number {
   const mins = (new Date(end).getTime() - new Date(start).getTime()) / 60000;
-  return Math.max(20, (mins / 60) * HOUR_PX);
+  return Math.max(20, (mins / 60) * hourPx);
+}
+
+export function clampHourPx(hourPx: number, viewportHeight: number): number {
+  if (viewportHeight <= 0) return DEFAULT_HOUR_PX;
+  const minHourPx = viewportHeight / DAY_HOURS;
+  const maxHourPx = viewportHeight / MIN_VISIBLE_HOURS;
+  return Math.min(maxHourPx, Math.max(minHourPx, hourPx));
+}
+
+export function hourPxForPinch(
+  startHourPx: number,
+  startDistance: number,
+  currentDistance: number,
+  viewportHeight: number,
+): number {
+  if (startDistance <= 0) return clampHourPx(startHourPx, viewportHeight);
+  return clampHourPx(startHourPx * (currentDistance / startDistance), viewportHeight);
+}
+
+export function scrollTopForZoomAnchor(params: {
+  oldHourPx: number;
+  newHourPx: number;
+  scrollTop: number;
+  viewportOffsetY: number;
+}): number {
+  const anchoredHours = (params.scrollTop + params.viewportOffsetY) / params.oldHourPx;
+  return anchoredHours * params.newHourPx - params.viewportOffsetY;
 }
 
 export function snapMins(mins: number): number {
