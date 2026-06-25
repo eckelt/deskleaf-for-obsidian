@@ -34,30 +34,6 @@ export interface AnchoredScrollInput {
   nextHourPx: number;
 }
 
-export interface CalendarViewTestElement {
-  children: CalendarViewTestElement[];
-  scrollTop: number;
-  addClass: () => void;
-  empty: () => void;
-  createDiv: () => CalendarViewTestElement;
-  querySelector: () => null;
-}
-
-export interface CalendarViewZoomHarness {
-  app: { workspace: { trigger: () => void } };
-  containerEl: CalendarViewTestElement & { children: CalendarViewTestElement[] };
-  hourPx: number;
-  visibleDays: number;
-  anchor: Date;
-  render: () => void;
-  navigate: (dir: number) => void;
-  gridHeight: () => number;
-  clampHourPxToViewport: (scrollEl: { clientHeight: number }) => boolean;
-  buildStatusBar: () => void;
-  buildTimeGrid: () => void;
-  buildMobileTodayFab: () => void;
-}
-
 // Frontmatter for event notes
 export interface EventNoteFrontmatter {
   "event-id": string;
