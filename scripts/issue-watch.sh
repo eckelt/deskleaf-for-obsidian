@@ -359,6 +359,8 @@ build_lane() {
     ln -sfn "${REPO_DIR}/node_modules" "${wt}/node_modules"   # Installations-Overhead sparen
     mkdir -p "${wt}/.claude"   # permission-Allowlist mit in den Worktree geben
     cp "${REPO_DIR}/.claude/settings.json" "${wt}/.claude/settings.json" 2>/dev/null || true
+    mkdir -p "${wt}/$(dirname "$spec")"   # Spec in den Worktree spiegeln — Builder/Validator lesen sie dort
+    cp "${REPO_DIR}/${spec}" "${wt}/${spec}"
 
     # Fix-forward-Notiz des Planners als erstes Builder-Feedback übernehmen.
     local feedback; feedback=$(get_field "$number" "fixForwardNote" "")
