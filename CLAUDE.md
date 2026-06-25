@@ -90,8 +90,11 @@ Vault plugin path:
 - **Lean modules** — each `src/*.ts` has one clear responsibility; no cross-cutting God classes
 - **Pure functions first** — date math, filtering, layout math live in pure utility files
 - **No direct DOM** outside view files — `calendar-view.ts` and `sidebar-view.ts` own the DOM
-- **Types in `types.ts`** — never scatter interface definitions across files
-- **styles.css is single-file** — no inline styles except dynamic `--cal-h` per event card
+- **Shared types in `types.ts`** — domain/shared/exported cross-module types live there;
+  local unexported helper types may stay next to the code or tests that use them
+- **styles.css is single-file** — no inline styles for static styling; dynamic
+  CSS custom properties are allowed for runtime layout/colour values (`--f-*`,
+  `--cal-h`)
 - **Tests use vitest** — run with `TZ=UTC`; test files in `tests/*.test.ts`
 
 ---

@@ -788,7 +788,6 @@ export class DeskleafCalendarView extends ItemView {
 
   private buildTimeGrid(el: HTMLElement) {
     const today = toDateStr(new Date());
-    if (!Platform.isMobile) this.hourPx = DEFAULT_HOUR_PX;
     const gridHeight = TOTAL_HOURS * this.hourPx;
 
     const grid = el.createDiv("dl-time-grid");
@@ -957,6 +956,8 @@ export class DeskleafCalendarView extends ItemView {
         }
         gutterBodyWrap.scrollTop = bodyScroll.scrollTop;
       });
+
+      this.setupDesktopTrackpadPinch(bodyScroll);
     }
 
   }
@@ -1026,6 +1027,8 @@ export class DeskleafCalendarView extends ItemView {
     let startHourPx = this.hourPx;
     let anchorOffsetY = 0;
     let pinching = false;
+    let tracking = false;
+    const PINCH_DISTANCE_THRESHOLD = 6;
 
     const distance = (touches: TouchList): number => {
       const a = touches[0];
@@ -1036,21 +1039,23 @@ export class DeskleafCalendarView extends ItemView {
 
     const start = (e: TouchEvent) => {
       if (e.touches.length !== 2) return;
-      pinching = true;
+      tracking = true;
+      pinching = false;
       startDistance = distance(e.touches);
       startHourPx = clampHourPx(this.hourPx, scrollEl.clientHeight);
       this.hourPx = startHourPx;
       anchorOffsetY = midpointY(e.touches) - scrollEl.getBoundingClientRect().top;
       this.applyHourPxToRenderedGrids();
-      e.preventDefault();
-      e.stopPropagation();
     };
 
     const move = (e: TouchEvent) => {
-      if (!pinching || e.touches.length !== 2) return;
+      if (!tracking || e.touches.length !== 2) return;
       const oldHourPx = this.hourPx;
       anchorOffsetY = midpointY(e.touches) - scrollEl.getBoundingClientRect().top;
-      const newHourPx = hourPxForPinch(startHourPx, startDistance, distance(e.touches), scrollEl.clientHeight);
+      const currentDistance = distance(e.touches);
+      if (!pinching && Math.abs(currentDistance - startDistance) < PINCH_DISTANCE_THRESHOLD) return;
+      pinching = true;
+      const newHourPx = hourPxForPinch(startHourPx, startDistance, currentDistance, scrollEl.clientHeight);
       this.hourPx = newHourPx;
       this.applyHourPxToRenderedGrids();
       scrollEl.scrollTop = scrollTopForZoomAnchor({
@@ -1064,8 +1069,10 @@ export class DeskleafCalendarView extends ItemView {
     };
 
     const end = (e: TouchEvent) => {
-      if (!pinching) return;
+      if (!tracking) return;
       if (e.touches.length >= 2) return;
+      tracking = false;
+      if (!pinching) return;
       pinching = false;
       const oldHourPx = this.hourPx;
       const newHourPx = clampHourPx(this.hourPx, scrollEl.clientHeight);
@@ -1091,6 +1098,34 @@ export class DeskleafCalendarView extends ItemView {
     scrollEl.addEventListener("touchmove", move, { passive: false, capture: true });
     scrollEl.addEventListener("touchend", end, { passive: false, capture: true });
     scrollEl.addEventListener("touchcancel", end, { passive: false, capture: true });
+  }
+
+  private setupDesktopTrackpadPinch(scrollEl: HTMLElement) {
+    const wheel = (e: WheelEvent) => {
+      if (!e.ctrlKey) return;
+      const oldHourPx = this.hourPx;
+      const anchorOffsetY = e.clientY - scrollEl.getBoundingClientRect().top;
+      const scale = Math.exp(-e.deltaY / 100);
+      const newHourPx = clampHourPx(oldHourPx * scale, scrollEl.clientHeight);
+      this.hourPx = newHourPx;
+      this.applyHourPxToRenderedGrids();
+      scrollEl.scrollTop = scrollTopForZoomAnchor({
+        oldHourPx,
+        newHourPx,
+        scrollTop: scrollEl.scrollTop,
+        viewportOffsetY: anchorOffsetY,
+      });
+      e.preventDefault();
+      e.stopPropagation();
+    };
+
+    requestAnimationFrame(() => {
+      if (!scrollEl.isConnected) return;
+      this.hourPx = clampHourPx(this.hourPx, scrollEl.clientHeight);
+      this.applyHourPxToRenderedGrids();
+    });
+
+    scrollEl.addEventListener("wheel", wheel, { passive: false, capture: true });
   }
 
   private buildAllDayAreaInto(area: HTMLElement, columns: DayColumn[], allDates: string[]): number {
