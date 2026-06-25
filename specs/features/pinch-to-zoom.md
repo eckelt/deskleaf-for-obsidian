@@ -19,7 +19,8 @@ Als Kalender-Nutzer möchte ich auf Mobile per Zwei-Finger-Pinch und auf Desktop
 - [ ] AC6: Während der Geste bleibt der Zeitpunkt unter dem Pinch-Mittelpunkt beziehungsweise Trackpad-Zoom-Fokus an derselben Bildschirmposition verankert (Scroll-Position wird passend nachgeführt).
 - [ ] AC7: Alle vom Stundenraster abhängigen Elemente (Hour-/Half-Hour-Lines, Time-Labels im Gutter, Now-Line, Event-Cards, Drag-Ghosts, Business-Hours-Shading) skalieren konsistent mit der aktuellen Zoomstufe.
 - [ ] AC8: Die gewählte Zoomstufe bleibt innerhalb der laufenden Session erhalten, über Tages-/Wochen-Navigation und Re-Renders hinweg. Beim erstmaligen Öffnen der View startet der Zoom auf der bisherigen Default-Dichte (64px/Stunde, geclampt auf die gültigen Grenzen).
-- [ ] AC9: Bestehende Kalendergesten bleiben nutzbar: Ein-Finger-Swipe navigiert weiter zwischen Tagen/Wochen; Zwei-Finger-Gesten lösen Zoom erst aus, wenn sich der Fingerabstand als Pinch erkennbar ändert. Eine reine Zwei-Finger-Wischbewegung mit stabiler Distanz darf keine Kalendernavigation auslösen.
+- [ ] AC9: Bestehende Ein-Finger-Gesten bleiben nutzbar: vertikales Wischen scrollt durch die Uhrzeit; horizontales Wischen im Kalenderinneren navigiert weiter zum nächsten/vorigen Tag beziehungsweise Zeitraum; horizontales Wischen aus dem Obsidian-Randbereich wird nicht vom Kalender übernommen, damit Obsidian seine Side-Panels ein-/ausblenden kann.
+- [ ] AC10: Zwei-Finger-Gesten lösen Kalender-Zoom erst aus, wenn sich der Fingerabstand beziehungsweise Trackpad-Pinch-Scale erkennbar ändert. Eine reine Zwei-Finger-Vor-/Zurück-Geste mit stabiler Distanz darf keine Kalendernavigation auslösen und muss, wo Obsidian/Electron sie als App-Navigation anbietet, an Obsidian durchfallen.
 
 ## Acceptance Scenarios
 ```gherkin
@@ -56,10 +57,16 @@ Scenario: Vertical zoom does not change horizontal layout
 ```gherkin
 Scenario: Existing touch navigation does not conflict with pinch
   Given the Calendar View is open on iOS
-  When the user swipes with one finger
-  Then the existing calendar navigation still works
-  When the user moves two fingers with a stable distance
-  Then the view does not navigate horizontally
+  When the user swipes vertically with one finger on the time grid
+  Then the calendar scrolls through the time of day
+  When the user swipes horizontally with one finger from the calendar interior
+  Then the calendar navigates to the next or previous visible date range
+  When the user swipes horizontally with one finger from the Obsidian edge zone
+  Then the calendar does not claim the gesture
+  And Obsidian can show or hide its side panel
+  When the user moves two fingers forward or backward with a stable distance
+  Then the calendar does not navigate horizontally
+  And Obsidian navigation is not prevented where the runtime provides it
   When the user changes the distance between two fingers
   Then the view zooms vertically
 ```
@@ -70,7 +77,7 @@ Scenario: Existing touch navigation does not conflict with pinch
 - Horizontal zooming or changing the number of visible days.
 - Changing the 24h grid range (`DAY_START`/`DAY_END` remain 0-24).
 - Snap to discrete zoom levels; zoom is continuous within the limits.
-- Two-finger swipe as a separate calendar navigation gesture.
+- Two-finger swipe as a calendar navigation gesture. Stable-distance two-finger app navigation belongs to Obsidian when the runtime supports it.
 
 ## Open Questions
 _None_
@@ -86,12 +93,13 @@ _None_
 - Automated Vitest coverage for AC3: the same event set yields identical `assignColumns` `col`/`totalCols` at different hour heights, while `topFromISO` / `heightFromISO` change proportionally.
 - Automated Vitest coverage for clamp calculation: min = whole day fits in viewport, max = 4 hours fill viewport, values outside are clamped.
 - Automated Vitest coverage for focus-anchor scroll math.
-- Automated DOM/input coverage for TouchEvent two-finger pinch: outward and inward movement update zoom, one-finger swipe path is not broken, and two-finger stable-distance movement does not trigger navigation.
+- Automated DOM/input coverage for one-finger gesture separation: vertical movement scrolls normally, interior horizontal movement still reaches calendar navigation, and edge-origin horizontal movement is not claimed by the calendar.
+- Automated DOM/input coverage for TouchEvent two-finger pinch: outward and inward movement update zoom, stable-distance movement does not trigger calendar navigation, and the non-pinch path is not explicitly prevented.
 - Automated DOM/input coverage for desktop trackpad pinch using the Chromium/Electron event shape the implementation handles; assert the event is consumed for calendar zoom and does not fall through to app/page zoom.
 - Representative automated coverage is sufficient for AC7: test one shared geometry mechanism that drives hour lines/time labels/now-line/events/business-hours, plus one event/drag-ghost calculation path. Manual QA covers the full visual list.
 - `npm run build` and `npm test` green.
 - Manual QA in Obsidian Desktop on macOS trackpad: pinch in/out over Calendar View, limits, focus-anchor, no Obsidian/page zoom.
-- Manual QA in Obsidian Mobile iOS: pinch in/out over Calendar View, one-finger navigation still works, two-finger stable swipe does not navigate, limits, focus-anchor, now-line, event-cards, business-hours shading, day/week navigation retains zoom.
+- Manual QA in Obsidian Mobile iOS: pinch in/out over Calendar View, one-finger vertical time scrolling, one-finger horizontal calendar navigation from the interior, Obsidian side-panel gestures from the edge, two-finger stable swipe does not navigate the calendar, limits, focus-anchor, now-line, event-cards, business-hours shading, day/week navigation retains zoom.
 
 ---
 
@@ -130,7 +138,7 @@ _Pending_
 ### Decisions
 - **Desktop is in scope.** The earlier desktop non-goal is superseded by the human clarification on 2026-06-25: macOS trackpad pinch in Obsidian Desktop must zoom the calendar with the same limits.
 - **Gesture input paths are explicit.** Mobile uses two-touch pinch distance changes. Desktop uses the trackpad-pinch event path exposed by Obsidian Desktop's Chromium/Electron runtime, not generic mouse-wheel zoom.
-- **Two-finger iOS swipe is not a navigation feature.** Single-finger swipe remains the supported calendar navigation gesture. Two-finger movement is only treated as zoom after a measurable distance-ratio change; otherwise it should not navigate the calendar.
+- **Two-finger swipe is not a calendar navigation feature.** Single-finger gestures remain responsible for time scrolling, date navigation, and Obsidian edge-panel behavior. Two-finger movement is only treated as zoom after a measurable distance-ratio change; stable-distance two-finger back/forward remains Obsidian's responsibility where the runtime supports it.
 - **Bounds are viewport-relative.** "Whole day visible" and "4 hours visible" derive from the visible height of `.dl-grid-body-scroll`: min `viewportHeight / 24`, max `viewportHeight / 4`.
 - **Pure functions stay pure.** Hour height is passed as a parameter instead of mutating module-level state.
 - **Horizontal layout is invariant.** Vertical zoom must not influence date range selection, day-column count/order, weekend column logic, or overlap-column assignment.
