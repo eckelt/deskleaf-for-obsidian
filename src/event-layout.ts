@@ -32,6 +32,17 @@ export function clampHourPx(hourPx: number, viewportHeight: number): number {
   return Math.min(maxHourPx, Math.max(minHourPx, hourPx));
 }
 
+export function calculatePinchHourPx(
+  startHourPx: number,
+  startDistance: number,
+  currentDistance: number,
+  viewportHeight: number,
+): number {
+  const ratio = currentDistance / startDistance;
+  if (!Number.isFinite(ratio) || ratio <= 0) return startHourPx;
+  return clampHourPx(startHourPx * ratio, viewportHeight);
+}
+
 export interface AnchoredScrollInput {
   currentScrollTop: number;
   anchorOffsetY: number;

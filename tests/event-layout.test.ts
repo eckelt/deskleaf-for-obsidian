@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   assignColumns,
   calculateAnchoredScrollTop,
+  calculatePinchHourPx,
   clampHourPx,
   DEFAULT_HOUR_PX,
   heightFromISO,
@@ -90,6 +91,13 @@ describe("calculateAnchoredScrollTop", () => {
     });
 
     expect(nextScrollTop).toBe(560);
+  });
+});
+
+describe("calculatePinchHourPx", () => {
+  it("zooms in when two fingers move apart and out when they move together", () => {
+    expect(calculatePinchHourPx(64, 100, 150, 960)).toBe(96);
+    expect(calculatePinchHourPx(64, 100, 50, 960)).toBe(40);
   });
 });
 

@@ -33,6 +33,7 @@ import {
   DEFAULT_HOUR_PX,
   assignColumns,
   calculateAnchoredScrollTop,
+  calculatePinchHourPx,
   clampHourPx,
   topFromISO,
   heightFromISO,
@@ -996,10 +997,10 @@ export class DeskleafCalendarView extends ItemView {
       const currentScrollEl = this.containerEl.querySelector<HTMLElement>(".dl-grid-body-scroll");
       if (!currentScrollEl) return;
 
-      const ratio = touchDistance(e.touches) / this.pinchZoom.startDistance;
-      if (!Number.isFinite(ratio) || ratio <= 0) return;
-      const nextHourPx = clampHourPx(
-        this.pinchZoom.startHourPx * ratio,
+      const nextHourPx = calculatePinchHourPx(
+        this.pinchZoom.startHourPx,
+        this.pinchZoom.startDistance,
+        touchDistance(e.touches),
         currentScrollEl.clientHeight,
       );
       if (nextHourPx === this.hourPx) return;
