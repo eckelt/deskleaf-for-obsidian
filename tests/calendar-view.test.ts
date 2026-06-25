@@ -4,32 +4,8 @@ import { DeskleafCalendarView } from "../src/calendar-view";
 import { DEFAULT_HOUR_PX } from "../src/event-layout";
 import type DeskleafPlugin from "../src/main";
 
-interface CalendarViewTestElement {
-  children: CalendarViewTestElement[];
-  scrollTop: number;
-  addClass: () => void;
-  empty: () => void;
-  createDiv: () => CalendarViewTestElement;
-  querySelector: () => null;
-}
-
-interface CalendarViewZoomHarness {
-  app: { workspace: { trigger: () => void } };
-  containerEl: CalendarViewTestElement & { children: CalendarViewTestElement[] };
-  hourPx: number;
-  visibleDays: number;
-  anchor: Date;
-  render: () => void;
-  navigate: (dir: number) => void;
-  gridHeight: () => number;
-  clampHourPxToViewport: (scrollEl: { clientHeight: number }) => boolean;
-  buildStatusBar: () => void;
-  buildTimeGrid: () => void;
-  buildMobileTodayFab: () => void;
-}
-
-function makeElement(): CalendarViewTestElement {
-  const element: CalendarViewTestElement = {
+function makeElement(): any {
+  const element = {
     children: [],
     scrollTop: 0,
     addClass: () => {},
@@ -46,7 +22,7 @@ function makeElement(): CalendarViewTestElement {
   return element;
 }
 
-function makeView(): CalendarViewZoomHarness {
+function makeView(): any {
   const plugin = {
     settings: { caldav: {}, icalSubscriptions: [] },
     calendarReader: {
@@ -67,7 +43,7 @@ function makeView(): CalendarViewZoomHarness {
   const view = new DeskleafCalendarView(
     new WorkspaceLeaf(),
     plugin as unknown as DeskleafPlugin,
-  ) as unknown as CalendarViewZoomHarness;
+  ) as any;
   view.app = {
     workspace: {
       trigger: () => {},
