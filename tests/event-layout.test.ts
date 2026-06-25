@@ -79,6 +79,11 @@ describe("clampHourPx", () => {
   it("keeps values inside the viewport-relative zoom range", () => {
     expect(clampHourPx(80, 960)).toBe(80);
   });
+
+  it("keeps the current value when the viewport height is not measurable", () => {
+    expect(clampHourPx(64, 0)).toBe(64);
+    expect(clampHourPx(64, -1)).toBe(64);
+  });
 });
 
 describe("calculateAnchoredScrollTop", () => {

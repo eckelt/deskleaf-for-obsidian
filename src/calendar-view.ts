@@ -340,6 +340,7 @@ export class DeskleafCalendarView extends ItemView {
     this.cancelDrag();
     this.hideHoverPopover();
     this.exitMobileEditMode();
+    this.pinchZoom = null;
   }
 
   private computeInitialScroll(): { top: number; hasEvents: boolean } {
@@ -935,6 +936,7 @@ export class DeskleafCalendarView extends ItemView {
 
     // capture:true → feuert auch wenn eine Event-Card stopPropagation aufruft
     el.addEventListener("touchstart", (e) => {
+      if (e.touches.length !== 1) return;
       const t = e.touches[0];
       startX = t.clientX;
       startY = t.clientY;
@@ -1423,6 +1425,7 @@ export class DeskleafCalendarView extends ItemView {
 
   private addEventLongPress(cardEl: HTMLElement, event: CalendarEvent, date: string, onLongPress?: () => void) {
     cardEl.addEventListener("touchstart", (e: TouchEvent) => {
+      if (e.touches.length !== 1) return;
       e.stopPropagation();
       if (!!event.isCancelled || isFeedEvent(event) || !!event.isAllDay) return;
       const startX = e.touches[0].clientX;
@@ -1506,6 +1509,7 @@ export class DeskleafCalendarView extends ItemView {
 
     // ── Top handle: adjust start time ────────────────────────────
     const onTopStart = (ev: TouchEvent) => {
+      if (ev.touches.length !== 1) return;
       ev.preventDefault();
       ev.stopPropagation();
       topHandle.addEventListener("touchmove", onTopMove, { passive: false });
@@ -1529,6 +1533,7 @@ export class DeskleafCalendarView extends ItemView {
 
     // ── Bottom handle: adjust end time ───────────────────────────
     const onBottomStart = (ev: TouchEvent) => {
+      if (ev.touches.length !== 1) return;
       ev.preventDefault();
       ev.stopPropagation();
       bottomHandle.addEventListener("touchmove", onBottomMove, { passive: false });
@@ -1557,6 +1562,7 @@ export class DeskleafCalendarView extends ItemView {
     const cardRect = cardEl.getBoundingClientRect();
 
     const onBodyStart = (ev: TouchEvent) => {
+      if (ev.touches.length !== 1) return;
       if ((ev.target as HTMLElement).closest(".dl-edit-handle")) return;
       dragOffsetMins = Math.round(((ev.touches[0].clientY - cardRect.top) / this.hourPx) * 60);
       isDragging = false;
@@ -2087,6 +2093,7 @@ export class DeskleafCalendarView extends ItemView {
   }
 
   private onDayTouchStart(e: TouchEvent, dayEl: HTMLElement, date: string) {
+    if (e.touches.length !== 1) return;
     if ((e.target as HTMLElement).closest(".dl-event-card, .dl-resize-handle, .dl-edit-handle")) return;
 
     const touch = e.touches[0];

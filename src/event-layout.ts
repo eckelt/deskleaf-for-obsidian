@@ -27,6 +27,7 @@ export function heightFromISO(
 }
 
 export function clampHourPx(hourPx: number, viewportHeight: number): number {
+  if (viewportHeight <= 0) return hourPx;
   const minHourPx = viewportHeight / TOTAL_HOURS;
   const maxHourPx = viewportHeight / MIN_VISIBLE_HOURS;
   return Math.min(maxHourPx, Math.max(minHourPx, hourPx));
