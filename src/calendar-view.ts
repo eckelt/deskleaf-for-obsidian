@@ -788,6 +788,7 @@ export class DeskleafCalendarView extends ItemView {
 
   private buildTimeGrid(el: HTMLElement) {
     const today = toDateStr(new Date());
+    if (!Platform.isMobile) this.hourPx = DEFAULT_HOUR_PX;
     const gridHeight = TOTAL_HOURS * this.hourPx;
 
     const grid = el.createDiv("dl-time-grid");

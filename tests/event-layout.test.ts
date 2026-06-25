@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import { Platform } from "obsidian";
 import { DeskleafCalendarView } from "../src/calendar-view";
 import {
   assignColumns,
@@ -69,6 +70,7 @@ class RenderElement {
   isConnected = true;
   private parent: RenderElement | null = null;
   private readonly classes = new Set<string>();
+  private readonly listenerCounts = new Map<string, number>();
 
   constructor(private readonly tagName = "div") {}
 
@@ -124,7 +126,13 @@ class RenderElement {
 
   setAttribute(_name: string, _value: string): void {}
 
-  addEventListener(_type: string, _listener: EventListenerOrEventListenerObject, _options?: AddEventListenerOptions): void {}
+  addEventListener(type: string, _listener: EventListenerOrEventListenerObject, _options?: AddEventListenerOptions): void {
+    this.listenerCounts.set(type, this.eventListenerCount(type) + 1);
+  }
+
+  eventListenerCount(type: string): number {
+    return this.listenerCounts.get(type) ?? 0;
+  }
 
   querySelector(selector: string): RenderElement | null {
     return this.querySelectorAll(selector)[0] ?? null;
@@ -427,8 +435,12 @@ describe("zoom geometry", () => {
       callback(0);
       return 1;
     });
+    const wasMobile = Platform.isMobile;
+    const wasDesktop = Platform.isDesktop;
 
     try {
+      Platform.isMobile = true;
+      Platform.isDesktop = false;
       const view = createCalendarViewHarness();
 
       callViewMethod(view, "render");
@@ -444,6 +456,8 @@ describe("zoom geometry", () => {
       callViewMethod(view, "navigate", -1);
       expect(renderCssValue(renderedGrid(view), "--f-hour-px")).toBe("112px");
     } finally {
+      Platform.isMobile = wasMobile;
+      Platform.isDesktop = wasDesktop;
       vi.unstubAllGlobals();
     }
   });
@@ -491,6 +505,39 @@ describe("zoom geometry", () => {
         ["2026-05-09", "2026-05-10"],
       ]);
     } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("does not register pinch zoom and renders at default density on desktop", () => {
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback): number => {
+      callback(0);
+      return 1;
+    });
+    const wasMobile = Platform.isMobile;
+    const wasDesktop = Platform.isDesktop;
+
+    try {
+      Platform.isMobile = false;
+      Platform.isDesktop = true;
+      const view = createCalendarViewHarness();
+      Reflect.set(view, "hourPx", 112);
+
+      callViewMethod(view, "render");
+
+      const grid = renderedGrid(view);
+      const bodyScroll = grid.querySelector(".dl-grid-body-scroll");
+      if (!bodyScroll) throw new Error("calendar body scroll was not rendered");
+
+      expect(renderCssValue(grid, "--f-hour-px")).toBe(`${DEFAULT_HOUR_PX}px`);
+      expect(renderCssValue(grid, "--f-grid-height")).toBe(`${24 * DEFAULT_HOUR_PX}px`);
+      expect(bodyScroll.eventListenerCount("touchstart")).toBe(0);
+      expect(bodyScroll.eventListenerCount("touchmove")).toBe(0);
+      expect(bodyScroll.eventListenerCount("touchend")).toBe(0);
+      expect(bodyScroll.eventListenerCount("touchcancel")).toBe(0);
+    } finally {
+      Platform.isMobile = wasMobile;
+      Platform.isDesktop = wasDesktop;
       vi.unstubAllGlobals();
     }
   });
