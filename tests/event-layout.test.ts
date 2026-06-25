@@ -71,6 +71,7 @@ class RenderElement {
   private parent: RenderElement | null = null;
   private readonly classes = new Set<string>();
   private readonly listenerCounts = new Map<string, number>();
+  private readonly listeners = new Map<string, EventListenerOrEventListenerObject[]>();
 
   constructor(private readonly tagName = "div") {}
 
@@ -128,10 +129,26 @@ class RenderElement {
 
   addEventListener(type: string, _listener: EventListenerOrEventListenerObject, _options?: AddEventListenerOptions): void {
     this.listenerCounts.set(type, this.eventListenerCount(type) + 1);
+    const listeners = this.listeners.get(type) ?? [];
+    listeners.push(_listener);
+    this.listeners.set(type, listeners);
   }
 
   eventListenerCount(type: string): number {
     return this.listenerCounts.get(type) ?? 0;
+  }
+
+  dispatchEvent(event: Event): boolean {
+    const listeners = this.listeners.get(event.type) ?? [];
+    listeners.forEach((listener) => {
+      if (typeof listener === "function") listener.call(this, event);
+      else listener.handleEvent(event);
+    });
+    return !event.defaultPrevented;
+  }
+
+  getBoundingClientRect(): { top: number } {
+    return { top: 0 };
   }
 
   querySelector(selector: string): RenderElement | null {
@@ -285,6 +302,13 @@ function renderedBodyColumns(view: object): string[][] {
           return subChild.dataset.date;
         });
     });
+}
+
+function makeTouchEvent(type: string, touches: { clientX: number; clientY: number }[]): Event {
+  const event = new Event(type, { cancelable: true });
+  Object.defineProperty(event, "touches", { value: touches });
+  Object.defineProperty(event, "changedTouches", { value: touches });
+  return event;
 }
 
 describe("topFromISO", () => {
@@ -455,6 +479,50 @@ describe("zoom geometry", () => {
 
       callViewMethod(view, "navigate", -1);
       expect(renderCssValue(renderedGrid(view), "--f-hour-px")).toBe("112px");
+    } finally {
+      Platform.isMobile = wasMobile;
+      Platform.isDesktop = wasDesktop;
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("handles a two-finger mobile pinch on the rendered calendar body", () => {
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback): number => {
+      callback(0);
+      return 1;
+    });
+    const wasMobile = Platform.isMobile;
+    const wasDesktop = Platform.isDesktop;
+
+    try {
+      Platform.isMobile = true;
+      Platform.isDesktop = false;
+      const view = createCalendarViewHarness();
+
+      callViewMethod(view, "render");
+
+      const grid = renderedGrid(view);
+      const bodyScroll = grid.querySelector(".dl-grid-body-scroll");
+      if (!bodyScroll) throw new Error("calendar body scroll was not rendered");
+      bodyScroll.scrollTop = 300;
+
+      const startEvent = makeTouchEvent("touchstart", [
+        { clientX: 0, clientY: 100 },
+        { clientX: 100, clientY: 100 },
+      ]);
+      const moveEvent = makeTouchEvent("touchmove", [
+        { clientX: 0, clientY: 100 },
+        { clientX: 200, clientY: 100 },
+      ]);
+
+      bodyScroll.dispatchEvent(startEvent);
+      bodyScroll.dispatchEvent(moveEvent);
+
+      expect(startEvent.defaultPrevented).toBe(true);
+      expect(moveEvent.defaultPrevented).toBe(true);
+      expect(renderCssValue(grid, "--f-hour-px")).toBe("128px");
+      expect(renderCssValue(grid, "--f-grid-height")).toBe("3072px");
+      expect(bodyScroll.scrollTop).toBe(700);
     } finally {
       Platform.isMobile = wasMobile;
       Platform.isDesktop = wasDesktop;
