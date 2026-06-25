@@ -2,34 +2,10 @@ import { describe, expect, it, beforeEach, afterEach } from "vitest";
 import { Platform, WorkspaceLeaf } from "obsidian";
 import { DeskleafCalendarView } from "../src/calendar-view";
 import { DEFAULT_HOUR_PX } from "../src/event-layout";
+import type { CalendarViewTestElement, CalendarViewTestHarness } from "../src/types";
 import type DeskleafPlugin from "../src/main";
 
-interface TestElement {
-  children: TestElement[];
-  scrollTop: number;
-  clientHeight?: number;
-  addClass: () => void;
-  empty: () => void;
-  createDiv: () => TestElement;
-  querySelector: () => null;
-}
-
-interface CalendarViewTestHarness {
-  app: { workspace: { trigger: () => void } };
-  containerEl: TestElement;
-  visibleDays: number;
-  anchor: Date;
-  hourPx: number;
-  buildStatusBar: () => void;
-  buildTimeGrid: () => void;
-  buildMobileTodayFab: () => void;
-  render: () => void;
-  navigate: (dir: number) => void;
-  gridHeight: () => number;
-  clampHourPxToViewport: (scrollEl: Pick<HTMLElement, "clientHeight">) => boolean;
-}
-
-function makeElement(): TestElement {
+function makeElement(): CalendarViewTestElement {
   const element = {
     children: [],
     scrollTop: 0,

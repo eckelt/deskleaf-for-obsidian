@@ -34,6 +34,31 @@ export interface AnchoredScrollInput {
   nextHourPx: number;
 }
 
+export interface CalendarViewTestElement {
+  children: CalendarViewTestElement[];
+  scrollTop: number;
+  clientHeight?: number;
+  addClass: () => void;
+  empty: () => void;
+  createDiv: () => CalendarViewTestElement;
+  querySelector: () => null;
+}
+
+export interface CalendarViewTestHarness {
+  app: { workspace: { trigger: () => void } };
+  containerEl: CalendarViewTestElement;
+  visibleDays: number;
+  anchor: Date;
+  hourPx: number;
+  buildStatusBar: () => void;
+  buildTimeGrid: () => void;
+  buildMobileTodayFab: () => void;
+  render: () => void;
+  navigate: (dir: number) => void;
+  gridHeight: () => number;
+  clampHourPxToViewport: (scrollEl: Pick<HTMLElement, "clientHeight">) => boolean;
+}
+
 // Frontmatter for event notes
 export interface EventNoteFrontmatter {
   "event-id": string;
