@@ -173,4 +173,33 @@ describe("assignColumns", () => {
     const result = assignColumns([a, b]);
     expect(result.every((r) => r.totalCols === 1)).toBe(true);
   });
+
+  it("keeps overlap columns stable across vertical zoom levels", () => {
+    const events = [
+      makeEvent("a", "2026-05-04T09:00:00+00:00", "2026-05-04T11:00:00+00:00"),
+      makeEvent("b", "2026-05-04T09:30:00+00:00", "2026-05-04T10:30:00+00:00"),
+      makeEvent("c", "2026-05-04T10:45:00+00:00", "2026-05-04T12:00:00+00:00"),
+    ];
+    const columns = assignColumns(events).map((layout) => ({
+      id: layout.event.id,
+      col: layout.col,
+      totalCols: layout.totalCols,
+    }));
+    const compactGeometry = events.map((event) => ({
+      top: topFromISO(event.start, 40),
+      height: heightFromISO(event.start, event.end, 40),
+    }));
+    const detailedGeometry = events.map((event) => ({
+      top: topFromISO(event.start, 160),
+      height: heightFromISO(event.start, event.end, 160),
+    }));
+
+    expect(assignColumns(events).map((layout) => ({
+      id: layout.event.id,
+      col: layout.col,
+      totalCols: layout.totalCols,
+    }))).toEqual(columns);
+    expect(detailedGeometry[0].top).toBe(compactGeometry[0].top * 4);
+    expect(detailedGeometry[0].height).toBe(compactGeometry[0].height * 4);
+  });
 });
