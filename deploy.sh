@@ -2,7 +2,7 @@
 set -euo pipefail
 
 REPO="/Users/nils/Library/Mobile Documents/com~apple~CloudDocs/Projekte/Repositories/deskleaf-for-obsidian"
-DEST="/Users/nils/Library/Mobile Documents/iCloud~md~obsidian/Documents/Verknüpfungen/.obsidian/plugins/deskleaf-for-obsidian"
+DEST="/Users/nils/Library/Mobile Documents/iCloud~md~obsidian/Documents/Connections/.obsidian/plugins/deskleaf-for-obsidian"
 
 cd "$REPO"
 
