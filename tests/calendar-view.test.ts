@@ -4,7 +4,32 @@ import { DeskleafCalendarView } from "../src/calendar-view";
 import { DEFAULT_HOUR_PX } from "../src/event-layout";
 import type DeskleafPlugin from "../src/main";
 
-function makeElement(): any {
+interface TestElement {
+  children: TestElement[];
+  scrollTop: number;
+  clientHeight?: number;
+  addClass: () => void;
+  empty: () => void;
+  createDiv: () => TestElement;
+  querySelector: () => null;
+}
+
+interface CalendarViewTestHarness {
+  app: { workspace: { trigger: () => void } };
+  containerEl: TestElement;
+  visibleDays: number;
+  anchor: Date;
+  hourPx: number;
+  buildStatusBar: () => void;
+  buildTimeGrid: () => void;
+  buildMobileTodayFab: () => void;
+  render: () => void;
+  navigate: (dir: number) => void;
+  gridHeight: () => number;
+  clampHourPxToViewport: (scrollEl: Pick<HTMLElement, "clientHeight">) => boolean;
+}
+
+function makeElement(): TestElement {
   const element = {
     children: [],
     scrollTop: 0,
@@ -22,7 +47,7 @@ function makeElement(): any {
   return element;
 }
 
-function makeView(): any {
+function makeView(): CalendarViewTestHarness {
   const plugin = {
     settings: { caldav: {}, icalSubscriptions: [] },
     calendarReader: {
@@ -43,7 +68,7 @@ function makeView(): any {
   const view = new DeskleafCalendarView(
     new WorkspaceLeaf(),
     plugin as unknown as DeskleafPlugin,
-  ) as any;
+  ) as unknown as CalendarViewTestHarness;
   view.app = {
     workspace: {
       trigger: () => {},
