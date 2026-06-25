@@ -1,5 +1,15 @@
 import { describe, it, expect } from "vitest";
-import { assignColumns, topFromISO, heightFromISO, snapMins, minsToTimeStr, minsToISO, HOUR_PX } from "../src/event-layout";
+import {
+  assignColumns,
+  calculateAnchoredScrollTop,
+  clampHourPx,
+  DEFAULT_HOUR_PX,
+  heightFromISO,
+  snapMins,
+  topFromISO,
+  minsToTimeStr,
+  minsToISO,
+} from "../src/event-layout";
 import type { CalendarEvent } from "../src/types";
 
 // All tests run with TZ=UTC (set in package.json test script)
@@ -13,27 +23,32 @@ describe("topFromISO", () => {
     expect(topFromISO("2026-05-04T00:00:00+00:00")).toBe(0);
   });
 
-  it("08:00 = 8 * HOUR_PX", () => {
-    expect(topFromISO("2026-05-04T08:00:00+00:00")).toBe(8 * HOUR_PX);
+  it("08:00 = 8 * DEFAULT_HOUR_PX", () => {
+    expect(topFromISO("2026-05-04T08:00:00+00:00")).toBe(8 * DEFAULT_HOUR_PX);
   });
 
-  it("12:30 = 12.5 * HOUR_PX", () => {
-    expect(topFromISO("2026-05-04T12:30:00+00:00")).toBe(12.5 * HOUR_PX);
+  it("12:30 = 12.5 * DEFAULT_HOUR_PX", () => {
+    expect(topFromISO("2026-05-04T12:30:00+00:00")).toBe(12.5 * DEFAULT_HOUR_PX);
   });
 
   it("23:59 is near day end", () => {
     const top = topFromISO("2026-05-04T23:59:00+00:00");
-    expect(top).toBeCloseTo((23 + 59 / 60) * HOUR_PX, 0);
+    expect(top).toBeCloseTo((23 + 59 / 60) * DEFAULT_HOUR_PX, 0);
+  });
+
+  it("uses a custom hour height", () => {
+    expect(topFromISO("2026-05-04T12:30:00+00:00", 32)).toBe(400);
+    expect(topFromISO("2026-05-04T12:30:00+00:00", 180)).toBe(2250);
   });
 });
 
 describe("heightFromISO", () => {
-  it("1 hour = HOUR_PX", () => {
-    expect(heightFromISO("2026-05-04T10:00:00+00:00", "2026-05-04T11:00:00+00:00")).toBe(HOUR_PX);
+  it("1 hour = DEFAULT_HOUR_PX", () => {
+    expect(heightFromISO("2026-05-04T10:00:00+00:00", "2026-05-04T11:00:00+00:00")).toBe(DEFAULT_HOUR_PX);
   });
 
-  it("30 minutes = HOUR_PX / 2", () => {
-    expect(heightFromISO("2026-05-04T10:00:00+00:00", "2026-05-04T10:30:00+00:00")).toBe(HOUR_PX / 2);
+  it("30 minutes = DEFAULT_HOUR_PX / 2", () => {
+    expect(heightFromISO("2026-05-04T10:00:00+00:00", "2026-05-04T10:30:00+00:00")).toBe(DEFAULT_HOUR_PX / 2);
   });
 
   it("short events have minimum height of 20px", () => {
@@ -42,7 +57,39 @@ describe("heightFromISO", () => {
   });
 
   it("2 hours", () => {
-    expect(heightFromISO("2026-05-04T10:00:00+00:00", "2026-05-04T12:00:00+00:00")).toBe(2 * HOUR_PX);
+    expect(heightFromISO("2026-05-04T10:00:00+00:00", "2026-05-04T12:00:00+00:00")).toBe(2 * DEFAULT_HOUR_PX);
+  });
+
+  it("uses a custom hour height", () => {
+    expect(heightFromISO("2026-05-04T10:00:00+00:00", "2026-05-04T11:30:00+00:00", 32)).toBe(48);
+    expect(heightFromISO("2026-05-04T10:00:00+00:00", "2026-05-04T11:30:00+00:00", 180)).toBe(270);
+  });
+});
+
+describe("clampHourPx", () => {
+  it("clamps out at the height where a full day fits the viewport", () => {
+    expect(clampHourPx(10, 960)).toBe(40);
+  });
+
+  it("clamps in at the height where four hours fill the viewport", () => {
+    expect(clampHourPx(300, 960)).toBe(240);
+  });
+
+  it("keeps values inside the viewport-relative zoom range", () => {
+    expect(clampHourPx(80, 960)).toBe(80);
+  });
+});
+
+describe("calculateAnchoredScrollTop", () => {
+  it("keeps the time under the pinch midpoint at the same viewport offset", () => {
+    const nextScrollTop = calculateAnchoredScrollTop({
+      currentScrollTop: 320,
+      anchorOffsetY: 160,
+      previousHourPx: 64,
+      nextHourPx: 96,
+    });
+
+    expect(nextScrollTop).toBe(560);
   });
 });
 
