@@ -3,33 +3,13 @@ import { Platform, WorkspaceLeaf } from "obsidian";
 import { DeskleafCalendarView } from "../src/calendar-view";
 import { DEFAULT_HOUR_PX } from "../src/event-layout";
 import type DeskleafPlugin from "../src/main";
+import type {
+  CalendarViewTestElement,
+  CalendarViewZoomHarness,
+} from "../src/types";
 
-interface TestElement {
-  children: TestElement[];
-  scrollTop: number;
-  addClass: () => void;
-  empty: () => void;
-  createDiv: () => TestElement;
-  querySelector: () => null;
-}
-
-interface CalendarViewZoomHarness {
-  app: { workspace: { trigger: () => void } };
-  containerEl: TestElement & { children: TestElement[] };
-  hourPx: number;
-  visibleDays: number;
-  anchor: Date;
-  render: () => void;
-  navigate: (dir: number) => void;
-  gridHeight: () => number;
-  clampHourPxToViewport: (scrollEl: { clientHeight: number }) => boolean;
-  buildStatusBar: () => void;
-  buildTimeGrid: () => void;
-  buildMobileTodayFab: () => void;
-}
-
-function makeElement(): TestElement {
-  const element: TestElement = {
+function makeElement(): CalendarViewTestElement {
+  const element: CalendarViewTestElement = {
     children: [],
     scrollTop: 0,
     addClass: () => {},
