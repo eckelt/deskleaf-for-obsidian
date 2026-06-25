@@ -27,6 +27,13 @@ export interface EventUpdate {
   span?: "this" | "series";
 }
 
+export interface AnchoredScrollInput {
+  currentScrollTop: number;
+  anchorOffsetY: number;
+  previousHourPx: number;
+  nextHourPx: number;
+}
+
 // Frontmatter for event notes
 export interface EventNoteFrontmatter {
   "event-id": string;

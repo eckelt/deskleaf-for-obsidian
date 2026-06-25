@@ -1,4 +1,4 @@
-import type { CalendarEvent } from "./types";
+import type { AnchoredScrollInput, CalendarEvent } from "./types";
 
 export const DEFAULT_HOUR_PX = 64;
 export const HOUR_PX = DEFAULT_HOUR_PX;
@@ -42,13 +42,6 @@ export function calculatePinchHourPx(
   const ratio = currentDistance / startDistance;
   if (!Number.isFinite(ratio) || ratio <= 0) return startHourPx;
   return clampHourPx(startHourPx * ratio, viewportHeight);
-}
-
-export interface AnchoredScrollInput {
-  currentScrollTop: number;
-  anchorOffsetY: number;
-  previousHourPx: number;
-  nextHourPx: number;
 }
 
 export function calculateAnchoredScrollTop(input: AnchoredScrollInput): number {
