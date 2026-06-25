@@ -24,14 +24,15 @@ MAX_BUILD_ATTEMPTS=3        # Build→Review→Validate-Runden pro Issue, dann E
 AC_ESCALATE_THRESHOLD=2     # gleiches AC X-mal rot → zurück zum Planner
 POLL_INTERVAL=60
 
-# Permission-Modell der Agenten-Aufrufe. Der Daemon läuft unbeaufsichtigt — die
-# Agenten brauchen gh/git/npm + Datei-Schreibrechte ohne interaktive Rückfrage.
-# Default: per-Tool-Allowlist aus .claude/settings.json (auch in jeden Worktree
-# kopiert) + acceptEdits für Datei-Edits. Nicht gelistete Bash-Kommandos werden
-# im Headless-Modus still abgelehnt (kein Hängen). Bricht ein Agent daran, das
-# fehlende Kommando in .claude/settings.json ergänzen.
-# Grober Fallback (alles erlaubt): CLAUDE_FLAGS=(--dangerously-skip-permissions)
-CLAUDE_FLAGS=(--permission-mode acceptEdits)
+# Pro-Stage-Backend (claude|codex) und optionales Modell. Per Env-Var temporär
+# überschreibbar, z.B.:  PLANNER_BACKEND=codex bash scripts/issue-watch.sh
+# Default: urteilskritische Stages (Planner/Reviewer/Validator) auf Claude Opus,
+# der durchsatzlastige Builder auf Codex.
+# Leeres Modell = Default des jeweiligen Backends.
+PLANNER_BACKEND="${PLANNER_BACKEND:-claude}";     PLANNER_MODEL="${PLANNER_MODEL:-opus}"
+BUILDER_BACKEND="${BUILDER_BACKEND:-codex}";      BUILDER_MODEL="${BUILDER_MODEL:-}"
+REVIEWER_BACKEND="${REVIEWER_BACKEND:-claude}";   REVIEWER_MODEL="${REVIEWER_MODEL:-opus}"
+VALIDATOR_BACKEND="${VALIDATOR_BACKEND:-claude}"; VALIDATOR_MODEL="${VALIDATOR_MODEL:-opus}"
 
 # ── State-Datei ────────────────────────────────────────────────────────────────
 
@@ -145,8 +146,30 @@ ${context}
 ${instruction}"
 }
 
-run_claude()    { cd "$REPO_DIR" && claude "${CLAUDE_FLAGS[@]}" -p "$1"; }
-run_claude_in() { cd "$1"        && claude "${CLAUDE_FLAGS[@]}" -p "$2"; }
+# Ruft einen Agenten im gewählten Backend auf. Stdout = Agent-Antwort; das
+# Zeilen-Protokoll wird von den Aufrufern via grep herausgefiltert.
+# run_agent <backend> <model> <dir> <prompt>
+run_agent() {
+    local backend="$1" model="$2" dir="$3" prompt="$4"
+    case "$backend" in
+        claude)
+            # Rechte: .claude/settings.json-Allowlist + acceptEdits für Edits.
+            local args=(--permission-mode acceptEdits)
+            [[ -n "$model" ]] && args+=(--model "$model")
+            ( cd "$dir" && claude "${args[@]}" -p "$prompt" ) ;;
+        codex)
+            # Codex sandboxt Dateisystem UND Netz; gh/push/merge brauchen Netz →
+            # voller Zugriff. Engeres Modell via ~/.codex/config.toml.
+            # -o schreibt NUR die finale Antwort raus (Reasoning-Log verwerfen).
+            local last; last=$(mktemp)
+            local args=(exec --dangerously-bypass-approvals-and-sandbox --cd "$dir" -o "$last")
+            [[ -n "$model" ]] && args+=(--model "$model")
+            codex "${args[@]}" "$prompt" >/dev/null 2>&1 || true
+            cat "$last" 2>/dev/null; rm -f "$last" ;;
+        *)
+            echo "FAIL: unbekanntes Agent-Backend '${backend}'" ;;
+    esac
+}
 
 # ── Planning-Spur (parallel, blockiert nur das einzelne Issue) ──────────────────
 
@@ -176,7 +199,7 @@ ${ff}"
         'Follow your output contract. Respond with exactly one line:
 "SKIP: <reason>" | "QUESTIONS" | "SPLIT: #<n> #<n> ..." | "SPEC: specs/features/<file>.md" | "BUILD: <note>"'
 
-    local result; result=$(run_claude "$CLAUDE_PROMPT")
+    local result; result=$(run_agent "$PLANNER_BACKEND" "$PLANNER_MODEL" "$REPO_DIR" "$CLAUDE_PROMPT")
     local line; line=$(echo "$result" | grep -E '^(SKIP|QUESTIONS|SPLIT|SPEC|BUILD)' | head -1 || true)
 
     set_field "$number" "fixForwardNote" ""
@@ -264,7 +287,7 @@ ${feedback}"
 Respond with exactly one line: \"PR: <number>\" or \"FAIL: <reason>\"."
 
     build_prompt "${AGENTS_DIR}/feature-builder.md" "Feature spec: ${spec}" "$instr"
-    run_claude_in "$wt" "$CLAUDE_PROMPT"
+    run_agent "$BUILDER_BACKEND" "$BUILDER_MODEL" "$wt" "$CLAUDE_PROMPT"
 }
 
 review_step() {
@@ -274,7 +297,7 @@ review_step() {
 
 ${diff}" \
         'Respond with exactly one line: "PASS" or "FAIL: <violated standard and offending line>".'
-    run_claude "$CLAUDE_PROMPT"
+    run_agent "$REVIEWER_BACKEND" "$REVIEWER_MODEL" "$REPO_DIR" "$CLAUDE_PROMPT"
 }
 
 validate_step() {
@@ -282,7 +305,7 @@ validate_step() {
     build_prompt "${AGENTS_DIR}/feature-validator.md" "Feature spec: ${spec}
 Repository: ${wt}" \
         'Run npm test. Verify each AC is covered by a test. Respond with exactly one line: "PASS" or "FAIL: AC-<n> <gap>".'
-    run_claude_in "$wt" "$CLAUDE_PROMPT"
+    run_agent "$VALIDATOR_BACKEND" "$VALIDATOR_MODEL" "$wt" "$CLAUDE_PROMPT"
 }
 
 # Räumt Worktree und lokalen Branch weg.
@@ -431,6 +454,7 @@ main() {
     echo "   Repo:      $(get_repo)"
     echo "   State:     ${STATE_FILE}"
     echo "   Worktrees: ${WORKTREE_BASE}"
+    echo "   Backends:  Planner=${PLANNER_BACKEND}(${PLANNER_MODEL:-default}) · Builder=${BUILDER_BACKEND}(${BUILDER_MODEL:-default}) · Reviewer=${REVIEWER_BACKEND}(${REVIEWER_MODEL:-default}) · Validator=${VALIDATOR_BACKEND}(${VALIDATOR_MODEL:-default})"
     echo "   Interval:  ${POLL_INTERVAL}s · Strg+C zum Beenden."
     echo ""
 
