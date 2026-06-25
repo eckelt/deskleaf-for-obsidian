@@ -1,147 +1,115 @@
 # Deskleaf Agent Workflow
 
-## Purpose
-This workflow keeps GitHub usable as the main interface while preserving feature specs as versioned project artifacts.
+How the autonomous issue pipeline runs day to day. The authoritative design
+decisions live in [`docs/adr/0001-autonomous-issue-pipeline.md`](adr/0001-autonomous-issue-pipeline.md);
+this document is the operational companion.
 
-- GitHub issues are the inbox, discussion thread, and status surface.
+## Purpose
+
+GitHub stays the main interface; feature specs stay versioned artifacts.
+
+- GitHub issues are the inbox, the discussion thread, and the status surface.
 - `specs/features/[feature-name].md` is the source of truth for implementation.
-- Agents must update the spec when decisions change and mirror important status changes back to the issue.
+- The pipeline is driven by a local polling daemon: `scripts/issue-watch.sh`.
 
 ## Roles
 
-### Feature Planner
-The Feature Planner turns a rough GitHub issue into an implementable feature spec.
+Four agents, defined under `.github/agents/`. Strict artifact ownership:
+**only the Planner writes specs, only the Builder writes code.** ADRs and the
+glossary under `docs/adr/` are shared — the human, the Planner, and the Builder
+may all write them.
 
-Responsibilities:
-- Review the issue against current code, existing feature specs, ADRs, and the design system.
-- Challenge unclear requirements before implementation starts.
-- Create or update `specs/features/[feature-name].md`.
-- Keep acceptance criteria observable and testable.
-- Mark the spec as `approved` only when the feature can be implemented without guessing.
+### Feature Planner (PO)
+Turns a raw issue into an implementation-ready spec.
 
-The Feature Planner does not implement production code.
-
-The Feature Planner follows a `grill-with-docs` discipline: it challenges fuzzy language, probes concrete scenarios, updates project terminology when stable terms emerge, and proposes ADRs only for decisions that are hard to reverse, surprising without context, and based on a real trade-off.
+- Triages the issue itself — may `SKIP` low-value or unbounded issues.
+- Clarifies scope with the author through **async, multi-round GitHub
+  comments** (batching questions to minimise rounds); the issue waits in
+  `awaiting-author` until the human replies.
+- Splits an oversized feature into **N independent child sub-issues**; the
+  parent becomes an epic and sleeps.
+- Owns the spec. Does not write production code.
 
 ### Feature Builder
-The Feature Builder implements approved specs.
+Implements an approved spec with TDD and Clean Code.
 
-Responsibilities:
-- Work only from specs with status `approved`.
-- Follow existing module boundaries, ADRs, and the design system.
-- Keep implementation scope inside the spec.
-- Add focused tests proportional to the risk and affected behavior.
-- Run `npm test` and `npm run build` before handing off.
-- Update the spec with implementation notes and QA results.
+- Runs inside a dedicated git worktree on a short-lived feature branch.
+- Writes a failing test per acceptance criterion first, then makes it pass.
+- May add an ADR alongside the code when a ground-rule decision is forced.
+- Runs `npm test` and `npm run build`, then opens the PR.
 
-The Feature Builder does not invent missing requirements. If the spec is unclear, it returns the issue to planning.
+### PR-Reviewer
+Judges the PR diff for consistency, readability, and maintainability against
+`CLAUDE.md`. Never edits code.
 
-### QA Agent
-The QA Agent verifies implemented features before they are accepted as done.
+### Validator
+Confirms the spec is met: `npm test` green **and** every acceptance criterion
+covered by a test. Never edits code. Visual/manual QA in the running Obsidian
+app is the human's job at acceptance.
 
-Responsibilities:
-- Check latest issue comments before testing with `npm run check:issue -- <issue-number>`.
-- Test the feature against acceptance criteria and recent QA feedback.
-- Run automated checks and perform manual Obsidian QA for user-facing flows.
-- Try adjacent regression paths such as drag/drop, resize, note actions, popovers, and CalDAV writes.
-- Update the spec QA Report and mirror pass/fail status back to the GitHub issue.
+## Pipeline Stages
 
-The QA Agent does not implement fixes. Failed QA returns the issue to the Feature Builder with concrete reproduction steps.
-
-## Status Flow
-
-Feature specs use this status progression:
+Issue stages (tracked in `scripts/.issue-watch-state.json`, mirrored to labels):
 
 ```text
-draft -> ux-reviewed -> design-reviewed -> approved -> in-development -> qa -> done
+new → planning → awaiting-author → spec-ready → ready-for-acceptance
+                                              ↘ epic (split) / skipped
 ```
 
-Status meanings:
+| Stage                  | Label                          | Meaning                                        |
+| ---------------------- | ------------------------------ | ---------------------------------------------- |
+| planning               | `status:planning`              | Planner is assessing / re-assessing            |
+| awaiting-author        | `status:awaiting-author`       | Blocked on a human reply to the Planner        |
+| spec-ready             | `status:ready-for-build`       | Spec written, queued for the build lane        |
+| ready-for-acceptance   | `status:ready-for-acceptance`  | Merged, awaiting human acceptance              |
+| epic                   | `status:epic`                  | Split into sub-issues; sleeping                |
+| skipped                | `wontfix`                      | Triaged out                                    |
 
-- `draft`: Initial idea, incomplete or still being discussed.
-- `ux-reviewed`: User flow, edge cases, and acceptance criteria have been challenged.
-- `design-reviewed`: Visual and interaction details are consistent with the design system.
-- `approved`: Ready for implementation.
-- `in-development`: Builder is actively implementing the spec.
-- `qa`: Implementation is ready for verification against the acceptance criteria.
-- `done`: Accepted, tested, and shipped or ready to ship.
+These labels must exist in the repo for the status to be visible; the daemon
+ignores missing labels silently.
 
-## GitHub Labels
+## Concurrency — two lanes
 
-Use labels as a lightweight operational layer:
+- **Planning pool — parallel.** Any number of issues may sit in grilling at
+  once; each blocks only on its own author.
+- **Build queue — strictly sequential.** Build → Review → Validate → Merge runs
+  one issue at a time, in its own worktree.
 
-```text
-agent:planner
-agent:builder
-type:feature
-status:draft
-status:planning
-status:needs-human
-status:ready-for-build
-status:in-build
-status:qa
-status:done
-area:calendar
-area:sidebar
-area:caldav
-area:eventkit
-area:settings
-area:notes
-risk:low
-risk:medium
-risk:high
+## Build mechanics
+
+1. Daemon creates a worktree (`~/.cache/deskleaf-worktrees/issue-N`) on
+   `feature/issue-N`, branched from `origin/main`.
+2. Builder implements, tests, builds, opens the PR.
+3. PR-Reviewer judges the diff. A failure routes back to the Builder.
+4. Validator checks AC coverage. A failure routes back to the Builder;
+   repeated failure on the same AC escalates to the Planner (the spec is likely
+   unclear).
+5. On all-green the daemon **auto-merges** (`--squash`), cleans up the worktree,
+   and labels the issue `ready-for-acceptance`.
+
+## Signalling — the `🤖` convention
+
+Because the daemon and the human comment under the same GitHub identity, every
+bot comment is prefixed with `🤖`. The loop triggers **only on comments that do
+not start with `🤖`**, so it never reacts to its own output.
+
+## Human acceptance & fix-forward
+
+Acceptance happens **after** merge:
+
+- **Close the issue → accepted.** (Closed issues drop out of the poll.)
+- **Comment a clarification → fix-forward.** The Planner reads it, asks back
+  only if genuinely unclear, and otherwise routes a fresh build. The human
+  closes the parent epic once all its children are done.
+
+## Running it
+
+```bash
+bash scripts/issue-watch.sh
 ```
 
-The spec status is authoritative. GitHub labels should reflect it but do not replace it.
-
-## GitHub Action Configuration
-
-Agent workflows require `OPENAI_API_KEY` as a repository secret.
-
-The Feature Planner can be tuned with repository variables:
-
-```text
-FEATURE_PLANNER_MODEL
-FEATURE_PLANNER_EFFORT
-```
-
-If unset, the planner uses `gpt-5.5` with `medium` effort.
-
-## Handoff Rules
-
-Planner to Builder:
-- Spec status is `approved`.
-- All open questions are answered or explicitly moved to out of scope.
-- Acceptance criteria are concrete enough for QA.
-- Affected areas and expected tests are documented.
-
-Builder back to Planner:
-- The implementation requires behavior that is not specified.
-- Acceptance criteria conflict with existing architecture or design system.
-- A hidden dependency or edge case changes the feature shape.
-
-Builder to QA:
-- Spec status is `qa`.
-- Code is implemented.
-- Relevant tests pass.
-- `npm run build` passes.
-- The QA section explains how each acceptance criterion was verified.
-
-QA back to Builder:
-- Spec remains `qa`.
-- The GitHub issue has a `QA failed` comment with exact reproduction steps.
-- The spec QA Report lists blockers and affected acceptance criteria.
-
-QA to Done:
-- Latest issue comments are checked.
-- Automated checks pass.
-- Required manual Obsidian QA passes or any skipped checks are explicitly justified.
-- Spec status is set to `done`.
-- GitHub issue is updated with a `QA passed` comment.
-
-## Release Loop
-
-After QA passes:
-- Update the spec status to `done`.
-- Close or update the GitHub issue.
-- Build and deploy the plugin with `bash deploy.sh` when a local Obsidian update is desired.
+The daemon calls `claude -p` per stage. Tool permissions for the unattended
+agents come from the checked-in `.claude/settings.json` allowlist (gh, git,
+npm, file edits), which the daemon also copies into each worktree. If an agent
+stalls on a denied command, add it there. The blunt fallback is
+`--dangerously-skip-permissions` (see the `CLAUDE_FLAGS` comment in the script).
