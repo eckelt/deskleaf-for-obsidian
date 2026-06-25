@@ -277,8 +277,6 @@
 /* ── Time Grid ───────────────────────────────────────────────────── */
 
 .dl-time-grid {
-    --f-hour-px: 64px;
-    --f-grid-height: 1536px;
     flex: 1;
     min-height: 0;
     display: flex;
@@ -368,10 +366,6 @@
     min-width: 0;
     flex-shrink: 0;
     position: relative;
-}
-
-.dl-grid-body-inner .dl-carousel-col {
-    height: var(--f-grid-height);
 }
 
 .dl-carousel-panel .dl-day-header,
@@ -580,12 +574,10 @@
 .dl-time-gutter--labels {
     position: relative;
     flex-shrink: 0;
-    height: var(--f-grid-height);
 }
 
 .dl-time-label {
     position: absolute;
-    top: calc(var(--f-hour-offset) * var(--f-hour-px));
     right: 6px;
     transform: translateY(-50%);
     font-size: 0.72em;
@@ -601,7 +593,6 @@
 .dl-day-body {
     flex: 1;
     min-width: 0;
-    height: var(--f-grid-height);
     position: relative;
     border-left: 1px solid rgba(128, 128, 128, 0.12);
     box-sizing: border-box;
@@ -627,8 +618,6 @@
 
 .dl-business-hours-segment {
     position: absolute;
-    top: calc(var(--f-hour-offset) * var(--f-hour-px));
-    height: calc(var(--f-hour-duration) * var(--f-hour-px));
     left: 0;
     right: 0;
     background: rgba(0, 0, 0, 0.04);
@@ -646,7 +635,6 @@
 /* Hour lines */
 .dl-hour-line {
     position: absolute;
-    top: calc(var(--f-hour-offset) * var(--f-hour-px));
     left: 0;
     right: 0;
     height: 1px;
@@ -663,7 +651,6 @@
 /* Current time indicator */
 .dl-now-line {
     position: absolute;
-    top: calc(var(--f-hour-offset) * var(--f-hour-px));
     left: 0;
     right: 0;
     height: 2px;
@@ -684,7 +671,6 @@
 
 .dl-now-label {
     position: absolute;
-    top: calc(var(--f-hour-offset) * var(--f-hour-px));
     right: 0;
     transform: translateY(-50%);
     background: #ff6188;
@@ -704,11 +690,6 @@
 
 .dl-event-card {
     position: absolute;
-    top: calc(var(--f-event-top-hours) * var(--f-hour-px) + var(--f-event-top-offset, 0px));
-    height: max(
-        var(--f-event-min-height, 0px),
-        calc(var(--f-event-height-hours) * var(--f-hour-px) + var(--f-event-height-offset, 0px))
-    );
     box-sizing: border-box;
     background: hsl(var(--cal-h, var(--accent-h)), 82%, 91%);
     border: none;
@@ -810,11 +791,6 @@
 
 .dl-ghost-event {
     position: absolute;
-    top: calc(var(--f-event-top-hours) * var(--f-hour-px) + var(--f-event-top-offset, 0px));
-    height: max(
-        var(--f-event-min-height, 0px),
-        calc(var(--f-event-height-hours) * var(--f-hour-px) + var(--f-event-height-offset, 0px))
-    );
     left: 1px;
     width: calc(100% - 3px);
     background: hsla(var(--accent-h), var(--accent-s), var(--accent-l), 0.15);
@@ -835,7 +811,6 @@
 
 .dl-drag-ghost {
     position: fixed;
-    top: var(--f-drag-top);
     z-index: 1000;
     background: var(--f-event-bg);
     border: 1px solid var(--f-event-border);
@@ -854,11 +829,6 @@
 
 .dl-landing-ghost {
     position: absolute;
-    top: calc(var(--f-event-top-hours) * var(--f-hour-px) + var(--f-event-top-offset, 0px));
-    height: max(
-        var(--f-event-min-height, 0px),
-        calc(var(--f-event-height-hours) * var(--f-hour-px) + var(--f-event-height-offset, 0px))
-    );
     left: 1px;
     width: calc(100% - 3px);
     background: hsla(var(--accent-h), var(--accent-s), var(--accent-l), 0.12);
