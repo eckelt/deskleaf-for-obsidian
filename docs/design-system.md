@@ -57,6 +57,8 @@ color: hsl(h, 72%, 70%);
 
 ## Styling Rules
 - Keep styles in `styles.css`.
-- Do not use inline styles except dynamic CSS custom properties.
+- Do not use inline styles for static styling.
+- Use dynamic CSS custom properties for runtime layout or color values
+  (`--f-*`, `--cal-h`) when values must be computed in TypeScript.
 - Keep visual additions consistent with Obsidian plugin UI patterns.
 - Prefer compact, scannable operational UI over marketing-style presentation.

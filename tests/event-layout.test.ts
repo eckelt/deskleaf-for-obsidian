@@ -311,6 +311,14 @@ function makeTouchEvent(type: string, touches: { clientX: number; clientY: numbe
   return event;
 }
 
+function makeWheelEvent(deltaY: number, clientY: number, ctrlKey: boolean): Event {
+  const event = new Event("wheel", { cancelable: true });
+  Object.defineProperty(event, "deltaY", { value: deltaY });
+  Object.defineProperty(event, "clientY", { value: clientY });
+  Object.defineProperty(event, "ctrlKey", { value: ctrlKey });
+  return event;
+}
+
 describe("topFromISO", () => {
   it("midnight = 0px", () => {
     expect(topFromISO("2026-05-04T00:00:00+00:00")).toBe(0);
@@ -518,7 +526,7 @@ describe("zoom geometry", () => {
       bodyScroll.dispatchEvent(startEvent);
       bodyScroll.dispatchEvent(moveEvent);
 
-      expect(startEvent.defaultPrevented).toBe(true);
+      expect(startEvent.defaultPrevented).toBe(false);
       expect(moveEvent.defaultPrevented).toBe(true);
       expect(renderCssValue(grid, "--f-hour-px")).toBe("128px");
       expect(renderCssValue(grid, "--f-grid-height")).toBe("3072px");
@@ -577,7 +585,50 @@ describe("zoom geometry", () => {
     }
   });
 
-  it("does not register pinch zoom and renders at default density on desktop", () => {
+  it("does not zoom or navigate for a stable two-finger touch movement", () => {
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback): number => {
+      callback(0);
+      return 1;
+    });
+    const wasMobile = Platform.isMobile;
+    const wasDesktop = Platform.isDesktop;
+
+    try {
+      Platform.isMobile = true;
+      Platform.isDesktop = false;
+      const view = createCalendarViewHarness();
+
+      callViewMethod(view, "render");
+
+      const grid = renderedGrid(view);
+      const bodyScroll = grid.querySelector(".dl-grid-body-scroll");
+      if (!bodyScroll) throw new Error("calendar body scroll was not rendered");
+
+      bodyScroll.dispatchEvent(makeTouchEvent("touchstart", [
+        { clientX: 0, clientY: 100 },
+        { clientX: 100, clientY: 100 },
+      ]));
+      const stableMoveEvent = makeTouchEvent("touchmove", [
+        { clientX: 20, clientY: 120 },
+        { clientX: 120, clientY: 120 },
+      ]);
+      bodyScroll.dispatchEvent(stableMoveEvent);
+      bodyScroll.dispatchEvent(makeTouchEvent("touchend", [
+        { clientX: 20, clientY: 120 },
+        { clientX: 120, clientY: 120 },
+      ]));
+
+      expect(stableMoveEvent.defaultPrevented).toBe(false);
+      expect(renderCssValue(grid, "--f-hour-px")).toBe(`${DEFAULT_HOUR_PX}px`);
+      expect(Reflect.get(view, "anchor")).toEqual(new Date("2026-05-04T12:00:00Z"));
+    } finally {
+      Platform.isMobile = wasMobile;
+      Platform.isDesktop = wasDesktop;
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("handles a desktop trackpad pinch as calendar zoom and consumes the app zoom event", () => {
     vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback): number => {
       callback(0);
       return 1;
@@ -589,20 +640,35 @@ describe("zoom geometry", () => {
       Platform.isMobile = false;
       Platform.isDesktop = true;
       const view = createCalendarViewHarness();
-      Reflect.set(view, "hourPx", 112);
 
       callViewMethod(view, "render");
 
       const grid = renderedGrid(view);
       const bodyScroll = grid.querySelector(".dl-grid-body-scroll");
       if (!bodyScroll) throw new Error("calendar body scroll was not rendered");
+      bodyScroll.scrollTop = 300;
 
       expect(renderCssValue(grid, "--f-hour-px")).toBe(`${DEFAULT_HOUR_PX}px`);
-      expect(renderCssValue(grid, "--f-grid-height")).toBe(`${24 * DEFAULT_HOUR_PX}px`);
+      expect(bodyScroll.eventListenerCount("wheel")).toBe(1);
       expect(bodyScroll.eventListenerCount("touchstart")).toBe(0);
       expect(bodyScroll.eventListenerCount("touchmove")).toBe(0);
       expect(bodyScroll.eventListenerCount("touchend")).toBe(0);
       expect(bodyScroll.eventListenerCount("touchcancel")).toBe(0);
+
+      const normalScrollEvent = makeWheelEvent(120, 100, false);
+      bodyScroll.dispatchEvent(normalScrollEvent);
+      expect(normalScrollEvent.defaultPrevented).toBe(false);
+      expect(renderCssValue(grid, "--f-hour-px")).toBe(`${DEFAULT_HOUR_PX}px`);
+
+      const pinchEvent = makeWheelEvent(-100, 100, true);
+      bodyScroll.dispatchEvent(pinchEvent);
+
+      expect(pinchEvent.defaultPrevented).toBe(true);
+      expect(renderCssValue(grid, "--f-hour-px")).toBe(`${Math.E * DEFAULT_HOUR_PX}px`);
+      expect(bodyScroll.scrollTop).toBeCloseTo((400 / DEFAULT_HOUR_PX) * Math.E * DEFAULT_HOUR_PX - 100);
+
+      callViewMethod(view, "render");
+      expect(renderCssValue(renderedGrid(view), "--f-hour-px")).toBe(`${Math.E * DEFAULT_HOUR_PX}px`);
     } finally {
       Platform.isMobile = wasMobile;
       Platform.isDesktop = wasDesktop;
