@@ -368,6 +368,10 @@
     position: relative;
 }
 
+.dl-grid-body-inner .dl-carousel-col {
+    height: var(--f-grid-height);
+}
+
 .dl-carousel-panel .dl-day-header,
 .dl-carousel-panel .dl-day-body,
 .dl-carousel-col .dl-day-header,
@@ -574,10 +578,12 @@
 .dl-time-gutter--labels {
     position: relative;
     flex-shrink: 0;
+    height: var(--f-grid-height);
 }
 
 .dl-time-label {
     position: absolute;
+    top: var(--f-hour-top);
     right: 6px;
     transform: translateY(-50%);
     font-size: 0.72em;
@@ -594,6 +600,7 @@
     flex: 1;
     min-width: 0;
     position: relative;
+    height: var(--f-grid-height);
     border-left: 1px solid rgba(128, 128, 128, 0.12);
     box-sizing: border-box;
 }
@@ -618,6 +625,8 @@
 
 .dl-business-hours-segment {
     position: absolute;
+    top: var(--f-hour-top);
+    height: var(--f-hour-height);
     left: 0;
     right: 0;
     background: rgba(0, 0, 0, 0.04);
@@ -635,6 +644,7 @@
 /* Hour lines */
 .dl-hour-line {
     position: absolute;
+    top: var(--f-hour-top);
     left: 0;
     right: 0;
     height: 1px;
@@ -651,6 +661,7 @@
 /* Current time indicator */
 .dl-now-line {
     position: absolute;
+    top: var(--f-hour-top);
     left: 0;
     right: 0;
     height: 2px;
@@ -671,6 +682,7 @@
 
 .dl-now-label {
     position: absolute;
+    top: var(--f-hour-top);
     right: 0;
     transform: translateY(-50%);
     background: #ff6188;
@@ -684,6 +696,11 @@
     font-variant-numeric: tabular-nums;
     z-index: 6;
     line-height: 1.4;
+}
+
+[data-event-top-hours] {
+    top: var(--f-event-top);
+    height: var(--f-event-height);
 }
 
 /* ── Event Cards ─────────────────────────────────────────────────── */
@@ -811,6 +828,10 @@
 
 .dl-drag-ghost {
     position: fixed;
+    left: var(--f-drag-left);
+    top: var(--f-drag-top);
+    width: var(--f-drag-width);
+    height: var(--f-drag-height);
     z-index: 1000;
     background: var(--f-event-bg);
     border: 1px solid var(--f-event-border);

@@ -30,10 +30,13 @@ import {
 import type { DayColumn } from "./date-utils";
 import { openFile } from "./open-file";
 import {
-  HOUR_PX,
+  DEFAULT_HOUR_PX,
   assignColumns,
+  clampHourPx,
   topFromISO,
   heightFromISO,
+  hourPxForPinch,
+  scrollTopForZoomAnchor,
   snapMins,
   minsToTimeStr,
   minsToISO,
@@ -264,10 +267,79 @@ export class DeskleafCalendarView extends ItemView {
   private desktopSlideZone: HTMLElement | null = null;
   private preserveScrollForNextRender: number | null = null;
   private mobileEdit: { event: CalendarEvent; cleanup: () => void } | null = null;
+  private hourPx = DEFAULT_HOUR_PX;
 
   constructor(leaf: WorkspaceLeaf, plugin: DeskleafPlugin) {
     super(leaf);
     this.plugin = plugin;
+  }
+
+  private setHourOffset(el: HTMLElement, hours: number) {
+    el.dataset.hourOffset = String(hours);
+    el.style.setProperty("--f-hour-top", `${hours * this.hourPx}px`);
+  }
+
+  private setHourDuration(el: HTMLElement, hours: number) {
+    el.dataset.hourDuration = String(hours);
+    el.style.setProperty("--f-hour-height", `${hours * this.hourPx}px`);
+  }
+
+  private setEventVerticalMetrics(
+    el: HTMLElement,
+    topHours: number,
+    heightHours: number,
+    topOffsetPx = 0,
+    heightOffsetPx = 0,
+    minHeightPx = 0,
+  ) {
+    el.dataset.eventTopHours = String(topHours);
+    el.dataset.eventHeightHours = String(heightHours);
+    el.dataset.eventTopOffset = String(topOffsetPx);
+    el.dataset.eventHeightOffset = String(heightOffsetPx);
+    el.dataset.eventMinHeight = String(minHeightPx);
+    el.style.setProperty("--f-event-top", `${topHours * this.hourPx + topOffsetPx}px`);
+    el.style.setProperty("--f-event-height", `${Math.max(minHeightPx, heightHours * this.hourPx + heightOffsetPx)}px`);
+  }
+
+  private applyHourPxToGrid(grid: HTMLElement) {
+    grid.style.setProperty("--f-hour-px", `${this.hourPx}px`);
+    grid.style.setProperty("--f-grid-height", `${TOTAL_HOURS * this.hourPx}px`);
+    grid.querySelectorAll<HTMLElement>("[data-hour-offset]").forEach((el) => {
+      const hours = Number(el.dataset.hourOffset);
+      el.style.setProperty("--f-hour-top", `${hours * this.hourPx}px`);
+    });
+    grid.querySelectorAll<HTMLElement>("[data-hour-duration]").forEach((el) => {
+      const hours = Number(el.dataset.hourDuration);
+      el.style.setProperty("--f-hour-height", `${hours * this.hourPx}px`);
+    });
+    grid.querySelectorAll<HTMLElement>("[data-event-top-hours]").forEach((el) => {
+      const topHours = Number(el.dataset.eventTopHours);
+      const heightHours = Number(el.dataset.eventHeightHours);
+      const topOffsetPx = Number(el.dataset.eventTopOffset ?? 0);
+      const heightOffsetPx = Number(el.dataset.eventHeightOffset ?? 0);
+      const minHeightPx = Number(el.dataset.eventMinHeight ?? 0);
+      el.style.setProperty("--f-event-top", `${topHours * this.hourPx + topOffsetPx}px`);
+      el.style.setProperty("--f-event-height", `${Math.max(minHeightPx, heightHours * this.hourPx + heightOffsetPx)}px`);
+    });
+  }
+
+  private applyHourPxToRenderedGrids() {
+    this.containerEl.querySelectorAll<HTMLElement>(".dl-time-grid").forEach((grid) => {
+      this.applyHourPxToGrid(grid);
+    });
+  }
+
+  private setDragGhostGeometry(
+    el: HTMLElement,
+    leftPx: number,
+    topPx: number,
+    widthPx: number,
+    heightPx: number,
+  ) {
+    el.style.setProperty("--f-drag-left", `${leftPx}px`);
+    el.style.setProperty("--f-drag-top", `${topPx}px`);
+    el.style.setProperty("--f-drag-width", `${widthPx}px`);
+    el.style.setProperty("--f-drag-height", `${heightPx}px`);
   }
 
   private calendarHue(name: string): number {
@@ -342,7 +414,7 @@ export class DeskleafCalendarView extends ItemView {
         if (earliest === null || h < earliest) earliest = h;
       }
     }
-    const top = (earliest !== null ? Math.max(0, earliest - 0.5) : 8) * HOUR_PX;
+    const top = (earliest !== null ? Math.max(0, earliest - 0.5) : 8) * this.hourPx;
     return { top, hasEvents: earliest !== null };
   }
 
@@ -716,9 +788,11 @@ export class DeskleafCalendarView extends ItemView {
 
   private buildTimeGrid(el: HTMLElement) {
     const today = toDateStr(new Date());
-    const gridHeight = TOTAL_HOURS * HOUR_PX;
+    if (!Platform.isMobile) this.hourPx = DEFAULT_HOUR_PX;
+    const gridHeight = TOTAL_HOURS * this.hourPx;
 
     const grid = el.createDiv("dl-time-grid");
+    this.applyHourPxToGrid(grid);
 
     if (Platform.isMobile && this.visibleDays <= 3) {
       this.carouselTracks = [];
@@ -791,28 +865,27 @@ export class DeskleafCalendarView extends ItemView {
       const bodyInner = bodyScroll.createDiv("dl-grid-body-inner");
 
       const gutter = bodyInner.createDiv("dl-time-gutter dl-time-gutter--labels");
-      gutter.style.height = `${gridHeight}px`;
       for (let h = DAY_START; h <= DAY_END; h++) {
         const lbl = gutter.createDiv("dl-time-label");
-        lbl.style.top = `${(h - DAY_START) * HOUR_PX}px`;
+        this.setHourOffset(lbl, h - DAY_START);
         lbl.setText(`${String(h).padStart(2, "0")}:00`);
       }
       if (currentDates.includes(today)) {
         const nowLbl = gutter.createDiv("dl-now-label");
         const nowD = new Date();
         nowLbl.textContent = `${String(nowD.getHours()).padStart(2,"0")}:${String(nowD.getMinutes()).padStart(2,"0")}`;
-        nowLbl.style.top = `${(((nowD.getHours() - DAY_START) * 60 + nowD.getMinutes()) / 60) * HOUR_PX}px`;
+        this.setHourOffset(nowLbl, ((nowD.getHours() - DAY_START) * 60 + nowD.getMinutes()) / 60);
       }
 
       const bodyTrack = makeColTrack(bodyInner.createDiv());
       this.carouselTracks.push(bodyTrack);
       for (let i = 0; i < N; i++) {
         const colEl = bodyTrack.children[i] as HTMLElement;
-        colEl.style.height = `${gridHeight}px`;
         this.buildBodiesInto(colEl, [colSeq[i]], gridHeight, today);
       }
 
       this.setupSwipeGestures(grid, bodyScroll, colPct);
+      this.setupPinchZoom(bodyScroll);
 
     } else {
       // ── Desktop: CSS-Grid — gutter col (fixed) + slide zone (animates) ──
@@ -839,17 +912,16 @@ export class DeskleafCalendarView extends ItemView {
       }
       const gutterBodyWrap = gutterCol.createDiv("dl-gutter-body-wrap");
       const gutterLabels = gutterBodyWrap.createDiv("dl-time-gutter dl-time-gutter--labels");
-      gutterLabels.style.height = `${gridHeight}px`;
       for (let h = DAY_START; h <= DAY_END; h++) {
         const lbl = gutterLabels.createDiv("dl-time-label");
-        lbl.style.top = `${(h - DAY_START) * HOUR_PX}px`;
+        this.setHourOffset(lbl, h - DAY_START);
         lbl.setText(`${String(h).padStart(2, "0")}:00`);
       }
       if (allDates.includes(today)) {
         const nowLabelEl = gutterLabels.createDiv("dl-now-label");
         const nowD = new Date();
         nowLabelEl.textContent = `${String(nowD.getHours()).padStart(2,"0")}:${String(nowD.getMinutes()).padStart(2,"0")}`;
-        nowLabelEl.style.top = `${(((nowD.getHours() - DAY_START) * 60 + nowD.getMinutes()) / 60) * HOUR_PX}px`;
+        this.setHourOffset(nowLabelEl, ((nowD.getHours() - DAY_START) * 60 + nowD.getMinutes()) / 60);
       }
 
       // Right column: content that slides on navigation
@@ -947,6 +1019,78 @@ export class DeskleafCalendarView extends ItemView {
       interior = false;
       claimedH = false;
     }, { passive: false });
+  }
+
+  private setupPinchZoom(scrollEl: HTMLElement) {
+    let startDistance = 0;
+    let startHourPx = this.hourPx;
+    let anchorOffsetY = 0;
+    let pinching = false;
+
+    const distance = (touches: TouchList): number => {
+      const a = touches[0];
+      const b = touches[1];
+      return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+    };
+    const midpointY = (touches: TouchList): number => (touches[0].clientY + touches[1].clientY) / 2;
+
+    const start = (e: TouchEvent) => {
+      if (e.touches.length !== 2) return;
+      pinching = true;
+      startDistance = distance(e.touches);
+      startHourPx = clampHourPx(this.hourPx, scrollEl.clientHeight);
+      this.hourPx = startHourPx;
+      anchorOffsetY = midpointY(e.touches) - scrollEl.getBoundingClientRect().top;
+      this.applyHourPxToRenderedGrids();
+      e.preventDefault();
+      e.stopPropagation();
+    };
+
+    const move = (e: TouchEvent) => {
+      if (!pinching || e.touches.length !== 2) return;
+      const oldHourPx = this.hourPx;
+      anchorOffsetY = midpointY(e.touches) - scrollEl.getBoundingClientRect().top;
+      const newHourPx = hourPxForPinch(startHourPx, startDistance, distance(e.touches), scrollEl.clientHeight);
+      this.hourPx = newHourPx;
+      this.applyHourPxToRenderedGrids();
+      scrollEl.scrollTop = scrollTopForZoomAnchor({
+        oldHourPx,
+        newHourPx,
+        scrollTop: scrollEl.scrollTop,
+        viewportOffsetY: anchorOffsetY,
+      });
+      e.preventDefault();
+      e.stopPropagation();
+    };
+
+    const end = (e: TouchEvent) => {
+      if (!pinching) return;
+      if (e.touches.length >= 2) return;
+      pinching = false;
+      const oldHourPx = this.hourPx;
+      const newHourPx = clampHourPx(this.hourPx, scrollEl.clientHeight);
+      this.hourPx = newHourPx;
+      this.applyHourPxToRenderedGrids();
+      scrollEl.scrollTop = scrollTopForZoomAnchor({
+        oldHourPx,
+        newHourPx,
+        scrollTop: scrollEl.scrollTop,
+        viewportOffsetY: anchorOffsetY,
+      });
+      e.preventDefault();
+      e.stopPropagation();
+    };
+
+    requestAnimationFrame(() => {
+      if (!scrollEl.isConnected) return;
+      this.hourPx = clampHourPx(this.hourPx, scrollEl.clientHeight);
+      this.applyHourPxToRenderedGrids();
+    });
+
+    scrollEl.addEventListener("touchstart", start, { passive: false, capture: true });
+    scrollEl.addEventListener("touchmove", move, { passive: false, capture: true });
+    scrollEl.addEventListener("touchend", end, { passive: false, capture: true });
+    scrollEl.addEventListener("touchcancel", end, { passive: false, capture: true });
   }
 
   private buildAllDayAreaInto(area: HTMLElement, columns: DayColumn[], allDates: string[]): number {
@@ -1047,29 +1191,28 @@ export class DeskleafCalendarView extends ItemView {
     el.dataset.date = date;
     if (date === today) el.addClass("dl-day-body--today");
     if (date === this.selectedDate) el.addClass("dl-day-body--selected");
-    el.style.height = `${gridHeight}px`;
 
     const segment = getBusinessHoursSegment(parseDate(date), this.plugin.settings.businessHours);
     if (segment) {
       const highlight = el.createDiv("dl-business-hours-segment");
-      highlight.style.top = `${(segment.topMinutes / 60) * HOUR_PX}px`;
-      highlight.style.height = `${(segment.durationMinutes / 60) * HOUR_PX}px`;
+      this.setHourOffset(highlight, segment.topMinutes / 60);
+      this.setHourDuration(highlight, segment.durationMinutes / 60);
     }
 
     for (let h = 0; h < TOTAL_HOURS; h++) {
       const line = el.createDiv("dl-hour-line");
-      line.style.top = `${h * HOUR_PX}px`;
+      this.setHourOffset(line, h);
       const half = el.createDiv("dl-hour-line dl-hour-line--half");
-      half.style.top = `${h * HOUR_PX + HOUR_PX / 2}px`;
+      this.setHourOffset(half, h + 0.5);
     }
 
     if (date === today) {
       const now = new Date();
-      const topPx =
-        (((now.getHours() - DAY_START) * 60 + now.getMinutes()) / 60) * HOUR_PX;
+      const topHours = ((now.getHours() - DAY_START) * 60 + now.getMinutes()) / 60;
+      const topPx = topHours * this.hourPx;
       if (topPx >= 0 && topPx <= gridHeight) {
         const nowLine = el.createDiv("dl-now-line");
-        nowLine.style.top = `${topPx}px`;
+        this.setHourOffset(nowLine, topHours);
       }
     }
 
@@ -1096,14 +1239,16 @@ export class DeskleafCalendarView extends ItemView {
     totalCols: number,
     date: string,
   ) {
-    const gridBottom = TOTAL_HOURS * HOUR_PX;
-    const rawTop = topFromISO(event.start);
-    const rawBottom = rawTop + heightFromISO(event.start, event.end);
+    const gridBottom = TOTAL_HOURS * this.hourPx;
+    const rawTop = topFromISO(event.start, this.hourPx);
+    const rawBottom = rawTop + heightFromISO(event.start, event.end, this.hourPx);
 
     if (rawBottom <= 0 || rawTop >= gridBottom) return;
 
-    const topPx = Math.max(0, rawTop) + 1;
-    const heightPx = Math.min(gridBottom, rawBottom) - topPx - 1;
+    const clampedTop = Math.max(0, rawTop);
+    const clampedBottom = Math.min(gridBottom, rawBottom);
+    const topPx = clampedTop + 1;
+    const heightPx = clampedBottom - topPx - 1;
 
     const card = container.createDiv("dl-event-card");
     card.style.setProperty("--cal-h", String(this.calendarHue(event.calendar ?? "")));
@@ -1127,8 +1272,13 @@ export class DeskleafCalendarView extends ItemView {
       card.addClass("dl-event-card--continues-after");
 
     const pct = (n: number) => `${(n * 100).toFixed(2)}%`;
-    card.style.top = `${topPx}px`;
-    card.style.height = `${heightPx}px`;
+    this.setEventVerticalMetrics(
+      card,
+      clampedTop / this.hourPx,
+      (clampedBottom - clampedTop) / this.hourPx,
+      1,
+      -2,
+    );
     card.style.left = `calc(${pct(col / totalCols)} + 1px)`;
     card.style.width = `calc(${pct(1 / totalCols)} - 3px)`;
 
@@ -1410,8 +1560,14 @@ export class DeskleafCalendarView extends ItemView {
 
     // Refresh card geometry from curStart/curEnd
     const refreshCard = () => {
-      cardEl.style.top    = `${(curStart / 60) * HOUR_PX + 1}px`;
-      cardEl.style.height = `${Math.max(14, ((curEnd - curStart) / 60) * HOUR_PX) - 1}px`;
+      this.setEventVerticalMetrics(
+        cardEl,
+        curStart / 60,
+        (curEnd - curStart) / 60,
+        1,
+        -1,
+        13,
+      );
     };
 
     // ── Top handle: adjust start time ────────────────────────────
@@ -1426,7 +1582,7 @@ export class DeskleafCalendarView extends ItemView {
       ev.preventDefault();
       const dayEl = cardEl.closest<HTMLElement>(".dl-day-body");
       if (!dayEl) return;
-      const raw = snapMins(((ev.touches[0].clientY - dayEl.getBoundingClientRect().top) / HOUR_PX) * 60);
+      const raw = snapMins(((ev.touches[0].clientY - dayEl.getBoundingClientRect().top) / this.hourPx) * 60);
       curStart = Math.max(0, Math.min(curEnd - 15, raw));
       refreshCard(); updateBar();
     };
@@ -1449,7 +1605,7 @@ export class DeskleafCalendarView extends ItemView {
       ev.preventDefault();
       const dayEl = cardEl.closest<HTMLElement>(".dl-day-body");
       if (!dayEl) return;
-      const raw = snapMins(((ev.touches[0].clientY - dayEl.getBoundingClientRect().top) / HOUR_PX) * 60);
+      const raw = snapMins(((ev.touches[0].clientY - dayEl.getBoundingClientRect().top) / this.hourPx) * 60);
       curEnd = Math.max(curStart + 15, Math.min(24 * 60, raw));
       refreshCard(); updateBar();
     };
@@ -1468,7 +1624,7 @@ export class DeskleafCalendarView extends ItemView {
 
     const onBodyStart = (ev: TouchEvent) => {
       if ((ev.target as HTMLElement).closest(".dl-edit-handle")) return;
-      dragOffsetMins = Math.round(((ev.touches[0].clientY - cardRect.top) / HOUR_PX) * 60);
+      dragOffsetMins = Math.round(((ev.touches[0].clientY - cardRect.top) / this.hourPx) * 60);
       isDragging = false;
       cardEl.addEventListener("touchmove", onBodyMove, { passive: false });
       cardEl.addEventListener("touchend",  onBodyEnd);
@@ -1480,16 +1636,22 @@ export class DeskleafCalendarView extends ItemView {
       if (!isDragging) {
         isDragging = true;
         dragGhost = document.body.createDiv("dl-drag-ghost");
-        dragGhost.style.cssText = `display:block;width:${cardRect.width}px;height:${cardRect.height}px;left:${cardRect.left}px;top:${cardRect.top}px`;
+        dragGhost.style.display = "block";
+        this.setDragGhostGeometry(dragGhost, cardRect.left, cardRect.top, cardRect.width, cardRect.height);
         dragGhost.createDiv({ cls: "dl-event-title", text: event.title });
       }
       if (dragGhost) {
-        dragGhost.style.left = `${t.clientX - cardRect.width / 2}px`;
-        dragGhost.style.top  = `${t.clientY - (dragOffsetMins / 60) * HOUR_PX}px`;
+        this.setDragGhostGeometry(
+          dragGhost,
+          t.clientX - cardRect.width / 2,
+          t.clientY - (dragOffsetMins / 60) * this.hourPx,
+          cardRect.width,
+          cardRect.height,
+        );
       }
       const hit = this.findDayBodyAt(t.clientX, t.clientY);
       if (hit) {
-        const raw = snapMins(((t.clientY - hit.el.getBoundingClientRect().top) / HOUR_PX) * 60 - dragOffsetMins);
+        const raw = snapMins(((t.clientY - hit.el.getBoundingClientRect().top) / this.hourPx) * 60 - dragOffsetMins);
         curStart = Math.max(0, Math.min(23 * 60, raw));
         curEnd   = curStart + (endMin - startMin);
         curDate  = hit.date;
@@ -1572,7 +1734,7 @@ export class DeskleafCalendarView extends ItemView {
     const rect = dayEl.getBoundingClientRect();
     const startMin = Math.max(
       0,
-      Math.min(23 * 60, snapMins(((e.clientY - rect.top) / HOUR_PX) * 60)),
+      Math.min(23 * 60, snapMins(((e.clientY - rect.top) / this.hourPx) * 60)),
     );
     let endMin = Math.min(24 * 60, startMin + 30);
 
@@ -1581,7 +1743,7 @@ export class DeskleafCalendarView extends ItemView {
 
     const onMove = (ev: MouseEvent) => {
       const rawMins = snapMins(
-        ((ev.clientY - dayEl.getBoundingClientRect().top) / HOUR_PX) * 60,
+        ((ev.clientY - dayEl.getBoundingClientRect().top) / this.hourPx) * 60,
       );
       endMin = Math.max(startMin + 15, Math.min(24 * 60, rawMins));
       this.refreshGhost(ghost, startMin, endMin);
@@ -1603,8 +1765,14 @@ export class DeskleafCalendarView extends ItemView {
   }
 
   private refreshGhost(ghost: HTMLElement, startMin: number, endMin: number) {
-    ghost.style.top = `${(startMin / 60) * HOUR_PX}px`;
-    ghost.style.height = `${Math.max(14, ((endMin - startMin) / 60) * HOUR_PX)}px`;
+    this.setEventVerticalMetrics(
+      ghost,
+      startMin / 60,
+      (endMin - startMin) / 60,
+      0,
+      0,
+      14,
+    );
     ghost.textContent = `${minsToTimeStr(startMin)} – ${minsToTimeStr(endMin)}`;
   }
 
@@ -2001,7 +2169,7 @@ export class DeskleafCalendarView extends ItemView {
 
     const touch = e.touches[0];
     const rect = dayEl.getBoundingClientRect();
-    const startMin = Math.max(0, Math.min(23 * 60, snapMins(((touch.clientY - rect.top) / HOUR_PX) * 60)));
+    const startMin = Math.max(0, Math.min(23 * 60, snapMins(((touch.clientY - rect.top) / this.hourPx) * 60)));
     let endMin = Math.min(24 * 60, startMin + 30);
     const startX = touch.clientX;
     const startY = touch.clientY;
@@ -2032,7 +2200,7 @@ export class DeskleafCalendarView extends ItemView {
       }
       ev.preventDefault();
       ev.stopPropagation();
-      const rawMins = snapMins(((t.clientY - dayEl.getBoundingClientRect().top) / HOUR_PX) * 60);
+      const rawMins = snapMins(((t.clientY - dayEl.getBoundingClientRect().top) / this.hourPx) * 60);
       endMin = Math.max(startMin + 15, Math.min(24 * 60, rawMins));
       if (ghost) this.refreshGhost(ghost, startMin, endMin);
     };
@@ -2075,19 +2243,20 @@ export class DeskleafCalendarView extends ItemView {
       startY = e.clientY;
     const cardRect = cardEl.getBoundingClientRect();
     const clickOffsetMins = Math.round(
-      ((e.clientY - cardRect.top) / HOUR_PX) * 60,
+      ((e.clientY - cardRect.top) / this.hourPx) * 60,
     );
     const durationMins = Math.round(
       (new Date(event.end).getTime() - new Date(event.start).getTime()) / 60000,
     );
 
     const ghost = document.body.createDiv("dl-drag-ghost");
-    ghost.style.cssText = `width:${cardRect.width}px;height:${cardRect.height}px;left:${cardRect.left}px;top:${cardRect.top}px;display:none`;
+    ghost.style.display = "none";
+    this.setDragGhostGeometry(ghost, cardRect.left, cardRect.top, cardRect.width, cardRect.height);
     ghost.createDiv({ cls: "dl-event-title", text: event.title });
 
     const landing = document.createElement("div");
     landing.className = "dl-landing-ghost";
-    landing.style.height = `${Math.max(20, (durationMins / 60) * HOUR_PX)}px`;
+    this.setEventVerticalMetrics(landing, 0, durationMins / 60, 0, 0, 20);
 
     let dragging = false;
     let targetDate: string | null = null;
@@ -2103,18 +2272,30 @@ export class DeskleafCalendarView extends ItemView {
         ghost.style.display = "block";
         onDragStart();
       }
-      ghost.style.left = `${ev.clientX - cardRect.width / 2}px`;
-      ghost.style.top = `${ev.clientY - (clickOffsetMins / 60) * HOUR_PX}px`;
+      this.setDragGhostGeometry(
+        ghost,
+        ev.clientX - cardRect.width / 2,
+        ev.clientY - (clickOffsetMins / 60) * this.hourPx,
+        cardRect.width,
+        cardRect.height,
+      );
 
       const hit = this.findDayBodyAt(ev.clientX, ev.clientY);
       if (hit) {
         const dayRect = hit.el.getBoundingClientRect();
         const rawMins =
-          ((ev.clientY - dayRect.top) / HOUR_PX) * 60 - clickOffsetMins;
+          ((ev.clientY - dayRect.top) / this.hourPx) * 60 - clickOffsetMins;
         targetStartMins = Math.max(0, Math.min(23 * 60, snapMins(rawMins)));
         targetDate = hit.date;
         landing.textContent = `${minsToTimeStr(targetStartMins)} – ${minsToTimeStr(Math.min(24 * 60, targetStartMins + durationMins))}`;
-        landing.style.top = `${(targetStartMins / 60) * HOUR_PX}px`;
+        this.setEventVerticalMetrics(
+          landing,
+          targetStartMins / 60,
+          durationMins / 60,
+          0,
+          0,
+          20,
+        );
         if (landing.parentElement !== hit.el) hit.el.appendChild(landing);
       } else {
         landing.remove();
@@ -2177,23 +2358,20 @@ export class DeskleafCalendarView extends ItemView {
     const onMove = (ev: MouseEvent) => {
       if (!dayBody) return;
       const dayRect = dayBody.getBoundingClientRect();
-      const rawMins = ((ev.clientY - dayRect.top) / HOUR_PX) * 60;
+      const rawMins = ((ev.clientY - dayRect.top) / this.hourPx) * 60;
       if (edge === "start") {
         startMins = Math.max(0, Math.min(endMins - 15, snapMins(rawMins)));
-        cardEl.style.top = `${(startMins / 60) * HOUR_PX + 1}px`;
       } else {
         endMins = Math.max(startMins + 15, Math.min(24 * 60, snapMins(rawMins)));
       }
-      const newH = Math.max(20, ((endMins - startMins) / 60) * HOUR_PX) - 2;
-      cardEl.style.height = `${newH}px`;
+      this.setEventVerticalMetrics(cardEl, startMins / 60, (endMins - startMins) / 60, 1, -2, 18);
     };
 
     const onUp = async () => {
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onUp);
       document.body.style.userSelect = "";
-      cardEl.style.top = `${origTop}px`;
-      cardEl.style.height = `${origH}px`;
+      this.setEventVerticalMetrics(cardEl, 0, 0, origTop, origH);
       this.dragResize = null;
 
       const origStartMins =
@@ -2241,12 +2419,14 @@ export class DeskleafCalendarView extends ItemView {
 
   private tickNowLine() {
     const now = new Date();
-    const topPx = (((now.getHours() - DAY_START) * 60 + now.getMinutes()) / 60) * HOUR_PX;
+    const topHours = ((now.getHours() - DAY_START) * 60 + now.getMinutes()) / 60;
     const timeStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
     const root = this.containerEl.children[1] as HTMLElement;
-    root.querySelectorAll<HTMLElement>(".dl-now-line").forEach(el => { el.style.top = `${topPx}px`; });
+    root.querySelectorAll<HTMLElement>(".dl-now-line").forEach(el => {
+      this.setHourOffset(el, topHours);
+    });
     root.querySelectorAll<HTMLElement>(".dl-now-label").forEach(el => {
-      el.style.top = `${topPx}px`;
+      this.setHourOffset(el, topHours);
       el.textContent = timeStr;
     });
   }
