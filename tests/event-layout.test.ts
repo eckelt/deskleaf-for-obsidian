@@ -263,6 +263,22 @@ function renderedGrid(view: object): RenderElement {
   return grid;
 }
 
+function renderedBodyColumns(view: object): string[][] {
+  const bodyInner = renderedGrid(view).querySelector(".dl-grid-body-inner");
+  if (!bodyInner) throw new Error("calendar body was not rendered");
+  return bodyInner.children
+    .filter((child) => child.classList.contains("dl-day-body"))
+    .map((child) => {
+      if (child.dataset.date) return [child.dataset.date];
+      return child.children
+        .filter((subChild) => subChild.classList.contains("dl-day-body"))
+        .map((subChild) => {
+          if (!subChild.dataset.date) throw new Error("day body has no date");
+          return subChild.dataset.date;
+        });
+    });
+}
+
 describe("topFromISO", () => {
   it("midnight = 0px", () => {
     expect(topFromISO("2026-05-04T00:00:00+00:00")).toBe(0);
@@ -427,6 +443,53 @@ describe("zoom geometry", () => {
 
       callViewMethod(view, "navigate", -1);
       expect(renderCssValue(renderedGrid(view), "--f-hour-px")).toBe("112px");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("keeps visible date columns unchanged when the zoom level changes", () => {
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback): number => {
+      callback(0);
+      return 1;
+    });
+
+    try {
+      const view = createCalendarViewHarness();
+      Reflect.set(view, "anchor", new Date("2026-05-08T12:00:00Z"));
+      Reflect.set(view, "visibleDays", 3);
+
+      callViewMethod(view, "render");
+      const nDayColumns = renderedBodyColumns(view);
+
+      Reflect.set(view, "hourPx", 140);
+      callViewMethod(view, "render");
+
+      expect(renderedBodyColumns(view)).toEqual(nDayColumns);
+      expect(nDayColumns).toEqual([
+        ["2026-05-08"],
+        ["2026-05-09", "2026-05-10"],
+        ["2026-05-11"],
+      ]);
+
+      Reflect.set(view, "anchor", new Date("2026-05-07T12:00:00Z"));
+      Reflect.set(view, "visibleDays", 6);
+      Reflect.set(view, "hourPx", DEFAULT_HOUR_PX);
+      callViewMethod(view, "render");
+      const weekColumns = renderedBodyColumns(view);
+
+      Reflect.set(view, "hourPx", 90);
+      callViewMethod(view, "render");
+
+      expect(renderedBodyColumns(view)).toEqual(weekColumns);
+      expect(weekColumns).toEqual([
+        ["2026-05-04"],
+        ["2026-05-05"],
+        ["2026-05-06"],
+        ["2026-05-07"],
+        ["2026-05-08"],
+        ["2026-05-09", "2026-05-10"],
+      ]);
     } finally {
       vi.unstubAllGlobals();
     }
