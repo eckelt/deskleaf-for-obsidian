@@ -670,6 +670,73 @@ describe("zoom geometry", () => {
     }
   });
 
+  it("leaves vertical one-finger mobile movement to native scrolling", () => {
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback): number => {
+      callback(0);
+      return 1;
+    });
+    vi.stubGlobal("window", { innerWidth: 390 });
+    const wasMobile = Platform.isMobile;
+    const wasDesktop = Platform.isDesktop;
+
+    try {
+      Platform.isMobile = true;
+      Platform.isDesktop = false;
+      const view = createCalendarViewHarness();
+
+      callViewMethod(view, "render");
+
+      const grid = renderedGrid(view);
+      grid.dispatchEvent(makeTouchEvent("touchstart", [{ clientX: 200, clientY: 120 }]));
+      const moveEvent = makeTouchEvent("touchmove", [{ clientX: 205, clientY: 240 }]);
+      grid.dispatchEvent(moveEvent);
+      grid.dispatchEvent(makeTouchEvent("touchend", [{ clientX: 205, clientY: 240 }]));
+
+      expect(moveEvent.defaultPrevented).toBe(false);
+      expect(Reflect.get(view, "anchor")).toEqual(new Date("2026-05-04T12:00:00Z"));
+      expect(renderCssValue(renderedGrid(view), "--f-hour-px")).toBe(`${DEFAULT_HOUR_PX}px`);
+    } finally {
+      Platform.isMobile = wasMobile;
+      Platform.isDesktop = wasDesktop;
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("leaves one-finger horizontal edge movement to Obsidian edge gestures", () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback): number => {
+      callback(0);
+      return 1;
+    });
+    vi.stubGlobal("window", { innerWidth: 390 });
+    const wasMobile = Platform.isMobile;
+    const wasDesktop = Platform.isDesktop;
+
+    try {
+      Platform.isMobile = true;
+      Platform.isDesktop = false;
+      const view = createCalendarViewHarness();
+
+      callViewMethod(view, "render");
+
+      const grid = renderedGrid(view);
+      grid.dispatchEvent(makeTouchEvent("touchstart", [{ clientX: 40, clientY: 120 }]));
+      const moveEvent = makeTouchEvent("touchmove", [{ clientX: 160, clientY: 130 }]);
+      grid.dispatchEvent(moveEvent);
+      grid.dispatchEvent(makeTouchEvent("touchend", [{ clientX: 160, clientY: 130 }]));
+      vi.advanceTimersByTime(300);
+
+      expect(moveEvent.defaultPrevented).toBe(false);
+      expect(Reflect.get(view, "anchor")).toEqual(new Date("2026-05-04T12:00:00Z"));
+      expect(renderCssValue(renderedGrid(view), "--f-hour-px")).toBe(`${DEFAULT_HOUR_PX}px`);
+    } finally {
+      Platform.isMobile = wasMobile;
+      Platform.isDesktop = wasDesktop;
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("handles a desktop trackpad pinch as calendar zoom and consumes the app zoom event", () => {
     vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback): number => {
       callback(0);
