@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { DeskleafCalendarView } from "../src/calendar-view";
 import {
   assignColumns,
@@ -50,6 +50,130 @@ class CalendarElement {
   }
 }
 
+type ClassValue = string | string[];
+
+class RenderElement {
+  readonly children: RenderElement[] = [];
+  readonly dataset: Record<string, string | undefined> = {};
+  readonly style = new StyleDeclarations();
+  readonly classList = {
+    add: (...classes: string[]): void => {
+      classes.forEach((className) => this.classes.add(className));
+    },
+    contains: (className: string): boolean => this.classes.has(className),
+  };
+  textContent = "";
+  scrollTop = 0;
+  clientHeight = 720;
+  offsetHeight = 20;
+  isConnected = true;
+  private parent: RenderElement | null = null;
+  private readonly classes = new Set<string>();
+
+  constructor(private readonly tagName = "div") {}
+
+  empty(): void {
+    this.children.forEach((child) => child.disconnect());
+    this.children.length = 0;
+  }
+
+  createDiv(options?: string | { cls?: ClassValue; text?: string }): RenderElement {
+    const child = new RenderElement("div");
+    this.applyCreateOptions(child, options);
+    this.appendChild(child);
+    return child;
+  }
+
+  createEl(_tagName: string, options?: { cls?: ClassValue; text?: string }): RenderElement {
+    const child = new RenderElement(_tagName);
+    this.applyCreateOptions(child, options);
+    this.appendChild(child);
+    return child;
+  }
+
+  createSpan(options?: { cls?: ClassValue; text?: string }): RenderElement {
+    const child = new RenderElement("span");
+    this.applyCreateOptions(child, options);
+    this.appendChild(child);
+    return child;
+  }
+
+  appendChild(child: RenderElement): RenderElement {
+    child.parent = this;
+    child.connect();
+    this.children.push(child);
+    return child;
+  }
+
+  remove(): void {
+    if (this.parent) {
+      const index = this.parent.children.indexOf(this);
+      if (index >= 0) this.parent.children.splice(index, 1);
+    }
+    this.parent = null;
+    this.disconnect();
+  }
+
+  addClass(className: string): void {
+    className.split(/\s+/).filter(Boolean).forEach((name) => this.classes.add(name));
+  }
+
+  setText(text: string): void {
+    this.textContent = text;
+  }
+
+  setAttribute(_name: string, _value: string): void {}
+
+  addEventListener(_type: string, _listener: EventListenerOrEventListenerObject, _options?: AddEventListenerOptions): void {}
+
+  querySelector(selector: string): RenderElement | null {
+    return this.querySelectorAll(selector)[0] ?? null;
+  }
+
+  querySelectorAll(selector: string): RenderElement[] {
+    const result: RenderElement[] = [];
+    this.collectMatches(selector, result);
+    return result;
+  }
+
+  private applyCreateOptions(child: RenderElement, options?: string | { cls?: ClassValue; text?: string }): void {
+    if (typeof options === "string") {
+      child.addClass(options);
+      return;
+    }
+    const cls = options?.cls;
+    if (typeof cls === "string") child.addClass(cls);
+    else cls?.forEach((className) => child.addClass(className));
+    if (options?.text !== undefined) child.setText(options.text);
+  }
+
+  private collectMatches(selector: string, result: RenderElement[]): void {
+    for (const child of this.children) {
+      if (child.matches(selector)) result.push(child);
+      child.collectMatches(selector, result);
+    }
+  }
+
+  private matches(selector: string): boolean {
+    if (selector.startsWith(".")) return this.classes.has(selector.slice(1));
+    if (selector.startsWith("[") && selector.endsWith("]")) {
+      const name = selector.slice(1, -1).replace(/-([a-z])/g, (_, letter: string) => letter.toUpperCase());
+      return this.dataset[name] !== undefined;
+    }
+    return this.tagName === selector;
+  }
+
+  private connect(): void {
+    this.isConnected = true;
+    this.children.forEach((child) => child.connect());
+  }
+
+  private disconnect(): void {
+    this.isConnected = false;
+    this.children.forEach((child) => child.disconnect());
+  }
+}
+
 function applyHourPxToGrid(hourPx: number, grid: CalendarElement): void {
   const method = Reflect.get(DeskleafCalendarView.prototype, "applyHourPxToGrid");
   if (typeof method !== "function") {
@@ -60,6 +184,83 @@ function applyHourPxToGrid(hourPx: number, grid: CalendarElement): void {
 
 function cssValue(element: CalendarElement, property: string): string {
   return element.style.getPropertyValue(property);
+}
+
+function renderCssValue(element: RenderElement, property: string): string {
+  return element.style.getPropertyValue(property);
+}
+
+function createCalendarViewHarness(): object {
+  const header = new RenderElement();
+  const root = new RenderElement();
+  const containerEl = new RenderElement();
+  containerEl.appendChild(header);
+  containerEl.appendChild(root);
+  return Object.assign(Object.create(DeskleafCalendarView.prototype), {
+    app: {
+      workspace: {
+        trigger: (): void => {},
+      },
+    },
+    plugin: {
+      calendarReader: {
+        getAllDayEventsForDate: (): CalendarEvent[] => [],
+        getEvents: (): CalendarEvent[] => [],
+        getEventsForDate: (): CalendarEvent[] => [],
+        getLoadError: (): string | null => null,
+        getPath: (): string => "/calendar",
+      },
+      icalFeedManager: {
+        getAllEvents: (): CalendarEvent[] => [],
+        getWarnFeeds: (): unknown[] => [],
+      },
+      noteManager: {
+        buildNoteCache: (): Map<string, unknown> => new Map(),
+      },
+      settings: {
+        businessHours: {
+          enabled: false,
+          start: "09:00",
+          end: "17:00",
+          days: [1, 2, 3, 4, 5],
+        },
+        caldav: {},
+        icalSubscriptions: [],
+      },
+    },
+    containerEl,
+    anchor: new Date("2026-05-04T12:00:00Z"),
+    visibleDays: 3,
+    selection: null,
+    noteCache: new Map(),
+    lastAnchorStr: null,
+    lastVisibleDays: 0,
+    initialScrollDone: false,
+    navLabelEl: null,
+    carouselTracks: [],
+    slideDir: 0,
+    desktopSlideZone: null,
+    preserveScrollForNextRender: null,
+    hourPx: DEFAULT_HOUR_PX,
+  });
+}
+
+function callViewMethod(view: object, name: string, ...args: unknown[]): void {
+  const method = Reflect.get(DeskleafCalendarView.prototype, name);
+  if (typeof method !== "function") {
+    throw new Error(`${name} is not available`);
+  }
+  method.call(view, ...args);
+}
+
+function renderedGrid(view: object): RenderElement {
+  const containerEl = Reflect.get(view, "containerEl");
+  if (!(containerEl instanceof RenderElement)) {
+    throw new Error("calendar view harness has no container");
+  }
+  const grid = containerEl.querySelector(".dl-time-grid");
+  if (!grid) throw new Error("calendar grid was not rendered");
+  return grid;
 }
 
 describe("topFromISO", () => {
@@ -203,6 +404,32 @@ describe("zoom geometry", () => {
     expect(cssValue(eventCard, "--f-event-height")).toBe("148px");
     expect(cssValue(dragGhost, "--f-event-top")).toBe("1300px");
     expect(cssValue(dragGhost, "--f-event-height")).toBe("50px");
+  });
+
+  it("keeps the selected zoom level across re-renders and calendar navigation", () => {
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback): number => {
+      callback(0);
+      return 1;
+    });
+
+    try {
+      const view = createCalendarViewHarness();
+
+      callViewMethod(view, "render");
+      expect(renderCssValue(renderedGrid(view), "--f-hour-px")).toBe(`${DEFAULT_HOUR_PX}px`);
+
+      Reflect.set(view, "hourPx", 112);
+      callViewMethod(view, "render");
+      expect(renderCssValue(renderedGrid(view), "--f-hour-px")).toBe("112px");
+
+      callViewMethod(view, "navigate", 1);
+      expect(renderCssValue(renderedGrid(view), "--f-hour-px")).toBe("112px");
+
+      callViewMethod(view, "navigate", -1);
+      expect(renderCssValue(renderedGrid(view), "--f-hour-px")).toBe("112px");
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });
 
