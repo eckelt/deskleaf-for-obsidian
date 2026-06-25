@@ -4,3 +4,4 @@ focal-cal
 swift/.build/
 **/*~lock~
 **/.DS_Store
+scripts/.issue-watch-state.json

@@ -103,6 +103,50 @@ export class DeskleafSettingTab extends PluginSettingTab {
     const icalSection = containerEl.createDiv();
     this.renderICalList(icalSection);
 
+    // ── Arbeitszeiten ────────────────────────────────────────────
+    containerEl.createEl("h3", { text: "Arbeitszeiten" });
+
+    new Setting(containerEl)
+      .setName("Arbeitszeiten hervorheben")
+      .setDesc("Hebt Montag bis Freitag im Kalender dezent hervor.")
+      .addToggle(toggle =>
+        toggle
+          .setValue(this.plugin.settings.businessHours.enabled)
+          .onChange(async value => {
+            this.plugin.settings.businessHours.enabled = value;
+            await this.plugin.saveSettings();
+            this.refreshCalendarViews();
+          })
+      );
+
+    new Setting(containerEl)
+      .setName("Startzeit")
+      .setDesc("Beginn der Arbeitszeit für Montag bis Freitag.")
+      .addText(text => {
+        text.inputEl.type = "time";
+        text
+          .setValue(this.plugin.settings.businessHours.start)
+          .onChange(async value => {
+            this.plugin.settings.businessHours.start = value;
+            await this.plugin.saveSettings();
+            this.refreshCalendarViews();
+          });
+      });
+
+    new Setting(containerEl)
+      .setName("Endzeit")
+      .setDesc("Ende der Arbeitszeit für Montag bis Freitag.")
+      .addText(text => {
+        text.inputEl.type = "time";
+        text
+          .setValue(this.plugin.settings.businessHours.end)
+          .onChange(async value => {
+            this.plugin.settings.businessHours.end = value;
+            await this.plugin.saveSettings();
+            this.refreshCalendarViews();
+          });
+      });
+
     // ── Notizen ──────────────────────────────────────────────────
     containerEl.createEl("h3", { text: "Notizen" });
 
@@ -160,6 +204,13 @@ export class DeskleafSettingTab extends PluginSettingTab {
             await this.plugin.saveSettings();
           })
       );
+  }
+
+  private refreshCalendarViews(): void {
+    for (const leaf of this.app.workspace.getLeavesOfType("deskleaf-calendar")) {
+      const view = leaf.view as unknown as { render?: () => void };
+      view.render?.();
+    }
   }
 
   private renderCalDAVList(el: HTMLElement): void {

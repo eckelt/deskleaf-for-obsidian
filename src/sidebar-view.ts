@@ -671,12 +671,20 @@ export class DeskleafSidebarView extends ItemView {
     const openCount = Object.values(groups).reduce((s, g) => s + g.length, 0);
 
     const header = container.createDiv("dl-sidebar-todos-header");
-    header.createSpan({ cls: "dl-sidebar-count", text: String(openCount) });
-    const filterInput = header.createEl("input", {
+    const filterWrap = header.createDiv("dl-todo-filter-wrap");
+    setIcon(filterWrap.createSpan("dl-todo-filter-icon"), "search");
+    const filterInput = filterWrap.createEl("input", {
       type: "text",
       cls: "dl-todo-filter",
-      placeholder: "Filtern …",
+      placeholder: "Filter",
     } as any) as HTMLInputElement;
+    const updateFilterVisibility = () => {
+      filterWrap.toggleClass("dl-todo-filter-wrap--active", document.activeElement === filterInput || filterInput.value.length > 0);
+    };
+    filterWrap.addEventListener("click", () => filterInput.focus());
+    filterInput.addEventListener("focus", updateFilterVisibility);
+    filterInput.addEventListener("blur", updateFilterVisibility);
+    header.createSpan({ cls: "dl-sidebar-count", text: String(openCount) });
 
     const labels: Record<TodoGroup, string> = {
       today: "Heute", week: "Diese Woche", later: "Später", undated: "Ohne Datum", past: "Früher",
@@ -692,6 +700,7 @@ export class DeskleafSidebarView extends ItemView {
     }
 
     filterInput.addEventListener("input", () => {
+      updateFilterVisibility();
       const q = filterInput.value.trim().toLowerCase();
       for (const section of sections) {
         let visible = 0;

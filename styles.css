@@ -616,6 +616,22 @@
     border-left: 1px solid rgba(128, 128, 128, 0.12);
 }
 
+.dl-business-hours-segment {
+    position: absolute;
+    left: 0;
+    right: 0;
+    background: hsla(var(--accent-h), var(--accent-s), var(--accent-l), 0.055);
+    border-top: 1px solid hsla(var(--accent-h), var(--accent-s), var(--accent-l), 0.12);
+    border-bottom: 1px solid hsla(var(--accent-h), var(--accent-s), var(--accent-l), 0.12);
+    pointer-events: none;
+    z-index: 0;
+}
+
+.theme-dark .dl-business-hours-segment {
+    background: hsla(var(--accent-h), var(--accent-s), var(--accent-l), 0.085);
+    border-color: hsla(var(--accent-h), var(--accent-s), var(--accent-l), 0.16);
+}
+
 /* Hour lines */
 .dl-hour-line {
     position: absolute;
@@ -624,6 +640,7 @@
     height: 1px;
     background: rgba(128, 128, 128, 0.15);
     pointer-events: none;
+    z-index: 1;
 }
 
 .dl-hour-line--half {
@@ -1420,24 +1437,41 @@
     padding: 0;
 }
 
+.workspace-leaf-content[data-type="deskleaf-sidebar"] .view-header {
+    display: none !important;
+}
+
 .dl-sidebar-root {
     display: flex;
     flex-direction: column;
     height: 100%;
     overflow: hidden;
+    position: relative;
 }
 
 /* Toolbar keeps Obsidian nav-action-button styling without inheriting mobile nav-header layout. */
 .dl-sidebar-toolbar {
-    flex-shrink: 0;
+    position: absolute;
+    top: 2px;
+    right: 4px;
+    z-index: 20;
+    height: 0;
     min-height: 0;
     padding: 0;
+    opacity: 0.46;
+    transition: opacity 120ms;
+}
+
+.dl-sidebar-toolbar:hover,
+.dl-sidebar-toolbar:focus-within {
+    opacity: 1;
 }
 
 .dl-sidebar-toolbar > .nav-buttons-container {
     display: flex;
     align-items: center;
     justify-content: center;
+    gap: 1px;
     padding: 0;
     margin: 0;
 }
@@ -1446,12 +1480,15 @@
     cursor: pointer;
     color: var(--icon-color);
     opacity: var(--icon-opacity, 0.75);
+    width: 18px;
+    height: 18px;
+    padding: 2px;
 }
 
 /* Let the custom section SVGs scale with Obsidian's icon size (bigger on mobile) */
 .dl-sidebar-root .nav-action-button svg {
-    width: var(--icon-size);
-    height: var(--icon-size);
+    width: 12px;
+    height: 12px;
 }
 
 .dl-sidebar-root .nav-action-button:hover {
@@ -1466,14 +1503,14 @@
 
 @media (max-width: 600px) {
     .dl-sidebar-toolbar {
-        height: 48px;
+        height: 0;
         display: flex;
         align-items: center;
         justify-content: center;
     }
 
     .dl-sidebar-toolbar > .nav-buttons-container {
-        height: 48px;
+        height: auto;
     }
 
     .dl-sidebar-root .nav-action-button {
@@ -1685,14 +1722,16 @@
 }
 
 .dl-sidebar-count {
-    font-size: 0.9em;
+    font-size: 0.68em;
     font-variant-numeric: tabular-nums;
-    background: var(--f-border-dark);
-    color: var(--f-muted);
-    border-radius: 8px;
-    padding: 0 5px;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    color: var(--text-faint);
+    padding: 0 1px;
     letter-spacing: 0;
-    line-height: 1.6;
+    line-height: 1;
+    opacity: 0.78;
 }
 
 .dl-sidebar-todos {
@@ -1708,29 +1747,82 @@
     background: var(--f-bg);
     display: flex;
     align-items: center;
-    gap: 4px;
-    padding: 2px 8px;
+    justify-content: flex-end;
+    gap: 5px;
+    height: 24px;
+    min-height: 24px;
+    max-height: 24px;
+    padding: 0 8px;
+    overflow: hidden;
+}
+
+.dl-todo-filter-wrap {
+    display: flex;
+    align-items: center;
+    width: 14px;
+    height: 18px;
+    min-width: 0;
+    border-bottom: 1px solid transparent;
+    color: var(--text-faint);
+    cursor: text;
+    overflow: hidden;
+    transition:
+        width 120ms,
+        color 120ms;
+}
+
+.dl-todo-filter-wrap--active {
+    width: min(96px, 100%);
+}
+
+.dl-todo-filter-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 13px;
+}
+
+.dl-todo-filter-icon svg {
+    width: 11px;
+    height: 11px;
+    stroke-width: 2;
 }
 
 .dl-todo-filter {
+    appearance: none;
+    -webkit-appearance: none;
     flex: 1;
     min-width: 0;
-    padding: 2px 4px;
+    min-height: 0;
+    height: 18px;
+    max-height: 18px;
+    padding: 0 0 0 3px;
     background: transparent;
     border: none;
-    border-bottom: 1px solid transparent;
-    color: var(--text-normal);
-    font-size: 0.75em;
+    border-radius: 0;
+    box-shadow: none;
+    color: var(--text-muted);
+    font-size: 0.68em;
+    line-height: 18px;
     outline: none;
+    opacity: 0;
+    pointer-events: none;
     text-transform: none;
     letter-spacing: 0;
     font-weight: 400;
+    transition: opacity 120ms;
 }
 .dl-todo-filter::placeholder {
     color: var(--text-faint);
 }
-.dl-todo-filter:focus {
+.dl-todo-filter-wrap:focus-within {
     border-bottom-color: var(--text-accent);
+    color: var(--text-muted);
+}
+
+.dl-todo-filter-wrap--active .dl-todo-filter {
+    opacity: 1;
+    pointer-events: auto;
 }
 
 /* ── Todo Board ──────────────────────────────────────────────────── */
