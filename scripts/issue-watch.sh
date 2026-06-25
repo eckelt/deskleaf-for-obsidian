@@ -34,6 +34,14 @@ BUILDER_BACKEND="${BUILDER_BACKEND:-codex}";      BUILDER_MODEL="${BUILDER_MODEL
 REVIEWER_BACKEND="${REVIEWER_BACKEND:-claude}";   REVIEWER_MODEL="${REVIEWER_MODEL:-opus}"
 VALIDATOR_BACKEND="${VALIDATOR_BACKEND:-claude}"; VALIDATOR_MODEL="${VALIDATOR_MODEL:-opus}"
 
+# Codex-Rechte — knapp statt Holzhammer: Schreibzugriff nur im Workspace, Netz
+# an (gh/push/merge brauchen es), nie interaktive Rückfrage (Headless kann nicht
+# antworten). Für feinere Kontrolle (z.B. rm verbieten, Netz auf api.github.com
+# beschränken): Command-Rules in .codex/rules/ bzw. ein Profil via `-p <name>`.
+# Grober Fallback: CODEX_PERM_ARGS=(--dangerously-bypass-approvals-and-sandbox)
+CODEX_PERM_ARGS=(--sandbox workspace-write --ask-for-approval never \
+    -c sandbox_workspace_write.network_access=true)
+
 # ── State-Datei ────────────────────────────────────────────────────────────────
 
 init_state_file() {
@@ -158,13 +166,14 @@ run_agent() {
             [[ -n "$model" ]] && args+=(--model "$model")
             ( cd "$dir" && claude "${args[@]}" -p "$prompt" ) ;;
         codex)
-            # Codex sandboxt Dateisystem UND Netz; gh/push/merge brauchen Netz →
-            # voller Zugriff. Engeres Modell via ~/.codex/config.toml.
+            # Rechte aus CODEX_PERM_ARGS (workspace-write + Netz, nie nachfragen).
             # -o schreibt NUR die finale Antwort raus (Reasoning-Log verwerfen).
             local last; last=$(mktemp)
-            local args=(exec --dangerously-bypass-approvals-and-sandbox --cd "$dir" -o "$last")
+            local args=(exec "${CODEX_PERM_ARGS[@]}" --cd "$dir" -o "$last")
             [[ -n "$model" ]] && args+=(--model "$model")
-            codex "${args[@]}" "$prompt" >/dev/null 2>&1 || true
+            # Fortschritt nach stderr (sichtbar, nicht ins Parsing eingefangen);
+            # die saubere finale Antwort kommt aus -o.
+            codex "${args[@]}" "$prompt" 1>&2 || true
             cat "$last" 2>/dev/null; rm -f "$last" ;;
         *)
             echo "FAIL: unbekanntes Agent-Backend '${backend}'" ;;
