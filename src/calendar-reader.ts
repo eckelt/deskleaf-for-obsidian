@@ -247,7 +247,7 @@ export class CalendarReader {
 
   async updateEvent(id: string, update: EventUpdate): Promise<void> {
     if (!this.execFile) return Promise.reject(new Error("Nicht auf diesem Gerät verfügbar"));
-    return new Promise((resolve, reject) => {
+    await new Promise<void>((resolve, reject) => {
       const args = [
         "update",
         "--id", id,
@@ -264,6 +264,7 @@ export class CalendarReader {
         resolve();
       });
     });
+    await this.load();
   }
 
   async cancelEvent(id: string, span: "this" | "future" = "this"): Promise<void> {
