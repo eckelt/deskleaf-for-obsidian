@@ -1846,8 +1846,7 @@ export class DeskleafCalendarView extends ItemView {
     endMin: number,
     pos: { clientX: number; clientY: number },
   ) {
-    document.querySelector(".dl-edit-overlay")?.remove();
-    document.querySelector(".dl-edit-overlay")?.remove();
+    this.removeEventEditOverlay();
     document.querySelector(".dl-create-popover")?.remove();
 
     const popover = document.body.createDiv("dl-create-popover");
@@ -1975,7 +1974,7 @@ export class DeskleafCalendarView extends ItemView {
     _source: MouseEvent | TouchEvent,
     readOnly: boolean,
   ) {
-    document.querySelector(".dl-edit-overlay")?.remove();
+    this.removeEventEditOverlay();
     document.querySelector(".dl-create-popover")?.remove();
     this.hideHoverPopover();
 
@@ -2191,6 +2190,10 @@ export class DeskleafCalendarView extends ItemView {
     }, 0);
 
     titleInput.focus();
+  }
+
+  private removeEventEditOverlay() {
+    document.querySelector(".dl-edit-overlay")?.remove();
   }
 
   private askRecurringEditSpan(): Promise<"this" | "series" | null> {
