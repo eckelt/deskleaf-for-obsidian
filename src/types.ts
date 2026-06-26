@@ -27,6 +27,17 @@ export interface EventUpdate {
   span?: "this" | "series";
 }
 
+export interface EventEditInput {
+  title: string;
+  startDate: string;
+  endDate: string;
+  startTime: string;
+  endTime: string;
+  location: string;
+  notes: string;
+  calendar: string;
+}
+
 // Frontmatter for event notes
 export interface EventNoteFrontmatter {
   "event-id": string;

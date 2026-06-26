@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { Platform } from "obsidian";
-import { DeskleafCalendarView } from "../src/calendar-view";
+import { DeskleafCalendarView, isEventReadOnly, validateEventEditInput } from "../src/calendar-view";
 import {
   assignColumns,
   clampHourPx,
@@ -293,6 +293,15 @@ function createCalendarViewHarness(): object {
   });
 }
 
+function createCalendarViewHarnessWithEvents(events: CalendarEvent[]): object {
+  const view = createCalendarViewHarness();
+  const calendarReader = Reflect.get(Reflect.get(view, "plugin"), "calendarReader");
+  calendarReader.getEvents = (): CalendarEvent[] => events;
+  calendarReader.getEventsForDate = (date: string): CalendarEvent[] =>
+    events.filter((event) => event.start.slice(0, 10) === date);
+  return view;
+}
+
 function callViewMethod(view: object, name: string, ...args: unknown[]): void {
   const method = Reflect.get(DeskleafCalendarView.prototype, name);
   if (typeof method !== "function") {
@@ -331,6 +340,15 @@ function makeTouchEvent(type: string, touches: { clientX: number; clientY: numbe
   const event = new Event(type, { cancelable: true });
   Object.defineProperty(event, "touches", { value: touches });
   Object.defineProperty(event, "changedTouches", { value: touches });
+  return event;
+}
+
+function makeMouseEvent(type: string): Event {
+  const event = new Event(type, { cancelable: true });
+  Object.defineProperty(event, "button", { value: 0 });
+  Object.defineProperty(event, "bubbles", { value: true });
+  Object.defineProperty(event, "ctrlKey", { value: false });
+  Object.defineProperty(event, "metaKey", { value: false });
   return event;
 }
 
@@ -940,6 +958,160 @@ describe("minsToISO", () => {
 
   it("encodes the date in the output", () => {
     expect(minsToISO("2026-12-31", 0)).toMatch(/^2026-12-31T00:00:00/);
+  });
+});
+
+describe("event edit rules", () => {
+  it("treats feed, all-day, cancelled and non-organizer events as read-only", () => {
+    const editable = makeEvent("editable", "2026-05-04T10:00:00Z", "2026-05-04T11:00:00Z");
+
+    expect(isEventReadOnly(editable)).toBe(false);
+    expect(isEventReadOnly({ ...editable, id: "ical:feed:event" })).toBe(true);
+    expect(isEventReadOnly({ ...editable, isAllDay: true })).toBe(true);
+    expect(isEventReadOnly({ ...editable, isCancelled: true })).toBe(true);
+    expect(isEventReadOnly({ ...editable, isOrganizer: false })).toBe(true);
+  });
+
+  it("builds an update for valid edit input", () => {
+    expect(validateEventEditInput({
+      title: "  Planning  ",
+      startDate: "2026-05-04",
+      endDate: "2026-05-04",
+      startTime: "10:00",
+      endTime: "11:30",
+      location: "  Room 1  ",
+      notes: "  Agenda  ",
+      calendar: "  Work  ",
+    })).toEqual({
+      title: "Planning",
+      start: "2026-05-04T10:00:00+00:00",
+      end: "2026-05-04T11:30:00+00:00",
+      location: "Room 1",
+      notes: "Agenda",
+      calendar: "Work",
+    });
+  });
+
+  it("rejects invalid edit input", () => {
+    const validInput = {
+      title: "Planning",
+      startDate: "2026-05-04",
+      endDate: "2026-05-04",
+      startTime: "10:00",
+      endTime: "11:00",
+      location: "",
+      notes: "",
+      calendar: "Work",
+    };
+
+    expect(validateEventEditInput({ ...validInput, title: " " })).toBeNull();
+    expect(validateEventEditInput({ ...validInput, startTime: "" })).toBeNull();
+    expect(validateEventEditInput({ ...validInput, endTime: "" })).toBeNull();
+    expect(validateEventEditInput({ ...validInput, endTime: "10:00" })).toBeNull();
+  });
+});
+
+describe("event edit interactions", () => {
+  it("opens the edit popover on desktop single-click and the note on double-click", () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback): number => {
+      callback(0);
+      return 1;
+    });
+    vi.stubGlobal("window", {
+      clearTimeout,
+      innerHeight: 800,
+      innerWidth: 1200,
+      setTimeout,
+    });
+    const wasMobile = Platform.isMobile;
+    const wasDesktop = Platform.isDesktop;
+
+    try {
+      Platform.isMobile = false;
+      Platform.isDesktop = true;
+      const event = makeEvent("event-1", "2026-05-04T10:00:00Z", "2026-05-04T11:00:00Z");
+      const view = createCalendarViewHarnessWithEvents([event]);
+      const showEventEditPopover = vi.fn();
+      const openEvent = vi.fn();
+      Reflect.set(view, "showEventEditPopover", showEventEditPopover);
+      Reflect.set(view, "openEvent", openEvent);
+
+      callViewMethod(view, "render");
+      const card = renderedGrid(view).querySelector(".dl-event-card");
+      if (!card) throw new Error("event card was not rendered");
+
+      card.dispatchEvent(makeMouseEvent("click"));
+      vi.advanceTimersByTime(221);
+
+      expect(showEventEditPopover).toHaveBeenCalledOnce();
+      expect(openEvent).not.toHaveBeenCalled();
+
+      showEventEditPopover.mockClear();
+      card.dispatchEvent(makeMouseEvent("click"));
+      card.dispatchEvent(makeMouseEvent("dblclick"));
+      vi.advanceTimersByTime(221);
+
+      expect(showEventEditPopover).not.toHaveBeenCalled();
+      expect(openEvent).toHaveBeenCalledWith(event, false);
+    } finally {
+      Platform.isMobile = wasMobile;
+      Platform.isDesktop = wasDesktop;
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("opens the edit popover on mobile single-tap and the note on double-tap", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-04T12:00:00Z"));
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback): number => {
+      callback(0);
+      return 1;
+    });
+    vi.stubGlobal("window", {
+      clearTimeout,
+      innerWidth: 390,
+      setTimeout,
+    });
+    vi.stubGlobal("navigator", {});
+    const wasMobile = Platform.isMobile;
+    const wasDesktop = Platform.isDesktop;
+
+    try {
+      Platform.isMobile = true;
+      Platform.isDesktop = false;
+      const event = makeEvent("event-1", "2026-05-04T10:00:00Z", "2026-05-04T11:00:00Z");
+      const view = createCalendarViewHarnessWithEvents([event]);
+      const showEventEditPopover = vi.fn();
+      const openEvent = vi.fn();
+      Reflect.set(view, "showEventEditPopover", showEventEditPopover);
+      Reflect.set(view, "openEvent", openEvent);
+
+      callViewMethod(view, "render");
+      const card = renderedGrid(view).querySelector(".dl-event-card");
+      if (!card) throw new Error("event card was not rendered");
+
+      card.dispatchEvent(makeTouchEvent("touchend", [{ clientX: 120, clientY: 160 }]));
+      vi.advanceTimersByTime(321);
+
+      expect(showEventEditPopover).toHaveBeenCalledOnce();
+      expect(openEvent).not.toHaveBeenCalled();
+
+      showEventEditPopover.mockClear();
+      card.dispatchEvent(makeTouchEvent("touchend", [{ clientX: 120, clientY: 160 }]));
+      vi.advanceTimersByTime(100);
+      card.dispatchEvent(makeTouchEvent("touchend", [{ clientX: 120, clientY: 160 }]));
+      vi.advanceTimersByTime(321);
+
+      expect(showEventEditPopover).not.toHaveBeenCalled();
+      expect(openEvent).toHaveBeenCalledWith(event, false);
+    } finally {
+      Platform.isMobile = wasMobile;
+      Platform.isDesktop = wasDesktop;
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    }
   });
 });
 

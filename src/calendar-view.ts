@@ -11,7 +11,7 @@ import {
   normalizePath,
 } from "obsidian";
 import type DeskleafPlugin from "./main";
-import type { CalendarEvent, EventUpdate } from "./types";
+import type { CalendarEvent, EventEditInput, EventUpdate } from "./types";
 import { isFeedEvent } from "./ical-feed-manager";
 import {
   toDateStr,
@@ -213,6 +213,33 @@ export function clockIconSvg(size: number): string {
 
 export function isUrlLocation(location: string | null | undefined): boolean {
   return /\b(?:https?:\/\/|www\.)\S+/i.test(location?.trim() ?? "");
+}
+
+export function isEventReadOnly(event: CalendarEvent): boolean {
+  return !!event.isCancelled || isFeedEvent(event) || !!event.isAllDay || event.isOrganizer === false;
+}
+
+function parseClockTime(value: string): number {
+  const [hours, minutes] = value.split(":").map(Number);
+  return (hours || 0) * 60 + (minutes || 0);
+}
+
+export function validateEventEditInput(input: EventEditInput): EventUpdate | null {
+  const title = input.title.trim();
+  if (!title || !input.startTime || !input.endTime) return null;
+
+  const startMins = parseClockTime(input.startTime);
+  const endMins = parseClockTime(input.endTime);
+  if (endMins <= startMins) return null;
+
+  return {
+    title,
+    start: minsToISO(input.startDate, startMins),
+    end: minsToISO(input.endDate, endMins),
+    location: input.location.trim(),
+    notes: input.notes.trim(),
+    calendar: input.calendar.trim(),
+  };
 }
 
 // ── Time grid constants ──────────────────────────────────────────────
@@ -1394,7 +1421,7 @@ export class DeskleafCalendarView extends ItemView {
         });
     }
 
-    const isReadOnly = !!event.isCancelled || isFeedEvent(event) || !!event.isAllDay;
+    const isReadOnly = isEventReadOnly(event);
     const canEdit = !isReadOnly && !Platform.isMobile;
 
     card.addEventListener("contextmenu", (e) => {
@@ -1900,8 +1927,8 @@ export class DeskleafCalendarView extends ItemView {
     const confirm = async () => {
       const title = titleInput.value.trim();
       if (!title) { titleInput.focus(); return; }
-      const s = parseTime(startInput.value);
-      const e = parseTime(endInput.value);
+      const s = parseClockTime(startInput.value);
+      const e = parseClockTime(endInput.value);
       if (e <= s) { endInput.style.borderColor = "var(--color-red)"; return; }
       popover.remove();
       cleanup();
@@ -1972,7 +1999,6 @@ export class DeskleafCalendarView extends ItemView {
     this.hideHoverPopover();
 
     const popover = document.body.createDiv("dl-create-popover dl-edit-popover");
-    const parseTime = (s: string) => { const [h, m] = s.split(":").map(Number); return (h || 0) * 60 + (m || 0); };
     const initialStart = new Date(event.start);
     const initialEnd = new Date(event.end);
     const startMin = initialStart.getHours() * 60 + initialStart.getMinutes();
@@ -2001,8 +2027,8 @@ export class DeskleafCalendarView extends ItemView {
     endInput.disabled = readOnly;
     const keepValidEndAfterStartChange = () => {
       if (readOnly) return;
-      const s = parseTime(startInput.value);
-      const e = parseTime(endInput.value);
+      const s = parseClockTime(startInput.value);
+      const e = parseClockTime(endInput.value);
       if (endInput.value && e > s) return;
       endInput.value = minsToTimeStr(Math.min(23 * 60 + 59, s + durationMin));
     };
@@ -2076,20 +2102,22 @@ export class DeskleafCalendarView extends ItemView {
     };
     const validate = (): EventUpdate | null => {
       clearErrors();
-      const title = titleInput.value.trim();
-      const s = parseTime(startInput.value);
-      const e = parseTime(endInput.value);
-      if (!title) { titleInput.style.borderColor = "var(--color-red)"; titleInput.focus(); return null; }
+      const s = parseClockTime(startInput.value);
+      const e = parseClockTime(endInput.value);
+      const update = validateEventEditInput({
+        title: titleInput.value,
+        startDate,
+        endDate,
+        startTime: startInput.value,
+        endTime: endInput.value,
+        location: locationInput.value,
+        notes: descInput.value,
+        calendar: calendarValue,
+      });
+      if (!titleInput.value.trim()) { titleInput.style.borderColor = "var(--color-red)"; titleInput.focus(); return null; }
       if (!startInput.value) { startInput.style.borderColor = "var(--color-red)"; startInput.focus(); return null; }
       if (!endInput.value || e <= s) { endInput.style.borderColor = "var(--color-red)"; endInput.focus(); return null; }
-      return {
-        title,
-        start: minsToISO(startDate, s),
-        end: minsToISO(endDate, e),
-        location: locationInput.value.trim(),
-        notes: descInput.value.trim(),
-        calendar: calendarValue,
-      };
+      return update;
     };
     const close = () => { popover.remove(); cleanup(); };
     const save = async () => {
