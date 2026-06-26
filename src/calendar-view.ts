@@ -11,7 +11,7 @@ import {
   normalizePath,
 } from "obsidian";
 import type DeskleafPlugin from "./main";
-import type { CalendarEvent, EventEditInput, EventUpdate } from "./types";
+import type { CalendarEvent, EventUpdate } from "./types";
 import { isFeedEvent } from "./ical-feed-manager";
 import {
   toDateStr,
@@ -43,6 +43,7 @@ import {
 } from "./event-layout";
 import type { EventLayout } from "./event-layout";
 import { getBusinessHoursSegment } from "./business-hours";
+import { parseClockTime, validateEventEditInput } from "./event-edit";
 
 export const VIEW_TYPE_CALENDAR = "deskleaf-calendar";
 
@@ -217,29 +218,6 @@ export function isUrlLocation(location: string | null | undefined): boolean {
 
 export function isEventReadOnly(event: CalendarEvent): boolean {
   return !!event.isCancelled || isFeedEvent(event) || !!event.isAllDay || event.isOrganizer === false;
-}
-
-function parseClockTime(value: string): number {
-  const [hours, minutes] = value.split(":").map(Number);
-  return (hours || 0) * 60 + (minutes || 0);
-}
-
-export function validateEventEditInput(input: EventEditInput): EventUpdate | null {
-  const title = input.title.trim();
-  if (!title || !input.startTime || !input.endTime) return null;
-
-  const startMins = parseClockTime(input.startTime);
-  const endMins = parseClockTime(input.endTime);
-  if (endMins <= startMins) return null;
-
-  return {
-    title,
-    start: minsToISO(input.startDate, startMins),
-    end: minsToISO(input.endDate, endMins),
-    location: input.location.trim(),
-    notes: input.notes.trim(),
-    calendar: input.calendar.trim(),
-  };
 }
 
 // ── Time grid constants ──────────────────────────────────────────────

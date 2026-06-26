@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { Platform } from "obsidian";
-import { DeskleafCalendarView, isEventReadOnly, validateEventEditInput } from "../src/calendar-view";
+import { DeskleafCalendarView, isEventReadOnly } from "../src/calendar-view";
+import { validateEventEditInput } from "../src/event-edit";
 import {
   assignColumns,
   clampHourPx,
