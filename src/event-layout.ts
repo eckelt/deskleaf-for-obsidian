@@ -52,18 +52,6 @@ export function snapMins(mins: number): number {
   return Math.round(mins / 15) * 15;
 }
 
-export function minsToTimeStr(mins: number): string {
-  return `${String(Math.floor(mins / 60)).padStart(2, "0")}:${String(mins % 60).padStart(2, "0")}`;
-}
-
-export function minsToISO(date: string, mins: number): string {
-  const offset = -new Date().getTimezoneOffset();
-  const sign = offset >= 0 ? "+" : "-";
-  const abs = Math.abs(offset);
-  const tz = `${sign}${String(Math.floor(abs / 60)).padStart(2, "0")}:${String(abs % 60).padStart(2, "0")}`;
-  return `${date}T${minsToTimeStr(mins)}:00${tz}`;
-}
-
 export function assignColumns(events: CalendarEvent[]): EventLayout[] {
   if (events.length === 0) return [];
   const sorted = [...events].sort((a, b) => a.start.localeCompare(b.start));

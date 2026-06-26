@@ -1,6 +1,9 @@
+import { readFileSync } from "node:fs";
 import { describe, it, expect, vi } from "vitest";
 import { Platform } from "obsidian";
 import { DeskleafCalendarView } from "../src/calendar-view";
+import { isEventReadOnly, validateEventEditInput } from "../src/event-edit";
+import { minsToISO, minsToTimeStr } from "../src/date-utils";
 import {
   assignColumns,
   clampHourPx,
@@ -9,8 +12,6 @@ import {
   hourPxForPinch,
   scrollTopForZoomAnchor,
   snapMins,
-  minsToTimeStr,
-  minsToISO,
   topFromISO,
 } from "../src/event-layout";
 import type { CalendarEvent } from "../src/types";
@@ -30,6 +31,36 @@ class StyleDeclarations {
 
   getPropertyValue(name: string): string {
     return this.values.get(name) ?? "";
+  }
+}
+
+class TestDocument {
+  readonly body = new RenderElement("body");
+  private readonly listeners = new Map<string, EventListenerOrEventListenerObject[]>();
+
+  querySelector(selector: string): RenderElement | null {
+    return this.body.querySelector(selector);
+  }
+
+  addEventListener(type: string, listener: EventListenerOrEventListenerObject): void {
+    const listeners = this.listeners.get(type) ?? [];
+    listeners.push(listener);
+    this.listeners.set(type, listeners);
+  }
+
+  removeEventListener(type: string, listener: EventListenerOrEventListenerObject): void {
+    const listeners = this.listeners.get(type) ?? [];
+    this.listeners.set(type, listeners.filter((registered) => registered !== listener));
+  }
+
+  dispatchEvent(event: Event, target: RenderElement): boolean {
+    Object.defineProperty(event, "target", { value: target });
+    const listeners = this.listeners.get(event.type) ?? [];
+    listeners.forEach((listener) => {
+      if (typeof listener === "function") listener.call(this, event);
+      else listener.handleEvent(event);
+    });
+    return !event.defaultPrevented;
   }
 }
 
@@ -64,6 +95,9 @@ class RenderElement {
     contains: (className: string): boolean => this.classes.has(className),
   };
   textContent = "";
+  value = "";
+  disabled = false;
+  step = "";
   scrollTop = 0;
   clientHeight = 720;
   offsetHeight = 20;
@@ -121,11 +155,17 @@ class RenderElement {
     className.split(/\s+/).filter(Boolean).forEach((name) => this.classes.add(name));
   }
 
+  removeClass(className: string): void {
+    className.split(/\s+/).filter(Boolean).forEach((name) => this.classes.delete(name));
+  }
+
   setText(text: string): void {
     this.textContent = text;
   }
 
   setAttribute(_name: string, _value: string): void {}
+
+  focus(): void {}
 
   addEventListener(type: string, _listener: EventListenerOrEventListenerObject, _options?: AddEventListenerOptions): void {
     this.listenerCounts.set(type, this.eventListenerCount(type) + 1);
@@ -181,6 +221,15 @@ class RenderElement {
     return null;
   }
 
+  contains(node: RenderElement): boolean {
+    let current: RenderElement | null = node;
+    while (current) {
+      if (current === this) return true;
+      current = current.parent;
+    }
+    return false;
+  }
+
   private applyCreateOptions(child: RenderElement, options?: string | { cls?: ClassValue; text?: string }): void {
     if (typeof options === "string") {
       child.addClass(options);
@@ -200,7 +249,12 @@ class RenderElement {
   }
 
   private matches(selector: string): boolean {
-    if (selector.startsWith(".")) return this.classes.has(selector.slice(1));
+    if (selector.startsWith(".")) {
+      return selector
+        .split(".")
+        .filter(Boolean)
+        .every((className) => this.classes.has(className));
+    }
     if (selector.startsWith("[") && selector.endsWith("]")) {
       const name = selector.slice(1, -1).replace(/-([a-z])/g, (_, letter: string) => letter.toUpperCase());
       return this.dataset[name] !== undefined;
@@ -233,6 +287,14 @@ function cssValue(element: CalendarElement, property: string): string {
 
 function renderCssValue(element: RenderElement, property: string): string {
   return element.style.getPropertyValue(property);
+}
+
+function cssRule(selector: string): string {
+  const styles = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
+  const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = new RegExp(`${escapedSelector}\\s*\\{([^}]*)\\}`).exec(styles);
+  if (!match) throw new Error(`CSS rule ${selector} was not found`);
+  return match[1];
 }
 
 function createCalendarViewHarness(): object {
@@ -270,7 +332,13 @@ function createCalendarViewHarness(): object {
           end: "17:00",
           days: [1, 2, 3, 4, 5],
         },
-        caldav: {},
+        caldav: {
+          discoveredCalendars: [
+            { href: "/work/", displayName: "Work" },
+            { href: "/home/", displayName: "Home" },
+          ],
+          selectedCalendars: [],
+        },
         icalSubscriptions: [],
       },
     },
@@ -291,6 +359,75 @@ function createCalendarViewHarness(): object {
     activeTouchCreateCleanup: null,
     hourPx: DEFAULT_HOUR_PX,
   });
+}
+
+function createCalendarViewHarnessWithEvents(events: CalendarEvent[]): object {
+  const view = createCalendarViewHarness();
+  const calendarReader = Reflect.get(Reflect.get(view, "plugin"), "calendarReader");
+  calendarReader.getEvents = (): CalendarEvent[] => events;
+  calendarReader.getEventsForDate = (date: string): CalendarEvent[] =>
+    events.filter((event) => event.start.slice(0, 10) === date);
+  return view;
+}
+
+function openWritableEditFormForCloseTest(options: { mobile: boolean }): {
+  surface: RenderElement;
+  testDocument: TestDocument;
+  updateEvent: ReturnType<typeof vi.fn>;
+  syncEventNote: ReturnType<typeof vi.fn>;
+  restorePlatform: () => void;
+} {
+  vi.useFakeTimers();
+  vi.stubGlobal("window", {
+    clearTimeout,
+    innerHeight: options.mobile ? 720 : 800,
+    innerWidth: options.mobile ? 390 : 1200,
+    setTimeout,
+  });
+  const testDocument = new TestDocument();
+  vi.stubGlobal("document", testDocument);
+  const wasMobile = Platform.isMobile;
+  const wasDesktop = Platform.isDesktop;
+  Platform.isMobile = options.mobile;
+  Platform.isDesktop = !options.mobile;
+
+  const event: CalendarEvent = {
+    id: "event-1",
+    title: "Planning review",
+    start: "2026-05-04T10:15:00Z",
+    end: "2026-05-04T11:45:00Z",
+    location: "Room 1",
+    body: "Review current milestones",
+    calendar: "Work",
+  };
+  const view = createCalendarViewHarnessWithEvents([event]);
+  const plugin = Reflect.get(view, "plugin");
+  const calendarReader = Reflect.get(plugin, "calendarReader");
+  const noteManager = Reflect.get(plugin, "noteManager");
+  const updateEvent = vi.fn(async (): Promise<void> => {});
+  const syncEventNote = vi.fn(async (): Promise<void> => {});
+  Reflect.set(calendarReader, "updateEvent", updateEvent);
+  Reflect.set(noteManager, "syncEventNote", syncEventNote);
+
+  const source = options.mobile
+    ? makeTouchEvent("touchend", [{ clientX: 120, clientY: 160 }])
+    : makeMouseEvent("click");
+  callViewMethod(view, "showEventEditPopover", event, "2026-05-04", source, false);
+  vi.runOnlyPendingTimers();
+
+  const surface = testDocument.body.querySelector(options.mobile ? ".dl-edit-sheet" : ".dl-edit-dialog");
+  if (!surface) throw new Error("edit surface was not rendered");
+
+  return {
+    surface,
+    testDocument,
+    updateEvent,
+    syncEventNote,
+    restorePlatform: () => {
+      Platform.isMobile = wasMobile;
+      Platform.isDesktop = wasDesktop;
+    },
+  };
 }
 
 function callViewMethod(view: object, name: string, ...args: unknown[]): void {
@@ -334,12 +471,31 @@ function makeTouchEvent(type: string, touches: { clientX: number; clientY: numbe
   return event;
 }
 
+function makeMouseEvent(type: string): Event {
+  const event = new Event(type, { cancelable: true });
+  Object.defineProperty(event, "button", { value: 0 });
+  Object.defineProperty(event, "bubbles", { value: true });
+  Object.defineProperty(event, "ctrlKey", { value: false });
+  Object.defineProperty(event, "metaKey", { value: false });
+  return event;
+}
+
+function makeKeyboardEvent(type: string, key: string): Event {
+  const event = new Event(type, { cancelable: true });
+  Object.defineProperty(event, "key", { value: key });
+  return event;
+}
+
 function makeWheelEvent(deltaY: number, clientY: number, ctrlKey: boolean): Event {
   const event = new Event("wheel", { cancelable: true });
   Object.defineProperty(event, "deltaY", { value: deltaY });
   Object.defineProperty(event, "clientY", { value: clientY });
   Object.defineProperty(event, "ctrlKey", { value: ctrlKey });
   return event;
+}
+
+function renderText(element: RenderElement): string {
+  return [element.textContent, ...element.children.map(renderText)].join("");
 }
 
 describe("topFromISO", () => {
@@ -940,6 +1096,878 @@ describe("minsToISO", () => {
 
   it("encodes the date in the output", () => {
     expect(minsToISO("2026-12-31", 0)).toMatch(/^2026-12-31T00:00:00/);
+  });
+});
+
+describe("event edit rules", () => {
+  it("treats feed, all-day, cancelled and non-organizer events as read-only", () => {
+    const editable = makeEvent("editable", "2026-05-04T10:00:00Z", "2026-05-04T11:00:00Z");
+
+    expect(isEventReadOnly(editable)).toBe(false);
+    expect(isEventReadOnly({ ...editable, id: "ical:feed:event" })).toBe(true);
+    expect(isEventReadOnly({ ...editable, isAllDay: true })).toBe(true);
+    expect(isEventReadOnly({ ...editable, isCancelled: true })).toBe(true);
+    expect(isEventReadOnly({ ...editable, isOrganizer: false })).toBe(true);
+  });
+
+  it("builds an update for valid edit input", () => {
+    expect(validateEventEditInput({
+      title: "  Planning  ",
+      startDate: "2026-05-04",
+      endDate: "2026-05-04",
+      startTime: "10:00",
+      endTime: "11:30",
+      location: "  Room 1  ",
+      notes: "  Agenda  ",
+      calendar: "  Work  ",
+    })).toEqual({
+      title: "Planning",
+      start: "2026-05-04T10:00:00+00:00",
+      end: "2026-05-04T11:30:00+00:00",
+      location: "Room 1",
+      notes: "Agenda",
+      calendar: "Work",
+    });
+  });
+
+  it("rejects invalid edit input", () => {
+    const validInput = {
+      title: "Planning",
+      startDate: "2026-05-04",
+      endDate: "2026-05-04",
+      startTime: "10:00",
+      endTime: "11:00",
+      location: "",
+      notes: "",
+      calendar: "Work",
+    };
+
+    expect(validateEventEditInput({ ...validInput, title: " " })).toBeNull();
+    expect(validateEventEditInput({ ...validInput, startTime: "" })).toBeNull();
+    expect(validateEventEditInput({ ...validInput, endTime: "" })).toBeNull();
+    expect(validateEventEditInput({ ...validInput, endTime: "10:00" })).toBeNull();
+  });
+});
+
+describe("event edit interactions", () => {
+  it("keeps the create popover writable after the edit form redesign", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("window", {
+      clearTimeout,
+      innerHeight: 800,
+      innerWidth: 1200,
+      setTimeout,
+    });
+    const testDocument = new TestDocument();
+    vi.stubGlobal("document", testDocument);
+    const wasMobile = Platform.isMobile;
+    const wasDesktop = Platform.isDesktop;
+
+    try {
+      Platform.isMobile = false;
+      Platform.isDesktop = true;
+      const view = createCalendarViewHarness();
+      const calendarReader = Reflect.get(Reflect.get(view, "plugin"), "calendarReader");
+      const createEvent = vi.fn(async (): Promise<void> => {});
+      Reflect.set(calendarReader, "createEvent", createEvent);
+
+      callViewMethod(view, "showCreatePopover", "2026-05-04", 600, 660, { clientX: 240, clientY: 180 });
+      vi.runOnlyPendingTimers();
+
+      const popover = testDocument.body.querySelector(".dl-create-popover");
+      if (!popover) throw new Error("create popover was not rendered");
+
+      const textInputs = popover.querySelectorAll(".dl-create-input");
+      const timeInputs = popover.querySelectorAll(".dl-create-time-input");
+      const descriptionInput = popover.querySelector(".dl-create-desc");
+      const homeCalendar = popover
+        .querySelectorAll(".dl-create-cal-chip")
+        .find((chip) => renderText(chip) === "Home");
+      const createButton = popover
+        .querySelectorAll(".dl-create-btn")
+        .find((button) => renderText(button) === "Erstellen");
+
+      if (!descriptionInput) throw new Error("create description was not rendered");
+      if (!homeCalendar) throw new Error("create calendar chip was not rendered");
+      if (!createButton) throw new Error("create button was not rendered");
+
+      textInputs[0].value = "New planning block";
+      timeInputs[0].value = "10:30";
+      timeInputs[1].value = "11:45";
+      textInputs[1].value = "Room 2";
+      descriptionInput.value = "Discuss delivery plan";
+      homeCalendar.dispatchEvent(new Event("click"));
+      createButton.dispatchEvent(new Event("click"));
+      await Promise.resolve();
+
+      expect(createEvent).toHaveBeenCalledWith({
+        title: "New planning block",
+        start: "2026-05-04T10:30:00+00:00",
+        end: "2026-05-04T11:45:00+00:00",
+        calendar: "Home",
+        location: "Room 2",
+        notes: "Discuss delivery plan",
+      });
+      expect(popover.isConnected).toBe(false);
+    } finally {
+      Platform.isMobile = wasMobile;
+      Platform.isDesktop = wasDesktop;
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("initializes the edit popover with title, time, location, description and calendar", () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback): number => {
+      callback(0);
+      return 1;
+    });
+    vi.stubGlobal("window", {
+      clearTimeout,
+      innerHeight: 800,
+      innerWidth: 1200,
+      setTimeout,
+    });
+    const testDocument = new TestDocument();
+    vi.stubGlobal("document", testDocument);
+    const wasMobile = Platform.isMobile;
+    const wasDesktop = Platform.isDesktop;
+
+    try {
+      Platform.isMobile = false;
+      Platform.isDesktop = true;
+      const event: CalendarEvent = {
+        id: "event-1",
+        title: "Planning review",
+        start: "2026-05-04T10:15:00Z",
+        end: "2026-05-04T11:45:00Z",
+        location: "Room 1",
+        body: "Review current milestones",
+        calendar: "Work",
+      };
+      const view = createCalendarViewHarnessWithEvents([event]);
+      Reflect.set(Reflect.get(Reflect.get(view, "plugin"), "settings"), "caldav", {
+        discoveredCalendars: [
+          { href: "/work/", displayName: "Work" },
+          { href: "/private/", displayName: "Private" },
+        ],
+        selectedCalendars: [],
+      });
+
+      callViewMethod(view, "showEventEditPopover", event, "2026-05-04", makeMouseEvent("click"), false);
+      vi.runOnlyPendingTimers();
+
+      const popover = testDocument.body.querySelector(".dl-edit-dialog");
+      if (!popover) throw new Error("edit popover was not rendered");
+      const textInputs = popover.querySelectorAll(".dl-create-input");
+      const timeInputs = popover.querySelectorAll(".dl-create-time-input");
+      const descriptionInput = popover.querySelector("textarea");
+      const activeCalendar = popover.querySelector(".dl-create-cal-chip--active");
+
+      expect(popover.classList.contains("dl-create-popover")).toBe(false);
+      expect(popover.querySelector(".dl-edit-header")).not.toBeNull();
+      expect(popover.querySelector(".dl-edit-form-scroll")).not.toBeNull();
+      expect(popover.querySelector(".dl-edit-actions")).not.toBeNull();
+      expect(textInputs.map((input) => input.value)).toEqual([
+        "Planning review",
+        "Room 1",
+      ]);
+      expect(timeInputs.map((input) => input.value)).toEqual(["10:15", "11:45"]);
+      expect(descriptionInput?.value).toBe("Review current milestones");
+      expect(activeCalendar).not.toBeNull();
+      expect(activeCalendar ? renderText(activeCalendar) : "").toBe("Work");
+    } finally {
+      Platform.isMobile = wasMobile;
+      Platform.isDesktop = wasDesktop;
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("renders writable mobile edits as a bottom sheet with current values and reachable actions", () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("window", {
+      clearTimeout,
+      innerHeight: 720,
+      innerWidth: 390,
+      setTimeout,
+    });
+    const testDocument = new TestDocument();
+    vi.stubGlobal("document", testDocument);
+    const wasMobile = Platform.isMobile;
+    const wasDesktop = Platform.isDesktop;
+
+    try {
+      Platform.isMobile = true;
+      Platform.isDesktop = false;
+      const event: CalendarEvent = {
+        id: "event-1",
+        title: "Planning review",
+        start: "2026-05-04T10:15:00Z",
+        end: "2026-05-04T11:45:00Z",
+        location: "Room 1",
+        body: "Review current milestones",
+        calendar: "Work",
+      };
+      const view = createCalendarViewHarnessWithEvents([event]);
+      Reflect.set(Reflect.get(Reflect.get(view, "plugin"), "settings"), "caldav", {
+        discoveredCalendars: [
+          { href: "/work/", displayName: "Work" },
+          { href: "/private/", displayName: "Private" },
+        ],
+        selectedCalendars: [],
+      });
+
+      callViewMethod(view, "showEventEditPopover", event, "2026-05-04", makeTouchEvent("touchend", [{ clientX: 120, clientY: 160 }]), false);
+      vi.runOnlyPendingTimers();
+
+      const sheet = testDocument.body.querySelector(".dl-edit-sheet");
+      if (!sheet) throw new Error("mobile edit sheet was not rendered");
+
+      expect(testDocument.body.querySelector(".dl-edit-overlay--mobile")).not.toBeNull();
+      expect(sheet.querySelector(".dl-edit-sheet-handle")).not.toBeNull();
+      expect(sheet.querySelector(".dl-edit-header")).not.toBeNull();
+      expect(sheet.querySelector(".dl-edit-form-scroll")).not.toBeNull();
+      expect(sheet.querySelector(".dl-edit-actions")).not.toBeNull();
+      expect(sheet.querySelector(".dl-edit-title-input")?.value).toBe("Planning review");
+      expect(sheet.querySelector(".dl-edit-start-input")?.value).toBe("10:15");
+      expect(sheet.querySelector(".dl-edit-end-input")?.value).toBe("11:45");
+      expect(sheet.querySelector(".dl-edit-location-input")?.value).toBe("Room 1");
+      expect(sheet.querySelector(".dl-edit-desc-input")?.value).toBe("Review current milestones");
+      expect(sheet.querySelector(".dl-edit-save-btn")).not.toBeNull();
+      expect(sheet.querySelector(".dl-edit-cancel-btn")).not.toBeNull();
+    } finally {
+      Platform.isMobile = wasMobile;
+      Platform.isDesktop = wasDesktop;
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("keeps long mobile edit content scrolling inside the sheet instead of the calendar body", () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback): number => {
+      callback(0);
+      return 1;
+    });
+    vi.stubGlobal("window", {
+      clearTimeout,
+      innerHeight: 640,
+      innerWidth: 390,
+      setTimeout,
+    });
+    const testDocument = new TestDocument();
+    vi.stubGlobal("document", testDocument);
+    const wasMobile = Platform.isMobile;
+    const wasDesktop = Platform.isDesktop;
+
+    try {
+      Platform.isMobile = true;
+      Platform.isDesktop = false;
+      const longDescription = Array.from({ length: 32 }, (_, index) => `Agenda item ${index + 1}`).join("\n");
+      const event: CalendarEvent = {
+        id: "event-1",
+        title: "Long planning review",
+        start: "2026-05-04T10:15:00Z",
+        end: "2026-05-04T11:45:00Z",
+        location: "Room 1",
+        body: longDescription,
+        calendar: "Work",
+      };
+      const view = createCalendarViewHarnessWithEvents([event]);
+
+      callViewMethod(view, "render");
+      const bodyScroll = renderedGrid(view).querySelector(".dl-grid-body-scroll");
+      if (!bodyScroll) throw new Error("calendar body scroll was not rendered");
+
+      callViewMethod(view, "showEventEditPopover", event, "2026-05-04", makeTouchEvent("touchend", [{ clientX: 120, clientY: 160 }]), false);
+      vi.runOnlyPendingTimers();
+      bodyScroll.scrollTop = 240;
+
+      const sheet = testDocument.body.querySelector(".dl-edit-sheet");
+      if (!sheet) throw new Error("mobile edit sheet was not rendered");
+      const formScroll = sheet.querySelector(".dl-edit-form-scroll");
+      if (!formScroll) throw new Error("mobile edit form scroll region was not rendered");
+
+      formScroll.scrollTop = 320;
+      formScroll.dispatchEvent(new Event("scroll"));
+
+      expect(sheet.querySelector(".dl-edit-desc-input")?.value).toBe(longDescription);
+      expect(sheet.children.indexOf(formScroll)).toBeLessThan(sheet.children.length - 1);
+      expect(formScroll.scrollTop).toBe(320);
+      expect(bodyScroll.scrollTop).toBe(240);
+      expect(cssRule(".dl-edit-form-scroll")).toContain("overflow-y: auto");
+      expect(cssRule(".dl-edit-form-scroll")).toContain("overscroll-behavior: contain");
+    } finally {
+      Platform.isMobile = wasMobile;
+      Platform.isDesktop = wasDesktop;
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("keeps the mobile edit sheet anchored inside the viewport and safe area", () => {
+    const mobileOverlayRule = cssRule(".dl-edit-overlay--mobile");
+    const mobileSheetRule = cssRule(".dl-edit-sheet");
+    const mobileSheetActionsRule = cssRule(".dl-edit-sheet .dl-edit-actions");
+
+    expect(mobileOverlayRule).toContain("align-items: flex-end");
+    expect(mobileOverlayRule).toContain("padding: 0 8px");
+    expect(mobileSheetRule).toContain("width: calc(100vw - 16px)");
+    expect(mobileSheetRule).toContain("max-width: 520px");
+    expect(mobileSheetRule).toContain("max-height: min(82vh, 640px)");
+    expect(mobileSheetRule).toContain("margin-top: auto");
+    expect(mobileSheetRule).toContain("margin-bottom: max(8px, env(safe-area-inset-bottom))");
+    expect(mobileSheetActionsRule).toContain("padding-bottom: max(10px, env(safe-area-inset-bottom))");
+  });
+
+  it("keeps the desktop edit dialog stable and viewport-safe", () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("window", {
+      clearTimeout,
+      innerHeight: 800,
+      innerWidth: 1200,
+      setTimeout,
+    });
+    const testDocument = new TestDocument();
+    vi.stubGlobal("document", testDocument);
+    const wasMobile = Platform.isMobile;
+    const wasDesktop = Platform.isDesktop;
+
+    try {
+      Platform.isMobile = false;
+      Platform.isDesktop = true;
+      const event: CalendarEvent = {
+        id: "event-1",
+        title: "Planning review",
+        start: "2026-05-04T10:15:00Z",
+        end: "2026-05-04T11:45:00Z",
+        location: "Room 1",
+        body: "Review current milestones",
+        calendar: "Work",
+      };
+      const view = createCalendarViewHarnessWithEvents([event]);
+
+      callViewMethod(view, "showEventEditPopover", event, "2026-05-04", makeMouseEvent("click"), false);
+      vi.runOnlyPendingTimers();
+
+      const overlay = testDocument.body.querySelector(".dl-edit-overlay--desktop");
+      const dialog = testDocument.body.querySelector(".dl-edit-dialog");
+      if (!dialog) throw new Error("desktop edit dialog was not rendered");
+
+      expect(overlay).not.toBeNull();
+      expect(dialog.classList.contains("dl-create-popover")).toBe(false);
+      expect(dialog.querySelector(".dl-edit-section")).not.toBeNull();
+      expect(dialog.querySelector(".dl-edit-form-scroll")).not.toBeNull();
+      expect(dialog.style.getPropertyValue("left")).toBe("");
+      expect(dialog.style.getPropertyValue("top")).toBe("");
+      expect(dialog.style.getPropertyValue("transform")).toBe("");
+
+      const overlayRule = cssRule(".dl-edit-overlay");
+      const surfaceRule = cssRule(".dl-edit-surface");
+      const dialogRule = cssRule(".dl-edit-dialog");
+      const createRule = cssRule(".dl-create-popover");
+
+      expect(overlayRule).toContain("inset: 0");
+      expect(overlayRule).toContain("align-items: center");
+      expect(overlayRule).toContain("justify-content: center");
+      expect(surfaceRule).toContain("width: min(420px, calc(100vw - 36px))");
+      expect(surfaceRule).toContain("max-height: calc(100vh - 36px)");
+      expect(surfaceRule).toContain("overflow: hidden");
+      expect(dialogRule).toContain("min-width: min(420px, calc(100vw - 36px))");
+      expect(createRule).toContain("max-width: min(360px, calc(100vw - 24px))");
+    } finally {
+      Platform.isMobile = wasMobile;
+      Platform.isDesktop = wasDesktop;
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("renders read-only details without save and closing does not update the backend", () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("window", {
+      clearTimeout,
+      innerHeight: 800,
+      innerWidth: 1200,
+      setTimeout,
+    });
+    const testDocument = new TestDocument();
+    vi.stubGlobal("document", testDocument);
+    const wasMobile = Platform.isMobile;
+    const wasDesktop = Platform.isDesktop;
+
+    try {
+      Platform.isMobile = false;
+      Platform.isDesktop = true;
+      const event: CalendarEvent = {
+        id: "event-1",
+        title: "Planning review",
+        start: "2026-05-04T10:15:00Z",
+        end: "2026-05-04T11:45:00Z",
+        location: "Room 1",
+        body: "Review current milestones",
+        calendar: "Work",
+        isOrganizer: false,
+      };
+      const view = createCalendarViewHarnessWithEvents([event]);
+      const plugin = Reflect.get(view, "plugin");
+      const calendarReader = Reflect.get(plugin, "calendarReader");
+      const updateEvent = vi.fn(async (): Promise<void> => {});
+      Reflect.set(calendarReader, "updateEvent", updateEvent);
+
+      callViewMethod(view, "showEventEditPopover", event, "2026-05-04", makeMouseEvent("click"), true);
+      vi.runOnlyPendingTimers();
+
+      const dialog = testDocument.body.querySelector(".dl-edit-dialog");
+      if (!dialog) throw new Error("edit dialog was not rendered");
+
+      expect(dialog.querySelector(".dl-edit-readonly-note")).not.toBeNull();
+      expect(dialog.querySelector(".dl-edit-save-btn")).toBeNull();
+      expect(dialog.querySelector(".dl-edit-title-input")?.disabled).toBe(true);
+
+      const closeButton = dialog
+        .querySelectorAll(".dl-create-btn")
+        .find((button) => renderText(button) === "Schliessen");
+      if (!closeButton) throw new Error("close button was not rendered");
+      closeButton.dispatchEvent(new Event("click", { cancelable: true }));
+
+      expect(updateEvent).not.toHaveBeenCalled();
+      expect(dialog.isConnected).toBe(false);
+    } finally {
+      Platform.isMobile = wasMobile;
+      Platform.isDesktop = wasDesktop;
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("discards changed edit values when the user cancels the edit popover", () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback): number => {
+      callback(0);
+      return 1;
+    });
+    vi.stubGlobal("window", {
+      clearTimeout,
+      innerHeight: 800,
+      innerWidth: 1200,
+      setTimeout,
+    });
+    const testDocument = new TestDocument();
+    vi.stubGlobal("document", testDocument);
+    const wasMobile = Platform.isMobile;
+    const wasDesktop = Platform.isDesktop;
+
+    try {
+      Platform.isMobile = false;
+      Platform.isDesktop = true;
+      const event: CalendarEvent = {
+        id: "event-1",
+        title: "Planning review",
+        start: "2026-05-04T10:15:00Z",
+        end: "2026-05-04T11:45:00Z",
+        location: "Room 1",
+        body: "Review current milestones",
+        calendar: "Work",
+      };
+      const view = createCalendarViewHarnessWithEvents([event]);
+      const plugin = Reflect.get(view, "plugin");
+      const calendarReader = Reflect.get(plugin, "calendarReader");
+      const noteManager = Reflect.get(plugin, "noteManager");
+      const updateEvent = vi.fn(async (): Promise<void> => {});
+      const syncEventNote = vi.fn(async (): Promise<void> => {});
+      Reflect.set(calendarReader, "updateEvent", updateEvent);
+      Reflect.set(noteManager, "syncEventNote", syncEventNote);
+      Reflect.set(Reflect.get(plugin, "settings"), "caldav", {
+        discoveredCalendars: [
+          { href: "/work/", displayName: "Work" },
+          { href: "/private/", displayName: "Private" },
+        ],
+        selectedCalendars: [],
+      });
+
+      callViewMethod(view, "showEventEditPopover", event, "2026-05-04", makeMouseEvent("click"), false);
+      vi.runOnlyPendingTimers();
+
+      const popover = testDocument.body.querySelector(".dl-edit-dialog");
+      if (!popover) throw new Error("edit popover was not rendered");
+      const textInputs = popover.querySelectorAll(".dl-create-input");
+      const timeInputs = popover.querySelectorAll(".dl-create-time-input");
+      const descriptionInput = popover.querySelector("textarea");
+      if (!descriptionInput) throw new Error("description input was not rendered");
+
+      textInputs[0].value = "Changed title";
+      timeInputs[0].value = "09:00";
+      timeInputs[1].value = "10:00";
+      textInputs[1].value = "Room 2";
+      descriptionInput.value = "Changed description";
+      const privateCalendar = popover
+        .querySelectorAll(".dl-create-cal-chip")
+        .find((chip) => renderText(chip) === "Private");
+      if (!privateCalendar) throw new Error("private calendar chip was not rendered");
+      privateCalendar.dispatchEvent(new Event("click", { cancelable: true }));
+
+      const cancelButton = popover
+        .querySelectorAll(".dl-create-btn")
+        .find((button) => renderText(button) === "Abbrechen");
+      if (!cancelButton) throw new Error("cancel button was not rendered");
+      cancelButton.dispatchEvent(new Event("click", { cancelable: true }));
+
+      expect(popover.isConnected).toBe(false);
+      expect(updateEvent).not.toHaveBeenCalled();
+      expect(syncEventNote).not.toHaveBeenCalled();
+      expect(event).toEqual({
+        id: "event-1",
+        title: "Planning review",
+        start: "2026-05-04T10:15:00Z",
+        end: "2026-05-04T11:45:00Z",
+        location: "Room 1",
+        body: "Review current milestones",
+        calendar: "Work",
+      });
+
+      callViewMethod(view, "showEventEditPopover", event, "2026-05-04", makeMouseEvent("click"), false);
+      vi.runOnlyPendingTimers();
+
+      const reopenedPopover = testDocument.body.querySelector(".dl-edit-dialog");
+      if (!reopenedPopover) throw new Error("edit popover was not reopened");
+      const reopenedTextInputs = reopenedPopover.querySelectorAll(".dl-create-input");
+      const reopenedTimeInputs = reopenedPopover.querySelectorAll(".dl-create-time-input");
+      const reopenedDescriptionInput = reopenedPopover.querySelector("textarea");
+      const activeCalendar = reopenedPopover.querySelector(".dl-create-cal-chip--active");
+
+      expect(reopenedTextInputs.map((input) => input.value)).toEqual([
+        "Planning review",
+        "Room 1",
+      ]);
+      expect(reopenedTimeInputs.map((input) => input.value)).toEqual(["10:15", "11:45"]);
+      expect(reopenedDescriptionInput?.value).toBe("Review current milestones");
+      expect(activeCalendar ? renderText(activeCalendar) : "").toBe("Work");
+    } finally {
+      Platform.isMobile = wasMobile;
+      Platform.isDesktop = wasDesktop;
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("closes the edit popover on outside click without backend update or note sync", () => {
+    const { surface, testDocument, updateEvent, syncEventNote, restorePlatform } =
+      openWritableEditFormForCloseTest({ mobile: false });
+    try {
+      const titleInput = surface.querySelector(".dl-edit-title-input");
+      if (!titleInput) throw new Error("title input was not rendered");
+      titleInput.value = "Changed title";
+
+      const outside = testDocument.body.createDiv("outside");
+      testDocument.dispatchEvent(makeMouseEvent("mousedown"), outside);
+
+      expect(surface.isConnected).toBe(false);
+      expect(updateEvent).not.toHaveBeenCalled();
+      expect(syncEventNote).not.toHaveBeenCalled();
+      expect(testDocument.body.querySelector(".dl-edit-overlay")).toBeNull();
+    } finally {
+      restorePlatform();
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("closes the mobile edit sheet on outside tap without backend update or note sync", () => {
+    const { surface, testDocument, updateEvent, syncEventNote, restorePlatform } =
+      openWritableEditFormForCloseTest({ mobile: true });
+    try {
+      const titleInput = surface.querySelector(".dl-edit-title-input");
+      if (!titleInput) throw new Error("title input was not rendered");
+      titleInput.value = "Changed title";
+
+      const outside = testDocument.body.createDiv("outside");
+      testDocument.dispatchEvent(makeTouchEvent("touchstart", [{ clientX: 1, clientY: 1 }]), outside);
+
+      expect(surface.isConnected).toBe(false);
+      expect(updateEvent).not.toHaveBeenCalled();
+      expect(syncEventNote).not.toHaveBeenCalled();
+      expect(testDocument.body.querySelector(".dl-edit-overlay")).toBeNull();
+    } finally {
+      restorePlatform();
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("closes the edit popover on Escape without backend update or note sync", () => {
+    const { surface, testDocument, updateEvent, syncEventNote, restorePlatform } =
+      openWritableEditFormForCloseTest({ mobile: false });
+    try {
+      const descriptionInput = surface.querySelector(".dl-edit-desc-input");
+      if (!descriptionInput) throw new Error("description input was not rendered");
+      descriptionInput.value = "Changed description";
+
+      testDocument.dispatchEvent(makeKeyboardEvent("keydown", "Escape"), descriptionInput);
+
+      expect(surface.isConnected).toBe(false);
+      expect(updateEvent).not.toHaveBeenCalled();
+      expect(syncEventNote).not.toHaveBeenCalled();
+      expect(testDocument.body.querySelector(".dl-edit-overlay")).toBeNull();
+    } finally {
+      restorePlatform();
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("asks for recurring edit scope before saving a recurring event", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback): number => {
+      callback(0);
+      return 1;
+    });
+    vi.stubGlobal("window", {
+      clearTimeout,
+      innerHeight: 800,
+      innerWidth: 1200,
+      setTimeout,
+    });
+    const testDocument = new TestDocument();
+    vi.stubGlobal("document", testDocument);
+    const wasMobile = Platform.isMobile;
+    const wasDesktop = Platform.isDesktop;
+
+    try {
+      Platform.isMobile = false;
+      Platform.isDesktop = true;
+      const event: CalendarEvent = {
+        id: "event-1|2026-05-04",
+        title: "Planning review",
+        start: "2026-05-04T10:15:00Z",
+        end: "2026-05-04T11:45:00Z",
+        location: "Room 1",
+        body: "Review current milestones",
+        calendar: "Work",
+        isRecurring: true,
+      };
+      const view = createCalendarViewHarnessWithEvents([event]);
+      const plugin = Reflect.get(view, "plugin");
+      const calendarReader = Reflect.get(plugin, "calendarReader");
+      const noteManager = Reflect.get(plugin, "noteManager");
+      const updateEvent = vi.fn(async (): Promise<void> => {});
+      const syncEventNote = vi.fn(async (): Promise<void> => {});
+      Reflect.set(calendarReader, "updateEvent", updateEvent);
+      Reflect.set(noteManager, "syncEventNote", syncEventNote);
+      Reflect.set(Reflect.get(plugin, "settings"), "caldav", {
+        discoveredCalendars: [
+          { href: "/work/", displayName: "Work" },
+        ],
+        selectedCalendars: [],
+      });
+
+      callViewMethod(view, "showEventEditPopover", event, "2026-05-04", makeMouseEvent("click"), false);
+      vi.runOnlyPendingTimers();
+
+      const popover = testDocument.body.querySelector(".dl-edit-dialog");
+      if (!popover) throw new Error("edit popover was not rendered");
+      const saveButton = popover
+        .querySelectorAll(".dl-create-btn")
+        .find((button) => renderText(button) === "Speichern");
+      if (!saveButton) throw new Error("save button was not rendered");
+
+      saveButton.dispatchEvent(new Event("click", { cancelable: true }));
+      await Promise.resolve();
+
+      const scopePopover = testDocument.body.querySelector(".dl-edit-scope-popover");
+      expect(scopePopover).not.toBeNull();
+      expect(updateEvent).not.toHaveBeenCalled();
+      expect(popover.isConnected).toBe(true);
+
+      const thisInstanceButton = scopePopover
+        ?.querySelectorAll(".dl-create-btn")
+        .find((button) => renderText(button) === "Nur dieser Termin");
+      if (!thisInstanceButton) throw new Error("this-instance scope button was not rendered");
+
+      thisInstanceButton.dispatchEvent(new Event("click", { cancelable: true }));
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(updateEvent).toHaveBeenCalledWith("event-1|2026-05-04", expect.objectContaining({
+        title: "Planning review",
+        location: "Room 1",
+        notes: "Review current milestones",
+        calendar: "Work",
+        span: "this",
+      }));
+      expect(syncEventNote).toHaveBeenCalledOnce();
+      expect(popover.isConnected).toBe(false);
+      expect(scopePopover?.isConnected).toBe(false);
+    } finally {
+      Platform.isMobile = wasMobile;
+      Platform.isDesktop = wasDesktop;
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("opens the edit popover on desktop single-click and the note on double-click", () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback): number => {
+      callback(0);
+      return 1;
+    });
+    vi.stubGlobal("window", {
+      clearTimeout,
+      innerHeight: 800,
+      innerWidth: 1200,
+      setTimeout,
+    });
+    const wasMobile = Platform.isMobile;
+    const wasDesktop = Platform.isDesktop;
+
+    try {
+      Platform.isMobile = false;
+      Platform.isDesktop = true;
+      const event = makeEvent("event-1", "2026-05-04T10:00:00Z", "2026-05-04T11:00:00Z");
+      const view = createCalendarViewHarnessWithEvents([event]);
+      const showEventEditPopover = vi.fn();
+      const openEvent = vi.fn();
+      Reflect.set(view, "showEventEditPopover", showEventEditPopover);
+      Reflect.set(view, "openEvent", openEvent);
+
+      callViewMethod(view, "render");
+      const card = renderedGrid(view).querySelector(".dl-event-card");
+      if (!card) throw new Error("event card was not rendered");
+
+      card.dispatchEvent(makeMouseEvent("click"));
+      vi.advanceTimersByTime(221);
+
+      expect(showEventEditPopover).toHaveBeenCalledOnce();
+      expect(openEvent).not.toHaveBeenCalled();
+
+      showEventEditPopover.mockClear();
+      card.dispatchEvent(makeMouseEvent("click"));
+      card.dispatchEvent(makeMouseEvent("dblclick"));
+      vi.advanceTimersByTime(221);
+
+      expect(showEventEditPopover).not.toHaveBeenCalled();
+      expect(openEvent).toHaveBeenCalledWith(event, false);
+    } finally {
+      Platform.isMobile = wasMobile;
+      Platform.isDesktop = wasDesktop;
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("opens the edit popover on mobile single-tap and the note on double-tap", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-04T12:00:00Z"));
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback): number => {
+      callback(0);
+      return 1;
+    });
+    vi.stubGlobal("window", {
+      clearTimeout,
+      innerWidth: 390,
+      setTimeout,
+    });
+    vi.stubGlobal("navigator", {});
+    const wasMobile = Platform.isMobile;
+    const wasDesktop = Platform.isDesktop;
+
+    try {
+      Platform.isMobile = true;
+      Platform.isDesktop = false;
+      const event = makeEvent("event-1", "2026-05-04T10:00:00Z", "2026-05-04T11:00:00Z");
+      const view = createCalendarViewHarnessWithEvents([event]);
+      const showEventEditPopover = vi.fn();
+      const openEvent = vi.fn();
+      Reflect.set(view, "showEventEditPopover", showEventEditPopover);
+      Reflect.set(view, "openEvent", openEvent);
+
+      callViewMethod(view, "render");
+      const card = renderedGrid(view).querySelector(".dl-event-card");
+      if (!card) throw new Error("event card was not rendered");
+
+      card.dispatchEvent(makeTouchEvent("touchend", [{ clientX: 120, clientY: 160 }]));
+      vi.advanceTimersByTime(321);
+
+      expect(showEventEditPopover).toHaveBeenCalledOnce();
+      expect(openEvent).not.toHaveBeenCalled();
+
+      showEventEditPopover.mockClear();
+      card.dispatchEvent(makeTouchEvent("touchend", [{ clientX: 120, clientY: 160 }]));
+      vi.advanceTimersByTime(100);
+      card.dispatchEvent(makeTouchEvent("touchend", [{ clientX: 120, clientY: 160 }]));
+      vi.advanceTimersByTime(321);
+
+      expect(showEventEditPopover).not.toHaveBeenCalled();
+      expect(openEvent).toHaveBeenCalledWith(event, false);
+    } finally {
+      Platform.isMobile = wasMobile;
+      Platform.isDesktop = wasDesktop;
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("keeps mobile long-press edit handles open until an outside tap", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-04T12:00:00Z"));
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback): number => {
+      callback(0);
+      return 1;
+    });
+    vi.stubGlobal("window", {
+      clearTimeout,
+      innerWidth: 390,
+      setTimeout,
+    });
+    vi.stubGlobal("navigator", {});
+    const testDocument = new TestDocument();
+    vi.stubGlobal("document", testDocument);
+    const wasMobile = Platform.isMobile;
+    const wasDesktop = Platform.isDesktop;
+
+    try {
+      Platform.isMobile = true;
+      Platform.isDesktop = false;
+      const event = makeEvent("event-1", "2026-05-04T10:00:00Z", "2026-05-04T11:00:00Z");
+      const view = createCalendarViewHarnessWithEvents([event]);
+      const showEventEditPopover = vi.fn();
+      Reflect.set(view, "showEventEditPopover", showEventEditPopover);
+
+      callViewMethod(view, "render");
+      const card = renderedGrid(view).querySelector(".dl-event-card");
+      if (!card) throw new Error("event card was not rendered");
+
+      card.dispatchEvent(makeTouchEvent("touchstart", [{ clientX: 120, clientY: 160 }]));
+      vi.advanceTimersByTime(350);
+      vi.runOnlyPendingTimers();
+
+      expect(showEventEditPopover).not.toHaveBeenCalled();
+      expect(card.classList.contains("dl-event-card--editing")).toBe(true);
+      expect(card.querySelector(".dl-edit-handle--top")).not.toBeNull();
+      expect(card.querySelector(".dl-edit-handle--bottom")).not.toBeNull();
+      const editBar = testDocument.body.querySelector(".dl-mobile-edit-bar");
+      expect(editBar).not.toBeNull();
+
+      card.dispatchEvent(makeTouchEvent("touchend", [{ clientX: 120, clientY: 160 }]));
+
+      expect(card.classList.contains("dl-event-card--editing")).toBe(true);
+      expect(card.querySelectorAll(".dl-edit-handle")).toHaveLength(2);
+
+      const outside = testDocument.body.createDiv("outside");
+      testDocument.dispatchEvent(makeTouchEvent("touchstart", [{ clientX: 1, clientY: 1 }]), outside);
+
+      expect(card.classList.contains("dl-event-card--editing")).toBe(false);
+      expect(card.querySelectorAll(".dl-edit-handle")).toHaveLength(0);
+      expect(editBar?.isConnected).toBe(false);
+    } finally {
+      Platform.isMobile = wasMobile;
+      Platform.isDesktop = wasDesktop;
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    }
   });
 });
 
