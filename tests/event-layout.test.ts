@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, it, expect, vi } from "vitest";
 import { Platform } from "obsidian";
 import { DeskleafCalendarView, isEventReadOnly } from "../src/calendar-view";
@@ -286,6 +287,14 @@ function cssValue(element: CalendarElement, property: string): string {
 
 function renderCssValue(element: RenderElement, property: string): string {
   return element.style.getPropertyValue(property);
+}
+
+function cssRule(selector: string): string {
+  const styles = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
+  const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = new RegExp(`${escapedSelector}\\s*\\{([^}]*)\\}`).exec(styles);
+  if (!match) throw new Error(`CSS rule ${selector} was not found`);
+  return match[1];
 }
 
 function createCalendarViewHarness(): object {
@@ -1201,6 +1210,21 @@ describe("event edit interactions", () => {
       vi.useRealTimers();
       vi.unstubAllGlobals();
     }
+  });
+
+  it("keeps the mobile edit sheet anchored inside the viewport and safe area", () => {
+    const mobileOverlayRule = cssRule(".dl-edit-overlay--mobile");
+    const mobileSheetRule = cssRule(".dl-edit-sheet");
+    const mobileSheetActionsRule = cssRule(".dl-edit-sheet .dl-edit-actions");
+
+    expect(mobileOverlayRule).toContain("align-items: flex-end");
+    expect(mobileOverlayRule).toContain("padding: 0 8px");
+    expect(mobileSheetRule).toContain("width: calc(100vw - 16px)");
+    expect(mobileSheetRule).toContain("max-width: 520px");
+    expect(mobileSheetRule).toContain("max-height: min(82vh, 640px)");
+    expect(mobileSheetRule).toContain("margin-top: auto");
+    expect(mobileSheetRule).toContain("margin-bottom: max(8px, env(safe-area-inset-bottom))");
+    expect(mobileSheetActionsRule).toContain("padding-bottom: max(10px, env(safe-area-inset-bottom))");
   });
 
   it("renders read-only details without save and closing does not update the backend", () => {
