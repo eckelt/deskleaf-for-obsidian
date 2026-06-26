@@ -139,6 +139,9 @@ class RenderElement {
   }
 
   dispatchEvent(event: Event): boolean {
+    if (event.target === null) {
+      Object.defineProperty(event, "target", { value: this });
+    }
     const listeners = this.listeners.get(event.type) ?? [];
     listeners.forEach((listener) => {
       if (typeof listener === "function") listener.call(this, event);
@@ -159,6 +162,16 @@ class RenderElement {
     const result: RenderElement[] = [];
     this.collectMatches(selector, result);
     return result;
+  }
+
+  closest(selector: string): RenderElement | null {
+    const selectors = selector.split(",").map((value) => value.trim());
+    let current: RenderElement | null = this;
+    while (current) {
+      if (selectors.some((candidate) => current?.matches(candidate))) return current;
+      current = current.parent;
+    }
+    return null;
   }
 
   private applyCreateOptions(child: RenderElement, options?: string | { cls?: ClassValue; text?: string }): void {
@@ -266,6 +279,7 @@ function createCalendarViewHarness(): object {
     slideDir: 0,
     desktopSlideZone: null,
     preserveScrollForNextRender: null,
+    dragCreate: null,
     hourPx: DEFAULT_HOUR_PX,
   });
 }
@@ -624,6 +638,50 @@ describe("zoom geometry", () => {
     } finally {
       Platform.isMobile = wasMobile;
       Platform.isDesktop = wasDesktop;
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("does not start drag-to-create for a two-finger touch on an empty day body", () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback): number => {
+      callback(0);
+      return 1;
+    });
+    vi.stubGlobal("window", {
+      clearTimeout,
+      innerWidth: 390,
+      setTimeout,
+    });
+    vi.stubGlobal("navigator", {});
+    const wasMobile = Platform.isMobile;
+    const wasDesktop = Platform.isDesktop;
+
+    try {
+      Platform.isMobile = true;
+      Platform.isDesktop = false;
+      const view = createCalendarViewHarness();
+
+      callViewMethod(view, "render");
+
+      const dayBody = renderedGrid(view).querySelectorAll(".dl-day-body")
+        .find((element) => element.dataset.date);
+      if (!dayBody) throw new Error("calendar day body was not rendered");
+
+      const startEvent = makeTouchEvent("touchstart", [
+        { clientX: 120, clientY: 160 },
+        { clientX: 220, clientY: 160 },
+      ]);
+      dayBody.dispatchEvent(startEvent);
+      vi.advanceTimersByTime(400);
+
+      expect(startEvent.defaultPrevented).toBe(false);
+      expect(dayBody.querySelector(".dl-ghost-event")).toBeNull();
+      expect(Reflect.get(view, "dragCreate")).toBeNull();
+    } finally {
+      Platform.isMobile = wasMobile;
+      Platform.isDesktop = wasDesktop;
+      vi.useRealTimers();
       vi.unstubAllGlobals();
     }
   });

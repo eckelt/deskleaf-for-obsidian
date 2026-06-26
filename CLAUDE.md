@@ -81,7 +81,14 @@ bash deploy.sh           # build + copy main.js + styles.css to Obsidian vault
 ```
 
 Vault plugin path:
-`~/Library/Mobile Documents/iCloud~md~obsidian/Documents/Verknüpfungen/.obsidian/plugins/deskleaf-for-obsidian/`
+`~/Library/Mobile Documents/iCloud~md~obsidian/Documents/Connections/.obsidian/plugins/deskleaf-for-obsidian/`
+
+**Deploy before human review.** A feature is only reviewable once it actually
+runs in the vault. After a feature PR is merged to `main` and before the issue
+is handed to human acceptance (`status:ready-for-acceptance`), the merged `main`
+must be built and deployed via `bash deploy.sh`. Never request human review of a
+feature that lives only on a branch or in an undeployed build — the reviewer
+would be testing code that isn't running.
 
 ---
 

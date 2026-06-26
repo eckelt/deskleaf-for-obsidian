@@ -19,8 +19,9 @@ Als Kalender-Nutzer möchte ich auf Mobile per Zwei-Finger-Pinch und auf Desktop
 - [ ] AC6: Während der Geste bleibt der Zeitpunkt unter dem Pinch-Mittelpunkt beziehungsweise Trackpad-Zoom-Fokus an derselben Bildschirmposition verankert (Scroll-Position wird passend nachgeführt).
 - [ ] AC7: Alle vom Stundenraster abhängigen Elemente (Hour-/Half-Hour-Lines, Time-Labels im Gutter, Now-Line, Event-Cards, Drag-Ghosts, Business-Hours-Shading) skalieren konsistent mit der aktuellen Zoomstufe.
 - [ ] AC8: Die gewählte Zoomstufe bleibt innerhalb der laufenden Session erhalten, über Tages-/Wochen-Navigation und Re-Renders hinweg. Beim erstmaligen Öffnen der View startet der Zoom auf der bisherigen Default-Dichte (64px/Stunde, geclampt auf die gültigen Grenzen).
-- [ ] AC9: Bestehende Ein-Finger-Gesten bleiben nutzbar: vertikales Wischen scrollt durch die Uhrzeit; horizontales Wischen im Kalenderinneren navigiert weiter zum nächsten/vorigen Tag beziehungsweise Zeitraum; horizontales Wischen aus dem Obsidian-Randbereich wird nicht vom Kalender übernommen, damit Obsidian seine Side-Panels ein-/ausblenden kann.
+- [ ] AC9: Bestehende Mobile-Ein-Finger-Gesten bleiben nutzbar und werden klar von Pinch getrennt: ein vertikal dominanter Touch-Move im Kalender-Grid bleibt nativer Scroll und wird vom Kalender nicht per `preventDefault()` übernommen; ein horizontal dominanter Touch-Move, der mindestens 80 CSS-Pixel vom linken und rechten Viewport-Rand startet, bleibt die bestehende Kalendernavigation zum nächsten/vorigen sichtbaren Zeitraum; ein horizontaler Touch-Move, der innerhalb von 80 CSS-Pixeln vom linken oder rechten Viewport-Rand startet, wird vom Kalender nicht übernommen und bleibt für Obsidian-Edge-Gesten verfügbar.
 - [ ] AC10: Zwei-Finger-Gesten lösen Kalender-Zoom erst aus, wenn sich der Fingerabstand beziehungsweise Trackpad-Pinch-Scale erkennbar ändert. Eine reine Zwei-Finger-Vor-/Zurück-Geste mit stabiler Distanz darf keine Kalendernavigation auslösen und muss, wo Obsidian/Electron sie als App-Navigation anbietet, an Obsidian durchfallen.
+- [ ] AC11: Eine Zwei-Finger-Pinch-Geste auf einer leeren Stelle des Zeitrasters darf keinen Drag-to-create-Flow starten, keinen Ghost-Event anzeigen und keinen neuen Termin anlegen. Drag-to-create bleibt ausschließlich eine Ein-Finger-Interaktion.
 
 ## Acceptance Scenarios
 ```gherkin
@@ -58,10 +59,11 @@ Scenario: Vertical zoom does not change horizontal layout
 Scenario: Existing touch navigation does not conflict with pinch
   Given the Calendar View is open on iOS
   When the user swipes vertically with one finger on the time grid
-  Then the calendar scrolls through the time of day
-  When the user swipes horizontally with one finger from the calendar interior
+  Then the grid uses native vertical scrolling through the time of day
+  And the calendar does not prevent the vertical touch movement
+  When the user swipes horizontally with one finger from at least 80 CSS pixels inside both viewport edges
   Then the calendar navigates to the next or previous visible date range
-  When the user swipes horizontally with one finger from the Obsidian edge zone
+  When the user swipes horizontally with one finger starting within 80 CSS pixels of either viewport edge
   Then the calendar does not claim the gesture
   And Obsidian can show or hide its side panel
   When the user moves two fingers forward or backward with a stable distance
@@ -69,6 +71,17 @@ Scenario: Existing touch navigation does not conflict with pinch
   And Obsidian navigation is not prevented where the runtime provides it
   When the user changes the distance between two fingers
   Then the view zooms vertically
+  And no drag-to-create ghost or new event is created
+```
+
+```gherkin
+Scenario: Pinch on empty grid does not create an event
+  Given the Calendar View is open on a touch device
+  And the user starts a two-finger gesture on an empty area of the time grid
+  When the user pinches inward or outward
+  Then the calendar zooms vertically
+  And no create-event ghost is shown
+  And no new event creation is submitted
 ```
 
 ## Out of Scope
@@ -93,13 +106,14 @@ _None_
 - Automated Vitest coverage for AC3: the same event set yields identical `assignColumns` `col`/`totalCols` at different hour heights, while `topFromISO` / `heightFromISO` change proportionally.
 - Automated Vitest coverage for clamp calculation: min = whole day fits in viewport, max = 4 hours fill viewport, values outside are clamped.
 - Automated Vitest coverage for focus-anchor scroll math.
-- Automated DOM/input coverage for one-finger gesture separation: vertical movement scrolls normally, interior horizontal movement still reaches calendar navigation, and edge-origin horizontal movement is not claimed by the calendar.
+- Automated DOM/input coverage for AC9 one-finger gesture separation on the mobile carousel path: vertical-dominant one-finger `touchmove` does not call `preventDefault()` or trigger date navigation; horizontal-dominant one-finger movement starting outside the 80 CSS-pixel edge zone still triggers the existing date navigation; horizontal-dominant movement starting inside the 80 CSS-pixel edge zone does not call `preventDefault()` and does not trigger calendar navigation. Representative coverage of the shared `setupSwipeGestures` path is sufficient; tests do not need to duplicate the same edge/vertical cases for every day-count layout.
 - Automated DOM/input coverage for TouchEvent two-finger pinch: outward and inward movement update zoom, stable-distance movement does not trigger calendar navigation, and the non-pinch path is not explicitly prevented.
+- Automated DOM/input coverage for AC11: a two-finger `touchstart`/pinch sequence on an empty day body does not enter the existing touch drag-to-create path, does not render a `dl-ghost-event`, and does not call calendar event creation.
 - Automated DOM/input coverage for desktop trackpad pinch using the Chromium/Electron event shape the implementation handles; assert the event is consumed for calendar zoom and does not fall through to app/page zoom.
 - Representative automated coverage is sufficient for AC7: test one shared geometry mechanism that drives hour lines/time labels/now-line/events/business-hours, plus one event/drag-ghost calculation path. Manual QA covers the full visual list.
 - `npm run build` and `npm test` green.
 - Manual QA in Obsidian Desktop on macOS trackpad: pinch in/out over Calendar View, limits, focus-anchor, no Obsidian/page zoom.
-- Manual QA in Obsidian Mobile iOS: pinch in/out over Calendar View, one-finger vertical time scrolling, one-finger horizontal calendar navigation from the interior, Obsidian side-panel gestures from the edge, two-finger stable swipe does not navigate the calendar, limits, focus-anchor, now-line, event-cards, business-hours shading, day/week navigation retains zoom.
+- Manual QA in Obsidian Mobile iOS: pinch in/out over Calendar View, pinch on empty grid does not start event creation, one-finger vertical time scrolling, one-finger horizontal calendar navigation from the interior, Obsidian side-panel gestures from the edge, two-finger stable swipe does not navigate the calendar, limits, focus-anchor, now-line, event-cards, business-hours shading, day/week navigation retains zoom.
 
 ---
 
@@ -139,6 +153,7 @@ _Pending_
 - **Desktop is in scope.** The earlier desktop non-goal is superseded by the human clarification on 2026-06-25: macOS trackpad pinch in Obsidian Desktop must zoom the calendar with the same limits.
 - **Gesture input paths are explicit.** Mobile uses two-touch pinch distance changes. Desktop uses the trackpad-pinch event path exposed by Obsidian Desktop's Chromium/Electron runtime, not generic mouse-wheel zoom.
 - **Two-finger swipe is not a calendar navigation feature.** Single-finger gestures remain responsible for time scrolling, date navigation, and Obsidian edge-panel behavior. Two-finger movement is only treated as zoom after a measurable distance-ratio change; stable-distance two-finger back/forward remains Obsidian's responsibility where the runtime supports it.
+- **Drag-to-create stays single-finger only.** The mobile create interaction may start from an empty day body only when exactly one touch is active. Any touch sequence with two active touches belongs to pinch recognition or platform gesture handling and must not create a ghost event or submit a new calendar event.
 - **Bounds are viewport-relative.** "Whole day visible" and "4 hours visible" derive from the visible height of `.dl-grid-body-scroll`: min `viewportHeight / 24`, max `viewportHeight / 4`.
 - **Pure functions stay pure.** Hour height is passed as a parameter instead of mutating module-level state.
 - **Horizontal layout is invariant.** Vertical zoom must not influence date range selection, day-column count/order, weekend column logic, or overlap-column assignment.
