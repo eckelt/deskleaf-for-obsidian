@@ -1243,6 +1243,96 @@ describe("event edit interactions", () => {
     }
   });
 
+  it("asks for recurring edit scope before saving a recurring event", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback): number => {
+      callback(0);
+      return 1;
+    });
+    vi.stubGlobal("window", {
+      clearTimeout,
+      innerHeight: 800,
+      innerWidth: 1200,
+      setTimeout,
+    });
+    const testDocument = new TestDocument();
+    vi.stubGlobal("document", testDocument);
+    const wasMobile = Platform.isMobile;
+    const wasDesktop = Platform.isDesktop;
+
+    try {
+      Platform.isMobile = false;
+      Platform.isDesktop = true;
+      const event: CalendarEvent = {
+        id: "event-1|2026-05-04",
+        title: "Planning review",
+        start: "2026-05-04T10:15:00Z",
+        end: "2026-05-04T11:45:00Z",
+        location: "Room 1",
+        body: "Review current milestones",
+        calendar: "Work",
+        isRecurring: true,
+      };
+      const view = createCalendarViewHarnessWithEvents([event]);
+      const plugin = Reflect.get(view, "plugin");
+      const calendarReader = Reflect.get(plugin, "calendarReader");
+      const noteManager = Reflect.get(plugin, "noteManager");
+      const updateEvent = vi.fn(async (): Promise<void> => {});
+      const syncEventNote = vi.fn(async (): Promise<void> => {});
+      Reflect.set(calendarReader, "updateEvent", updateEvent);
+      Reflect.set(noteManager, "syncEventNote", syncEventNote);
+      Reflect.set(Reflect.get(plugin, "settings"), "caldav", {
+        discoveredCalendars: [
+          { href: "/work/", displayName: "Work" },
+        ],
+        selectedCalendars: [],
+      });
+
+      callViewMethod(view, "showEventEditPopover", event, "2026-05-04", makeMouseEvent("click"), false);
+      vi.runOnlyPendingTimers();
+
+      const popover = testDocument.body.querySelector(".dl-edit-popover");
+      if (!popover) throw new Error("edit popover was not rendered");
+      const saveButton = popover
+        .querySelectorAll(".dl-create-btn")
+        .find((button) => renderText(button) === "Speichern");
+      if (!saveButton) throw new Error("save button was not rendered");
+
+      saveButton.dispatchEvent(new Event("click", { cancelable: true }));
+      await Promise.resolve();
+
+      const scopePopover = testDocument.body.querySelector(".dl-edit-scope-popover");
+      expect(scopePopover).not.toBeNull();
+      expect(updateEvent).not.toHaveBeenCalled();
+      expect(popover.isConnected).toBe(true);
+
+      const thisInstanceButton = scopePopover
+        ?.querySelectorAll(".dl-create-btn")
+        .find((button) => renderText(button) === "Nur dieser Termin");
+      if (!thisInstanceButton) throw new Error("this-instance scope button was not rendered");
+
+      thisInstanceButton.dispatchEvent(new Event("click", { cancelable: true }));
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(updateEvent).toHaveBeenCalledWith("event-1|2026-05-04", expect.objectContaining({
+        title: "Planning review",
+        location: "Room 1",
+        notes: "Review current milestones",
+        calendar: "Work",
+        span: "this",
+      }));
+      expect(syncEventNote).toHaveBeenCalledOnce();
+      expect(popover.isConnected).toBe(false);
+      expect(scopePopover?.isConnected).toBe(false);
+    } finally {
+      Platform.isMobile = wasMobile;
+      Platform.isDesktop = wasDesktop;
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("opens the edit popover on desktop single-click and the note on double-click", () => {
     vi.useFakeTimers();
     vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback): number => {
