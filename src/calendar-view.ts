@@ -1846,6 +1846,7 @@ export class DeskleafCalendarView extends ItemView {
     endMin: number,
     pos: { clientX: number; clientY: number },
   ) {
+    document.querySelector(".dl-edit-overlay")?.remove();
     document.querySelector(".dl-create-popover")?.remove();
 
     const popover = document.body.createDiv("dl-create-popover");
@@ -1970,13 +1971,15 @@ export class DeskleafCalendarView extends ItemView {
   private showEventEditPopover(
     event: CalendarEvent,
     date: string,
-    source: MouseEvent | TouchEvent,
+    _source: MouseEvent | TouchEvent,
     readOnly: boolean,
   ) {
+    document.querySelector(".dl-edit-overlay")?.remove();
     document.querySelector(".dl-create-popover")?.remove();
     this.hideHoverPopover();
 
-    const popover = document.body.createDiv("dl-create-popover dl-edit-popover");
+    const overlay = document.body.createDiv(`dl-edit-overlay ${Platform.isMobile ? "dl-edit-overlay--mobile" : "dl-edit-overlay--desktop"}`);
+    const popover = overlay.createDiv(`dl-edit-surface ${Platform.isMobile ? "dl-edit-sheet" : "dl-edit-dialog"}`);
     const initialStart = new Date(event.start);
     const initialEnd = new Date(event.end);
     const startMin = initialStart.getHours() * 60 + initialStart.getMinutes();
@@ -1985,21 +1988,40 @@ export class DeskleafCalendarView extends ItemView {
     const endDate = toDateStr(initialEnd);
     const durationMin = Math.max(15, Math.round((initialEnd.getTime() - initialStart.getTime()) / 60000));
 
-    const titleInput = popover.createEl("input", {
-      type: "text",
-      cls: "dl-create-input",
-      placeholder: "Titel...",
-    } as any) as HTMLInputElement;
+    if (Platform.isMobile) popover.createDiv("dl-edit-sheet-handle");
+
+    const header = popover.createDiv("dl-edit-header");
+    header.createDiv({ cls: "dl-edit-heading", text: readOnly ? "Event ansehen" : "Event bearbeiten" });
+    if (readOnly) {
+      header.createDiv({ cls: "dl-edit-readonly-note", text: "Dieses Event ist in Deskleaf schreibgeschuetzt." });
+    }
+
+    const form = popover.createDiv("dl-edit-form-scroll");
+    const titleSection = form.createDiv("dl-edit-section");
+    titleSection.createDiv({ cls: "dl-edit-label", text: "Titel" });
+    const titleInput = titleSection.createEl("input") as HTMLInputElement;
+    titleInput.type = "text";
+    titleInput.addClass("dl-create-input");
+    titleInput.addClass("dl-edit-title-input");
+    titleInput.placeholder = "Titel...";
     titleInput.value = event.title;
     titleInput.disabled = readOnly;
 
-    const timeRow = popover.createDiv("dl-create-time-row");
-    const startInput = timeRow.createEl("input", { type: "time", cls: "dl-create-time-input" } as any) as HTMLInputElement;
+    const timeSection = form.createDiv("dl-edit-section");
+    timeSection.createDiv({ cls: "dl-edit-label", text: "Zeit" });
+    const timeRow = timeSection.createDiv("dl-create-time-row dl-edit-time-row");
+    const startInput = timeRow.createEl("input") as HTMLInputElement;
+    startInput.type = "time";
+    startInput.addClass("dl-create-time-input");
+    startInput.addClass("dl-edit-start-input");
     startInput.step = "60";
     startInput.value = minsToTimeStr(startMin);
     startInput.disabled = readOnly;
     timeRow.createSpan({ cls: "dl-create-time-sep", text: "-" });
-    const endInput = timeRow.createEl("input", { type: "time", cls: "dl-create-time-input" } as any) as HTMLInputElement;
+    const endInput = timeRow.createEl("input") as HTMLInputElement;
+    endInput.type = "time";
+    endInput.addClass("dl-create-time-input");
+    endInput.addClass("dl-edit-end-input");
     endInput.step = "60";
     endInput.value = minsToTimeStr(endMin);
     endInput.disabled = readOnly;
@@ -2013,18 +2035,20 @@ export class DeskleafCalendarView extends ItemView {
     startInput.addEventListener("input", keepValidEndAfterStartChange);
     startInput.addEventListener("change", keepValidEndAfterStartChange);
 
-    const locationInput = popover.createEl("input", {
-      type: "text",
-      cls: "dl-create-input",
-      placeholder: "Ort",
-    } as any) as HTMLInputElement;
+    const detailsSection = form.createDiv("dl-edit-section");
+    detailsSection.createDiv({ cls: "dl-edit-label", text: "Details" });
+    const locationInput = detailsSection.createEl("input") as HTMLInputElement;
+    locationInput.type = "text";
+    locationInput.addClass("dl-create-input");
+    locationInput.addClass("dl-edit-location-input");
+    locationInput.placeholder = "Ort";
     locationInput.value = event.location ?? "";
     locationInput.disabled = readOnly;
 
-    const descInput = popover.createEl("textarea", {
-      cls: "dl-create-desc",
-      placeholder: "Beschreibung",
-    } as any) as HTMLTextAreaElement;
+    const descInput = detailsSection.createEl("textarea") as HTMLTextAreaElement;
+    descInput.addClass("dl-create-desc");
+    descInput.addClass("dl-edit-desc-input");
+    descInput.placeholder = "Beschreibung";
     descInput.value = event.body ?? "";
     descInput.disabled = readOnly;
 
@@ -2032,7 +2056,9 @@ export class DeskleafCalendarView extends ItemView {
     const activeCals = discoveredCalendars.filter(c => selectedCalendars.length === 0 || selectedCalendars.includes(c.href));
     let calendarValue = event.calendar ?? "";
     if (activeCals.length > 0) {
-      const calRow = popover.createDiv("dl-create-cal-row");
+      const calendarSection = form.createDiv("dl-edit-section");
+      calendarSection.createDiv({ cls: "dl-edit-label", text: "Kalender" });
+      const calRow = calendarSection.createDiv("dl-create-cal-row");
       const knownCalendars = activeCals.some(c => c.displayName === calendarValue)
         ? activeCals
         : [{ href: "", displayName: calendarValue }, ...activeCals].filter(c => c.displayName);
@@ -2051,27 +2077,24 @@ export class DeskleafCalendarView extends ItemView {
         }
       }
     } else {
-      const calendarInput = popover.createEl("input", {
-        type: "text",
-        cls: "dl-create-input",
-        placeholder: "Kalender",
-      } as any) as HTMLInputElement;
+      const calendarSection = form.createDiv("dl-edit-section");
+      calendarSection.createDiv({ cls: "dl-edit-label", text: "Kalender" });
+      const calendarInput = calendarSection.createEl("input") as HTMLInputElement;
+      calendarInput.type = "text";
+      calendarInput.addClass("dl-create-input");
+      calendarInput.placeholder = "Kalender";
       calendarInput.value = calendarValue;
       calendarInput.disabled = readOnly;
       calendarInput.addEventListener("input", () => { calendarValue = calendarInput.value.trim(); });
     }
 
-    if (readOnly) {
-      popover.createDiv({ cls: "setting-item-description", text: "Dieses Event ist in Deskleaf schreibgeschuetzt." });
-    }
-
-    const actions = popover.createDiv("dl-create-actions");
+    const actions = popover.createDiv("dl-create-actions dl-edit-actions");
     const deleteBtn = readOnly ? null : actions.createEl("button", {
       cls: "dl-create-btn dl-create-btn--danger",
       text: event.isOrganizer === false ? "Ablehnen" : "Löschen",
     });
-    const cancelBtn = actions.createEl("button", { cls: "dl-create-btn", text: readOnly ? "Schliessen" : "Abbrechen" });
-    const saveBtn = readOnly ? null : actions.createEl("button", { cls: "dl-create-btn dl-create-btn--primary", text: "Speichern" });
+    const cancelBtn = actions.createEl("button", { cls: "dl-create-btn dl-edit-cancel-btn", text: readOnly ? "Schliessen" : "Abbrechen" });
+    const saveBtn = readOnly ? null : actions.createEl("button", { cls: "dl-create-btn dl-create-btn--primary dl-edit-save-btn", text: "Speichern" });
 
     const clearErrors = () => {
       titleInput.style.borderColor = "";
@@ -2097,7 +2120,7 @@ export class DeskleafCalendarView extends ItemView {
       if (!endInput.value || e <= s) { endInput.style.borderColor = "var(--color-red)"; endInput.focus(); return null; }
       return update;
     };
-    const close = () => { popover.remove(); cleanup(); };
+    const close = () => { overlay.remove(); cleanup(); };
     const save = async () => {
       const update = validate();
       if (!update) return;
@@ -2147,42 +2170,21 @@ export class DeskleafCalendarView extends ItemView {
     const onOutside = (ev: Event) => {
       if (!popover.contains(ev.target as Node)) close();
     };
+    const onOverlayClick = (ev: MouseEvent) => {
+      if (ev.target === overlay) close();
+    };
     const cleanup = () => {
       document.removeEventListener("mousedown", onOutside);
       document.removeEventListener("touchstart", onOutside);
+      overlay.removeEventListener("click", onOverlayClick);
     };
+    overlay.addEventListener("click", onOverlayClick);
     setTimeout(() => {
       document.addEventListener("mousedown", onOutside);
       document.addEventListener("touchstart", onOutside);
     }, 0);
 
-    const pos = this.eventPosition(source);
-    if (Platform.isMobile) {
-      popover.addClass("dl-create-popover--mobile");
-      popover.style.left = "50%";
-      popover.style.transform = "translateX(-50%)";
-      popover.style.top = "12%";
-    } else {
-      popover.style.left = `${pos.clientX + 12}px`;
-      popover.style.top = `${pos.clientY - 24}px`;
-      requestAnimationFrame(() => {
-        const r = popover.getBoundingClientRect();
-        if (r.right > window.innerWidth - 8) popover.style.left = `${pos.clientX - r.width - 12}px`;
-        if (r.bottom > window.innerHeight - 8) popover.style.top = `${window.innerHeight - r.height - 8}px`;
-      });
-    }
     titleInput.focus();
-  }
-
-  private eventPosition(source: MouseEvent | TouchEvent): { clientX: number; clientY: number } {
-    if ("touches" in source) {
-      const touch = source.touches[0] ?? source.changedTouches[0];
-      if (touch) return { clientX: touch.clientX, clientY: touch.clientY };
-    }
-    return {
-      clientX: (source as MouseEvent).clientX ?? window.innerWidth / 2,
-      clientY: (source as MouseEvent).clientY ?? window.innerHeight / 2,
-    };
   }
 
   private askRecurringEditSpan(): Promise<"this" | "series" | null> {

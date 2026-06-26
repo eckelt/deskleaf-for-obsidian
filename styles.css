@@ -1004,6 +1004,117 @@
     max-width: calc(100vw - 32px);
 }
 
+.dl-edit-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+    box-sizing: border-box;
+    background: rgba(0, 0, 0, 0.12);
+}
+
+.dl-edit-surface {
+    width: min(420px, calc(100vw - 36px));
+    max-height: calc(100vh - 36px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-sizing: border-box;
+    background: var(--background-primary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 8px;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
+}
+
+.dl-edit-dialog {
+    min-width: min(420px, calc(100vw - 36px));
+}
+
+.dl-edit-sheet {
+    width: calc(100vw - 16px);
+    max-width: 520px;
+    max-height: min(82vh, 640px);
+    margin-top: auto;
+    margin-bottom: max(8px, env(safe-area-inset-bottom));
+    border-radius: 8px 8px 0 0;
+}
+
+.dl-edit-overlay--mobile {
+    align-items: flex-end;
+    padding: 0 8px;
+}
+
+.dl-edit-sheet-handle {
+    width: 38px;
+    height: 4px;
+    flex: 0 0 auto;
+    align-self: center;
+    margin: 8px 0 2px;
+    border-radius: 999px;
+    background: var(--background-modifier-border);
+}
+
+.dl-edit-header {
+    flex: 0 0 auto;
+    padding: 10px 14px 8px;
+    border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.dl-edit-heading {
+    font-size: 0.9em;
+    font-weight: 600;
+    color: var(--text-normal);
+}
+
+.dl-edit-readonly-note {
+    margin-top: 4px;
+    font-size: 0.78em;
+    line-height: 1.4;
+    color: var(--text-muted);
+}
+
+.dl-edit-form-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.dl-edit-section {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.dl-edit-label {
+    font-size: 0.72em;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+}
+
+.dl-edit-time-row {
+    max-width: 260px;
+}
+
+.dl-edit-actions {
+    flex: 0 0 auto;
+    padding: 10px 14px;
+    border-top: 1px solid var(--background-modifier-border);
+    background: var(--background-secondary);
+}
+
+.dl-edit-sheet .dl-edit-actions {
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
+}
+
 .dl-color-swatches {
     display: flex;
     gap: 4px;

@@ -323,7 +323,13 @@ function createCalendarViewHarness(): object {
           end: "17:00",
           days: [1, 2, 3, 4, 5],
         },
-        caldav: {},
+        caldav: {
+          discoveredCalendars: [
+            { href: "/work/", displayName: "Work" },
+            { href: "/home/", displayName: "Home" },
+          ],
+          selectedCalendars: [],
+        },
         icalSubscriptions: [],
       },
     },
@@ -1110,13 +1116,17 @@ describe("event edit interactions", () => {
       callViewMethod(view, "showEventEditPopover", event, "2026-05-04", makeMouseEvent("click"), false);
       vi.runOnlyPendingTimers();
 
-      const popover = testDocument.body.querySelector(".dl-edit-popover");
+      const popover = testDocument.body.querySelector(".dl-edit-dialog");
       if (!popover) throw new Error("edit popover was not rendered");
       const textInputs = popover.querySelectorAll(".dl-create-input");
       const timeInputs = popover.querySelectorAll(".dl-create-time-input");
       const descriptionInput = popover.querySelector("textarea");
       const activeCalendar = popover.querySelector(".dl-create-cal-chip--active");
 
+      expect(popover.classList.contains("dl-create-popover")).toBe(false);
+      expect(popover.querySelector(".dl-edit-header")).not.toBeNull();
+      expect(popover.querySelector(".dl-edit-form-scroll")).not.toBeNull();
+      expect(popover.querySelector(".dl-edit-actions")).not.toBeNull();
       expect(textInputs.map((input) => input.value)).toEqual([
         "Planning review",
         "Room 1",
@@ -1125,6 +1135,124 @@ describe("event edit interactions", () => {
       expect(descriptionInput?.value).toBe("Review current milestones");
       expect(activeCalendar).not.toBeNull();
       expect(activeCalendar ? renderText(activeCalendar) : "").toBe("Work");
+    } finally {
+      Platform.isMobile = wasMobile;
+      Platform.isDesktop = wasDesktop;
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("renders writable mobile edits as a bottom sheet with current values and reachable actions", () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("window", {
+      clearTimeout,
+      innerHeight: 720,
+      innerWidth: 390,
+      setTimeout,
+    });
+    const testDocument = new TestDocument();
+    vi.stubGlobal("document", testDocument);
+    const wasMobile = Platform.isMobile;
+    const wasDesktop = Platform.isDesktop;
+
+    try {
+      Platform.isMobile = true;
+      Platform.isDesktop = false;
+      const event: CalendarEvent = {
+        id: "event-1",
+        title: "Planning review",
+        start: "2026-05-04T10:15:00Z",
+        end: "2026-05-04T11:45:00Z",
+        location: "Room 1",
+        body: "Review current milestones",
+        calendar: "Work",
+      };
+      const view = createCalendarViewHarnessWithEvents([event]);
+      Reflect.set(Reflect.get(Reflect.get(view, "plugin"), "settings"), "caldav", {
+        discoveredCalendars: [
+          { href: "/work/", displayName: "Work" },
+          { href: "/private/", displayName: "Private" },
+        ],
+        selectedCalendars: [],
+      });
+
+      callViewMethod(view, "showEventEditPopover", event, "2026-05-04", makeTouchEvent("touchend", [{ clientX: 120, clientY: 160 }]), false);
+      vi.runOnlyPendingTimers();
+
+      const sheet = testDocument.body.querySelector(".dl-edit-sheet");
+      if (!sheet) throw new Error("mobile edit sheet was not rendered");
+
+      expect(testDocument.body.querySelector(".dl-edit-overlay--mobile")).not.toBeNull();
+      expect(sheet.querySelector(".dl-edit-sheet-handle")).not.toBeNull();
+      expect(sheet.querySelector(".dl-edit-header")).not.toBeNull();
+      expect(sheet.querySelector(".dl-edit-form-scroll")).not.toBeNull();
+      expect(sheet.querySelector(".dl-edit-actions")).not.toBeNull();
+      expect(sheet.querySelector(".dl-edit-title-input")?.value).toBe("Planning review");
+      expect(sheet.querySelector(".dl-edit-start-input")?.value).toBe("10:15");
+      expect(sheet.querySelector(".dl-edit-end-input")?.value).toBe("11:45");
+      expect(sheet.querySelector(".dl-edit-location-input")?.value).toBe("Room 1");
+      expect(sheet.querySelector(".dl-edit-desc-input")?.value).toBe("Review current milestones");
+      expect(sheet.querySelector(".dl-edit-save-btn")).not.toBeNull();
+      expect(sheet.querySelector(".dl-edit-cancel-btn")).not.toBeNull();
+    } finally {
+      Platform.isMobile = wasMobile;
+      Platform.isDesktop = wasDesktop;
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("renders read-only details without save and closing does not update the backend", () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("window", {
+      clearTimeout,
+      innerHeight: 800,
+      innerWidth: 1200,
+      setTimeout,
+    });
+    const testDocument = new TestDocument();
+    vi.stubGlobal("document", testDocument);
+    const wasMobile = Platform.isMobile;
+    const wasDesktop = Platform.isDesktop;
+
+    try {
+      Platform.isMobile = false;
+      Platform.isDesktop = true;
+      const event: CalendarEvent = {
+        id: "event-1",
+        title: "Planning review",
+        start: "2026-05-04T10:15:00Z",
+        end: "2026-05-04T11:45:00Z",
+        location: "Room 1",
+        body: "Review current milestones",
+        calendar: "Work",
+        isOrganizer: false,
+      };
+      const view = createCalendarViewHarnessWithEvents([event]);
+      const plugin = Reflect.get(view, "plugin");
+      const calendarReader = Reflect.get(plugin, "calendarReader");
+      const updateEvent = vi.fn(async (): Promise<void> => {});
+      Reflect.set(calendarReader, "updateEvent", updateEvent);
+
+      callViewMethod(view, "showEventEditPopover", event, "2026-05-04", makeMouseEvent("click"), true);
+      vi.runOnlyPendingTimers();
+
+      const dialog = testDocument.body.querySelector(".dl-edit-dialog");
+      if (!dialog) throw new Error("edit dialog was not rendered");
+
+      expect(dialog.querySelector(".dl-edit-readonly-note")).not.toBeNull();
+      expect(dialog.querySelector(".dl-edit-save-btn")).toBeNull();
+      expect(dialog.querySelector(".dl-edit-title-input")?.disabled).toBe(true);
+
+      const closeButton = dialog
+        .querySelectorAll(".dl-create-btn")
+        .find((button) => renderText(button) === "Schliessen");
+      if (!closeButton) throw new Error("close button was not rendered");
+      closeButton.dispatchEvent(new Event("click", { cancelable: true }));
+
+      expect(updateEvent).not.toHaveBeenCalled();
+      expect(dialog.isConnected).toBe(false);
     } finally {
       Platform.isMobile = wasMobile;
       Platform.isDesktop = wasDesktop;
@@ -1181,7 +1309,7 @@ describe("event edit interactions", () => {
       callViewMethod(view, "showEventEditPopover", event, "2026-05-04", makeMouseEvent("click"), false);
       vi.runOnlyPendingTimers();
 
-      const popover = testDocument.body.querySelector(".dl-edit-popover");
+      const popover = testDocument.body.querySelector(".dl-edit-dialog");
       if (!popover) throw new Error("edit popover was not rendered");
       const textInputs = popover.querySelectorAll(".dl-create-input");
       const timeInputs = popover.querySelectorAll(".dl-create-time-input");
@@ -1221,7 +1349,7 @@ describe("event edit interactions", () => {
       callViewMethod(view, "showEventEditPopover", event, "2026-05-04", makeMouseEvent("click"), false);
       vi.runOnlyPendingTimers();
 
-      const reopenedPopover = testDocument.body.querySelector(".dl-edit-popover");
+      const reopenedPopover = testDocument.body.querySelector(".dl-edit-dialog");
       if (!reopenedPopover) throw new Error("edit popover was not reopened");
       const reopenedTextInputs = reopenedPopover.querySelectorAll(".dl-create-input");
       const reopenedTimeInputs = reopenedPopover.querySelectorAll(".dl-create-time-input");
@@ -1291,7 +1419,7 @@ describe("event edit interactions", () => {
       callViewMethod(view, "showEventEditPopover", event, "2026-05-04", makeMouseEvent("click"), false);
       vi.runOnlyPendingTimers();
 
-      const popover = testDocument.body.querySelector(".dl-edit-popover");
+      const popover = testDocument.body.querySelector(".dl-edit-dialog");
       if (!popover) throw new Error("edit popover was not rendered");
       const saveButton = popover
         .querySelectorAll(".dl-create-btn")
