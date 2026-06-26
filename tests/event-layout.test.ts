@@ -1422,6 +1422,36 @@ describe("event edit interactions", () => {
     expect(mobileSheetActionsRule).toContain("padding-bottom: max(10px, env(safe-area-inset-bottom))");
   });
 
+  it("dismisses the mobile edit sheet only after a clear downward handle drag", () => {
+    const { surface, testDocument, updateEvent, syncEventNote, restorePlatform } =
+      openWritableEditFormForCloseTest({ mobile: true });
+    try {
+      const handle = surface.querySelector(".dl-edit-sheet-handle");
+      if (!handle) throw new Error("mobile edit sheet handle was not rendered");
+
+      handle.dispatchEvent(makeTouchEvent("touchstart", [{ clientX: 180, clientY: 120 }]));
+      testDocument.dispatchEvent(makeTouchEvent("touchmove", [{ clientX: 180, clientY: 148 }]), handle);
+      testDocument.dispatchEvent(makeTouchEvent("touchend", [{ clientX: 180, clientY: 148 }]), handle);
+
+      expect(surface.isConnected).toBe(true);
+      expect(updateEvent).not.toHaveBeenCalled();
+      expect(syncEventNote).not.toHaveBeenCalled();
+
+      handle.dispatchEvent(makeTouchEvent("touchstart", [{ clientX: 180, clientY: 120 }]));
+      testDocument.dispatchEvent(makeTouchEvent("touchmove", [{ clientX: 180, clientY: 220 }]), handle);
+      testDocument.dispatchEvent(makeTouchEvent("touchend", [{ clientX: 180, clientY: 220 }]), handle);
+
+      expect(surface.isConnected).toBe(false);
+      expect(testDocument.body.querySelector(".dl-edit-overlay")).toBeNull();
+      expect(updateEvent).not.toHaveBeenCalled();
+      expect(syncEventNote).not.toHaveBeenCalled();
+    } finally {
+      restorePlatform();
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("keeps the desktop edit dialog stable and viewport-safe", () => {
     vi.useFakeTimers();
     vi.stubGlobal("window", {

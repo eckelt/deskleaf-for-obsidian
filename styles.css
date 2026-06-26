@@ -1040,6 +1040,7 @@
     margin-top: auto;
     margin-bottom: max(8px, env(safe-area-inset-bottom));
     border-radius: 8px 8px 0 0;
+    transform: translateY(var(--f-edit-sheet-drag-y, 0));
 }
 
 .dl-edit-overlay--mobile {
@@ -1055,6 +1056,8 @@
     margin: 8px 0 2px;
     border-radius: 999px;
     background: var(--background-modifier-border);
+    cursor: grab;
+    touch-action: none;
 }
 
 .dl-edit-header {
