@@ -2170,18 +2170,23 @@ export class DeskleafCalendarView extends ItemView {
     const onOutside = (ev: Event) => {
       if (!popover.contains(ev.target as Node)) close();
     };
+    const onEscape = (ev: KeyboardEvent) => {
+      if (ev.key === "Escape") close();
+    };
     const onOverlayClick = (ev: MouseEvent) => {
       if (ev.target === overlay) close();
     };
     const cleanup = () => {
       document.removeEventListener("mousedown", onOutside);
       document.removeEventListener("touchstart", onOutside);
+      document.removeEventListener("keydown", onEscape);
       overlay.removeEventListener("click", onOverlayClick);
     };
     overlay.addEventListener("click", onOverlayClick);
     setTimeout(() => {
       document.addEventListener("mousedown", onOutside);
       document.addEventListener("touchstart", onOutside);
+      document.addEventListener("keydown", onEscape);
     }, 0);
 
     titleInput.focus();

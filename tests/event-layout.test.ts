@@ -370,6 +370,66 @@ function createCalendarViewHarnessWithEvents(events: CalendarEvent[]): object {
   return view;
 }
 
+function openWritableEditFormForCloseTest(options: { mobile: boolean }): {
+  surface: RenderElement;
+  testDocument: TestDocument;
+  updateEvent: ReturnType<typeof vi.fn>;
+  syncEventNote: ReturnType<typeof vi.fn>;
+  restorePlatform: () => void;
+} {
+  vi.useFakeTimers();
+  vi.stubGlobal("window", {
+    clearTimeout,
+    innerHeight: options.mobile ? 720 : 800,
+    innerWidth: options.mobile ? 390 : 1200,
+    setTimeout,
+  });
+  const testDocument = new TestDocument();
+  vi.stubGlobal("document", testDocument);
+  const wasMobile = Platform.isMobile;
+  const wasDesktop = Platform.isDesktop;
+  Platform.isMobile = options.mobile;
+  Platform.isDesktop = !options.mobile;
+
+  const event: CalendarEvent = {
+    id: "event-1",
+    title: "Planning review",
+    start: "2026-05-04T10:15:00Z",
+    end: "2026-05-04T11:45:00Z",
+    location: "Room 1",
+    body: "Review current milestones",
+    calendar: "Work",
+  };
+  const view = createCalendarViewHarnessWithEvents([event]);
+  const plugin = Reflect.get(view, "plugin");
+  const calendarReader = Reflect.get(plugin, "calendarReader");
+  const noteManager = Reflect.get(plugin, "noteManager");
+  const updateEvent = vi.fn(async (): Promise<void> => {});
+  const syncEventNote = vi.fn(async (): Promise<void> => {});
+  Reflect.set(calendarReader, "updateEvent", updateEvent);
+  Reflect.set(noteManager, "syncEventNote", syncEventNote);
+
+  const source = options.mobile
+    ? makeTouchEvent("touchend", [{ clientX: 120, clientY: 160 }])
+    : makeMouseEvent("click");
+  callViewMethod(view, "showEventEditPopover", event, "2026-05-04", source, false);
+  vi.runOnlyPendingTimers();
+
+  const surface = testDocument.body.querySelector(options.mobile ? ".dl-edit-sheet" : ".dl-edit-dialog");
+  if (!surface) throw new Error("edit surface was not rendered");
+
+  return {
+    surface,
+    testDocument,
+    updateEvent,
+    syncEventNote,
+    restorePlatform: () => {
+      Platform.isMobile = wasMobile;
+      Platform.isDesktop = wasDesktop;
+    },
+  };
+}
+
 function callViewMethod(view: object, name: string, ...args: unknown[]): void {
   const method = Reflect.get(DeskleafCalendarView.prototype, name);
   if (typeof method !== "function") {
@@ -417,6 +477,12 @@ function makeMouseEvent(type: string): Event {
   Object.defineProperty(event, "bubbles", { value: true });
   Object.defineProperty(event, "ctrlKey", { value: false });
   Object.defineProperty(event, "metaKey", { value: false });
+  return event;
+}
+
+function makeKeyboardEvent(type: string, key: string): Event {
+  const event = new Event(type, { cancelable: true });
+  Object.defineProperty(event, "key", { value: key });
   return event;
 }
 
@@ -1452,6 +1518,71 @@ describe("event edit interactions", () => {
     } finally {
       Platform.isMobile = wasMobile;
       Platform.isDesktop = wasDesktop;
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("closes the edit popover on outside click without backend update or note sync", () => {
+    const { surface, testDocument, updateEvent, syncEventNote, restorePlatform } =
+      openWritableEditFormForCloseTest({ mobile: false });
+    try {
+      const titleInput = surface.querySelector(".dl-edit-title-input");
+      if (!titleInput) throw new Error("title input was not rendered");
+      titleInput.value = "Changed title";
+
+      const outside = testDocument.body.createDiv("outside");
+      testDocument.dispatchEvent(makeMouseEvent("mousedown"), outside);
+
+      expect(surface.isConnected).toBe(false);
+      expect(updateEvent).not.toHaveBeenCalled();
+      expect(syncEventNote).not.toHaveBeenCalled();
+      expect(testDocument.body.querySelector(".dl-edit-overlay")).toBeNull();
+    } finally {
+      restorePlatform();
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("closes the mobile edit sheet on outside tap without backend update or note sync", () => {
+    const { surface, testDocument, updateEvent, syncEventNote, restorePlatform } =
+      openWritableEditFormForCloseTest({ mobile: true });
+    try {
+      const titleInput = surface.querySelector(".dl-edit-title-input");
+      if (!titleInput) throw new Error("title input was not rendered");
+      titleInput.value = "Changed title";
+
+      const outside = testDocument.body.createDiv("outside");
+      testDocument.dispatchEvent(makeTouchEvent("touchstart", [{ clientX: 1, clientY: 1 }]), outside);
+
+      expect(surface.isConnected).toBe(false);
+      expect(updateEvent).not.toHaveBeenCalled();
+      expect(syncEventNote).not.toHaveBeenCalled();
+      expect(testDocument.body.querySelector(".dl-edit-overlay")).toBeNull();
+    } finally {
+      restorePlatform();
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("closes the edit popover on Escape without backend update or note sync", () => {
+    const { surface, testDocument, updateEvent, syncEventNote, restorePlatform } =
+      openWritableEditFormForCloseTest({ mobile: false });
+    try {
+      const descriptionInput = surface.querySelector(".dl-edit-desc-input");
+      if (!descriptionInput) throw new Error("description input was not rendered");
+      descriptionInput.value = "Changed description";
+
+      testDocument.dispatchEvent(makeKeyboardEvent("keydown", "Escape"), descriptionInput);
+
+      expect(surface.isConnected).toBe(false);
+      expect(updateEvent).not.toHaveBeenCalled();
+      expect(syncEventNote).not.toHaveBeenCalled();
+      expect(testDocument.body.querySelector(".dl-edit-overlay")).toBeNull();
+    } finally {
+      restorePlatform();
       vi.useRealTimers();
       vi.unstubAllGlobals();
     }
