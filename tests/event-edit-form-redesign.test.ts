@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Platform, WorkspaceLeaf } from "obsidian";
 import { DeskleafCalendarView } from "../src/calendar-view";
@@ -336,6 +337,14 @@ function openEditor(view: DeskleafCalendarView, event: CalendarEvent, readOnly =
   return editor;
 }
 
+function cssRule(selector: string): string {
+  const styles = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
+  const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = new RegExp(`${escapedSelector}\\s*\\{([^}]*)\\}`).exec(styles);
+  if (!match) throw new Error(`CSS rule ${selector} was not found`);
+  return match[1];
+}
+
 describe("event edit form redesign", () => {
   beforeEach(() => {
     installObsidianDomHelpers();
@@ -399,6 +408,38 @@ describe("event edit form redesign", () => {
     expect(editor.querySelector(".dl-edit-form-scroll")).not.toBeNull();
     expect(editor.querySelector(".dl-edit-actions")).not.toBeNull();
     expect(editor.querySelector<HTMLInputElement>('input[placeholder="Titel..."]')?.value).toBe("Design Review");
+  });
+
+  it("keeps the rendered edit surface on Obsidian theme variables and Deskleaf edit styling", () => {
+    const plugin = makePlugin();
+    const view = makeView(plugin);
+
+    const editor = openEditor(view, makeEvent());
+
+    expect(editor.classList.contains("dl-edit-surface")).toBe(true);
+    expect(editor.classList.contains("dl-create-popover")).toBe(false);
+    expect(editor.querySelector(".dl-edit-header")).not.toBeNull();
+    expect(editor.querySelector(".dl-edit-heading")).not.toBeNull();
+    expect(editor.querySelector(".dl-edit-label")).not.toBeNull();
+    expect(editor.querySelector(".dl-edit-actions")).not.toBeNull();
+
+    const surfaceRule = cssRule(".dl-edit-surface");
+    expect(surfaceRule).toContain("background: var(--background-primary)");
+    expect(surfaceRule).toContain("border: 1px solid var(--background-modifier-border)");
+    expect(surfaceRule).toContain("border-radius: 8px");
+
+    const headerRule = cssRule(".dl-edit-header");
+    expect(headerRule).toContain("border-bottom: 1px solid var(--background-modifier-border)");
+
+    const headingRule = cssRule(".dl-edit-heading");
+    expect(headingRule).toContain("color: var(--text-normal)");
+
+    const labelRule = cssRule(".dl-edit-label");
+    expect(labelRule).toContain("color: var(--text-muted)");
+
+    const actionsRule = cssRule(".dl-edit-actions");
+    expect(actionsRule).toContain("border-top: 1px solid var(--background-modifier-border)");
+    expect(actionsRule).toContain("background: var(--background-secondary)");
   });
 
   it("renders read-only event details without save and without backend updates on close", async () => {
