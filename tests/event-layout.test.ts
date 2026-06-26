@@ -1133,6 +1133,116 @@ describe("event edit interactions", () => {
     }
   });
 
+  it("discards changed edit values when the user cancels the edit popover", () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback): number => {
+      callback(0);
+      return 1;
+    });
+    vi.stubGlobal("window", {
+      clearTimeout,
+      innerHeight: 800,
+      innerWidth: 1200,
+      setTimeout,
+    });
+    const testDocument = new TestDocument();
+    vi.stubGlobal("document", testDocument);
+    const wasMobile = Platform.isMobile;
+    const wasDesktop = Platform.isDesktop;
+
+    try {
+      Platform.isMobile = false;
+      Platform.isDesktop = true;
+      const event: CalendarEvent = {
+        id: "event-1",
+        title: "Planning review",
+        start: "2026-05-04T10:15:00Z",
+        end: "2026-05-04T11:45:00Z",
+        location: "Room 1",
+        body: "Review current milestones",
+        calendar: "Work",
+      };
+      const view = createCalendarViewHarnessWithEvents([event]);
+      const plugin = Reflect.get(view, "plugin");
+      const calendarReader = Reflect.get(plugin, "calendarReader");
+      const noteManager = Reflect.get(plugin, "noteManager");
+      const updateEvent = vi.fn(async (): Promise<void> => {});
+      const syncEventNote = vi.fn(async (): Promise<void> => {});
+      Reflect.set(calendarReader, "updateEvent", updateEvent);
+      Reflect.set(noteManager, "syncEventNote", syncEventNote);
+      Reflect.set(Reflect.get(plugin, "settings"), "caldav", {
+        discoveredCalendars: [
+          { href: "/work/", displayName: "Work" },
+          { href: "/private/", displayName: "Private" },
+        ],
+        selectedCalendars: [],
+      });
+
+      callViewMethod(view, "showEventEditPopover", event, "2026-05-04", makeMouseEvent("click"), false);
+      vi.runOnlyPendingTimers();
+
+      const popover = testDocument.body.querySelector(".dl-edit-popover");
+      if (!popover) throw new Error("edit popover was not rendered");
+      const textInputs = popover.querySelectorAll(".dl-create-input");
+      const timeInputs = popover.querySelectorAll(".dl-create-time-input");
+      const descriptionInput = popover.querySelector("textarea");
+      if (!descriptionInput) throw new Error("description input was not rendered");
+
+      textInputs[0].value = "Changed title";
+      timeInputs[0].value = "09:00";
+      timeInputs[1].value = "10:00";
+      textInputs[1].value = "Room 2";
+      descriptionInput.value = "Changed description";
+      const privateCalendar = popover
+        .querySelectorAll(".dl-create-cal-chip")
+        .find((chip) => renderText(chip) === "Private");
+      if (!privateCalendar) throw new Error("private calendar chip was not rendered");
+      privateCalendar.dispatchEvent(new Event("click", { cancelable: true }));
+
+      const cancelButton = popover
+        .querySelectorAll(".dl-create-btn")
+        .find((button) => renderText(button) === "Abbrechen");
+      if (!cancelButton) throw new Error("cancel button was not rendered");
+      cancelButton.dispatchEvent(new Event("click", { cancelable: true }));
+
+      expect(popover.isConnected).toBe(false);
+      expect(updateEvent).not.toHaveBeenCalled();
+      expect(syncEventNote).not.toHaveBeenCalled();
+      expect(event).toEqual({
+        id: "event-1",
+        title: "Planning review",
+        start: "2026-05-04T10:15:00Z",
+        end: "2026-05-04T11:45:00Z",
+        location: "Room 1",
+        body: "Review current milestones",
+        calendar: "Work",
+      });
+
+      callViewMethod(view, "showEventEditPopover", event, "2026-05-04", makeMouseEvent("click"), false);
+      vi.runOnlyPendingTimers();
+
+      const reopenedPopover = testDocument.body.querySelector(".dl-edit-popover");
+      if (!reopenedPopover) throw new Error("edit popover was not reopened");
+      const reopenedTextInputs = reopenedPopover.querySelectorAll(".dl-create-input");
+      const reopenedTimeInputs = reopenedPopover.querySelectorAll(".dl-create-time-input");
+      const reopenedDescriptionInput = reopenedPopover.querySelector("textarea");
+      const activeCalendar = reopenedPopover.querySelector(".dl-create-cal-chip--active");
+
+      expect(reopenedTextInputs.map((input) => input.value)).toEqual([
+        "Planning review",
+        "Room 1",
+      ]);
+      expect(reopenedTimeInputs.map((input) => input.value)).toEqual(["10:15", "11:45"]);
+      expect(reopenedDescriptionInput?.value).toBe("Review current milestones");
+      expect(activeCalendar ? renderText(activeCalendar) : "").toBe("Work");
+    } finally {
+      Platform.isMobile = wasMobile;
+      Platform.isDesktop = wasDesktop;
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("opens the edit popover on desktop single-click and the note on double-click", () => {
     vi.useFakeTimers();
     vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback): number => {
