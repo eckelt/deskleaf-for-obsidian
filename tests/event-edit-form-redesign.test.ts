@@ -459,6 +459,42 @@ describe("event edit form redesign", () => {
     expect(plugin.noteManager.syncEventNote).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps the writable edit delete action on the existing cancelEvent path", async () => {
+    const plugin = makePlugin();
+    const view = makeView(plugin);
+    const editor = openEditor(view, makeEvent());
+    const actions = editor.querySelector(".dl-edit-actions");
+
+    expect(actions?.textContent).toContain("Löschen");
+
+    actions?.querySelectorAll<HTMLButtonElement>("button").forEach((button) => {
+      if (button.textContent === "Löschen") button.click();
+    });
+    await vi.runAllTimersAsync();
+
+    expect(plugin.calendarReader.cancelEvent).toHaveBeenCalledWith("event-1", "this");
+    expect(plugin.calendarReader.updateEvent).not.toHaveBeenCalled();
+    expect(plugin.noteManager.syncEventNote).not.toHaveBeenCalled();
+  });
+
+  it("keeps the writable edit decline action on the existing cancelEvent path", async () => {
+    const plugin = makePlugin();
+    const view = makeView(plugin);
+    const editor = openEditor(view, makeEvent({ isOrganizer: false }), false);
+    const actions = editor.querySelector(".dl-edit-actions");
+
+    expect(actions?.textContent).toContain("Ablehnen");
+
+    actions?.querySelectorAll<HTMLButtonElement>("button").forEach((button) => {
+      if (button.textContent === "Ablehnen") button.click();
+    });
+    await vi.runAllTimersAsync();
+
+    expect(plugin.calendarReader.cancelEvent).toHaveBeenCalledWith("event-1", "this");
+    expect(plugin.calendarReader.updateEvent).not.toHaveBeenCalled();
+    expect(plugin.noteManager.syncEventNote).not.toHaveBeenCalled();
+  });
+
   it("keeps the recurring save flow behind the scope choice", async () => {
     const plugin = makePlugin();
     const view = makeView(plugin);
