@@ -267,6 +267,7 @@ export class DeskleafCalendarView extends ItemView {
   private desktopSlideZone: HTMLElement | null = null;
   private preserveScrollForNextRender: number | null = null;
   private mobileEdit: { event: CalendarEvent; cleanup: () => void } | null = null;
+  private activeTouchCreateCleanup: (() => void) | null = null;
   private hourPx = DEFAULT_HOUR_PX;
 
   constructor(leaf: WorkspaceLeaf, plugin: DeskleafPlugin) {
@@ -1039,6 +1040,7 @@ export class DeskleafCalendarView extends ItemView {
 
     const start = (e: TouchEvent) => {
       if (e.touches.length !== 2) return;
+      this.cancelActiveTouchCreate();
       tracking = true;
       pinching = false;
       startDistance = distance(e.touches);
@@ -2200,8 +2202,12 @@ export class DeskleafCalendarView extends ItemView {
   }
 
   private onDayTouchStart(e: TouchEvent, dayEl: HTMLElement, date: string) {
-    if (e.touches.length !== 1) return;
+    if (e.touches.length !== 1) {
+      this.cancelActiveTouchCreate();
+      return;
+    }
     if ((e.target as HTMLElement).closest(".dl-event-card, .dl-resize-handle, .dl-edit-handle")) return;
+    this.cancelActiveTouchCreate();
 
     const touch = e.touches[0];
     const rect = dayEl.getBoundingClientRect();
@@ -2211,19 +2217,24 @@ export class DeskleafCalendarView extends ItemView {
     const startY = touch.clientY;
     let holdActive = false;
     let ghost: HTMLElement | null = null;
+    let cleaned = false;
 
     const cleanup = () => {
+      if (cleaned) return;
+      cleaned = true;
       window.clearTimeout(timer);
       ghost?.remove();
       ghost = null;
       dayEl.removeEventListener("touchmove", onMove);
       dayEl.removeEventListener("touchend", onEnd);
       dayEl.removeEventListener("touchcancel", onEnd);
+      if (this.activeTouchCreateCleanup === cleanup) this.activeTouchCreateCleanup = null;
     };
 
     const timer = window.setTimeout(() => {
+      if (cleaned) return;
       holdActive = true;
-      if ((navigator as any).vibrate) (navigator as any).vibrate(10);
+      navigator.vibrate?.(10);
       ghost = dayEl.createDiv("dl-ghost-event");
       this.refreshGhost(ghost, startMin, endMin);
     }, 350);
@@ -2256,6 +2267,11 @@ export class DeskleafCalendarView extends ItemView {
     dayEl.addEventListener("touchmove", onMove, { passive: false });
     dayEl.addEventListener("touchend", onEnd);
     dayEl.addEventListener("touchcancel", onEnd);
+    this.activeTouchCreateCleanup = cleanup;
+  }
+
+  private cancelActiveTouchCreate() {
+    this.activeTouchCreateCleanup?.();
   }
 
   // ── Drag-to-move / Drag-to-resize ───────────────────────────────
