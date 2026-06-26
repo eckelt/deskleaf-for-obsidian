@@ -2200,6 +2200,7 @@ export class DeskleafCalendarView extends ItemView {
   }
 
   private onDayTouchStart(e: TouchEvent, dayEl: HTMLElement, date: string) {
+    if (e.touches.length !== 1) return;
     if ((e.target as HTMLElement).closest(".dl-event-card, .dl-resize-handle, .dl-edit-handle")) return;
 
     const touch = e.touches[0];
@@ -2228,6 +2229,10 @@ export class DeskleafCalendarView extends ItemView {
     }, 350);
 
     const onMove = (ev: TouchEvent) => {
+      if (ev.touches.length !== 1) {
+        cleanup();
+        return;
+      }
       const t = ev.touches[0];
       if (!holdActive) {
         if (Math.abs(t.clientX - startX) > 10 || Math.abs(t.clientY - startY) > 10) cleanup();
