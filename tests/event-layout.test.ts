@@ -34,6 +34,32 @@ class StyleDeclarations {
   }
 }
 
+class TestDocument {
+  readonly body = new RenderElement("body");
+  private readonly listeners = new Map<string, EventListenerOrEventListenerObject[]>();
+
+  addEventListener(type: string, listener: EventListenerOrEventListenerObject): void {
+    const listeners = this.listeners.get(type) ?? [];
+    listeners.push(listener);
+    this.listeners.set(type, listeners);
+  }
+
+  removeEventListener(type: string, listener: EventListenerOrEventListenerObject): void {
+    const listeners = this.listeners.get(type) ?? [];
+    this.listeners.set(type, listeners.filter((registered) => registered !== listener));
+  }
+
+  dispatchEvent(event: Event, target: RenderElement): boolean {
+    Object.defineProperty(event, "target", { value: target });
+    const listeners = this.listeners.get(event.type) ?? [];
+    listeners.forEach((listener) => {
+      if (typeof listener === "function") listener.call(this, event);
+      else listener.handleEvent(event);
+    });
+    return !event.defaultPrevented;
+  }
+}
+
 class CalendarElement {
   readonly dataset: Record<string, string | undefined>;
   readonly style = new StyleDeclarations();
@@ -122,6 +148,10 @@ class RenderElement {
     className.split(/\s+/).filter(Boolean).forEach((name) => this.classes.add(name));
   }
 
+  removeClass(className: string): void {
+    className.split(/\s+/).filter(Boolean).forEach((name) => this.classes.delete(name));
+  }
+
   setText(text: string): void {
     this.textContent = text;
   }
@@ -182,6 +212,15 @@ class RenderElement {
     return null;
   }
 
+  contains(node: RenderElement): boolean {
+    let current: RenderElement | null = node;
+    while (current) {
+      if (current === this) return true;
+      current = current.parent;
+    }
+    return false;
+  }
+
   private applyCreateOptions(child: RenderElement, options?: string | { cls?: ClassValue; text?: string }): void {
     if (typeof options === "string") {
       child.addClass(options);
@@ -201,7 +240,12 @@ class RenderElement {
   }
 
   private matches(selector: string): boolean {
-    if (selector.startsWith(".")) return this.classes.has(selector.slice(1));
+    if (selector.startsWith(".")) {
+      return selector
+        .split(".")
+        .filter(Boolean)
+        .every((className) => this.classes.has(className));
+    }
     if (selector.startsWith("[") && selector.endsWith("]")) {
       const name = selector.slice(1, -1).replace(/-([a-z])/g, (_, letter: string) => letter.toUpperCase());
       return this.dataset[name] !== undefined;
@@ -1107,6 +1151,66 @@ describe("event edit interactions", () => {
 
       expect(showEventEditPopover).not.toHaveBeenCalled();
       expect(openEvent).toHaveBeenCalledWith(event, false);
+    } finally {
+      Platform.isMobile = wasMobile;
+      Platform.isDesktop = wasDesktop;
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("keeps mobile long-press edit handles open until an outside tap", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-04T12:00:00Z"));
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback): number => {
+      callback(0);
+      return 1;
+    });
+    vi.stubGlobal("window", {
+      clearTimeout,
+      innerWidth: 390,
+      setTimeout,
+    });
+    vi.stubGlobal("navigator", {});
+    const testDocument = new TestDocument();
+    vi.stubGlobal("document", testDocument);
+    const wasMobile = Platform.isMobile;
+    const wasDesktop = Platform.isDesktop;
+
+    try {
+      Platform.isMobile = true;
+      Platform.isDesktop = false;
+      const event = makeEvent("event-1", "2026-05-04T10:00:00Z", "2026-05-04T11:00:00Z");
+      const view = createCalendarViewHarnessWithEvents([event]);
+      const showEventEditPopover = vi.fn();
+      Reflect.set(view, "showEventEditPopover", showEventEditPopover);
+
+      callViewMethod(view, "render");
+      const card = renderedGrid(view).querySelector(".dl-event-card");
+      if (!card) throw new Error("event card was not rendered");
+
+      card.dispatchEvent(makeTouchEvent("touchstart", [{ clientX: 120, clientY: 160 }]));
+      vi.advanceTimersByTime(350);
+      vi.runOnlyPendingTimers();
+
+      expect(showEventEditPopover).not.toHaveBeenCalled();
+      expect(card.classList.contains("dl-event-card--editing")).toBe(true);
+      expect(card.querySelector(".dl-edit-handle--top")).not.toBeNull();
+      expect(card.querySelector(".dl-edit-handle--bottom")).not.toBeNull();
+      const editBar = testDocument.body.querySelector(".dl-mobile-edit-bar");
+      expect(editBar).not.toBeNull();
+
+      card.dispatchEvent(makeTouchEvent("touchend", [{ clientX: 120, clientY: 160 }]));
+
+      expect(card.classList.contains("dl-event-card--editing")).toBe(true);
+      expect(card.querySelectorAll(".dl-edit-handle")).toHaveLength(2);
+
+      const outside = testDocument.body.createDiv("outside");
+      testDocument.dispatchEvent(makeTouchEvent("touchstart", [{ clientX: 1, clientY: 1 }]), outside);
+
+      expect(card.classList.contains("dl-event-card--editing")).toBe(false);
+      expect(card.querySelectorAll(".dl-edit-handle")).toHaveLength(0);
+      expect(editBar?.isConnected).toBe(false);
     } finally {
       Platform.isMobile = wasMobile;
       Platform.isDesktop = wasDesktop;
