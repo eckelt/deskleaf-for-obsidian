@@ -1150,6 +1150,73 @@ describe("event edit rules", () => {
 });
 
 describe("event edit interactions", () => {
+  it("keeps the create popover writable after the edit form redesign", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("window", {
+      clearTimeout,
+      innerHeight: 800,
+      innerWidth: 1200,
+      setTimeout,
+    });
+    const testDocument = new TestDocument();
+    vi.stubGlobal("document", testDocument);
+    const wasMobile = Platform.isMobile;
+    const wasDesktop = Platform.isDesktop;
+
+    try {
+      Platform.isMobile = false;
+      Platform.isDesktop = true;
+      const view = createCalendarViewHarness();
+      const calendarReader = Reflect.get(Reflect.get(view, "plugin"), "calendarReader");
+      const createEvent = vi.fn(async (): Promise<void> => {});
+      Reflect.set(calendarReader, "createEvent", createEvent);
+
+      callViewMethod(view, "showCreatePopover", "2026-05-04", 600, 660, { clientX: 240, clientY: 180 });
+      vi.runOnlyPendingTimers();
+
+      const popover = testDocument.body.querySelector(".dl-create-popover");
+      if (!popover) throw new Error("create popover was not rendered");
+
+      const textInputs = popover.querySelectorAll(".dl-create-input");
+      const timeInputs = popover.querySelectorAll(".dl-create-time-input");
+      const descriptionInput = popover.querySelector(".dl-create-desc");
+      const homeCalendar = popover
+        .querySelectorAll(".dl-create-cal-chip")
+        .find((chip) => renderText(chip) === "Home");
+      const createButton = popover
+        .querySelectorAll(".dl-create-btn")
+        .find((button) => renderText(button) === "Erstellen");
+
+      if (!descriptionInput) throw new Error("create description was not rendered");
+      if (!homeCalendar) throw new Error("create calendar chip was not rendered");
+      if (!createButton) throw new Error("create button was not rendered");
+
+      textInputs[0].value = "New planning block";
+      timeInputs[0].value = "10:30";
+      timeInputs[1].value = "11:45";
+      textInputs[1].value = "Room 2";
+      descriptionInput.value = "Discuss delivery plan";
+      homeCalendar.dispatchEvent(new Event("click"));
+      createButton.dispatchEvent(new Event("click"));
+      await Promise.resolve();
+
+      expect(createEvent).toHaveBeenCalledWith({
+        title: "New planning block",
+        start: "2026-05-04T10:30:00+00:00",
+        end: "2026-05-04T11:45:00+00:00",
+        calendar: "Home",
+        location: "Room 2",
+        notes: "Discuss delivery plan",
+      });
+      expect(popover.isConnected).toBe(false);
+    } finally {
+      Platform.isMobile = wasMobile;
+      Platform.isDesktop = wasDesktop;
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("initializes the edit popover with title, time, location, description and calendar", () => {
     vi.useFakeTimers();
     vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback): number => {
