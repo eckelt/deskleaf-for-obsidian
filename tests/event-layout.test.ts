@@ -249,6 +249,7 @@ function createCalendarViewHarness(): object {
     },
     plugin: {
       calendarReader: {
+        createEvent: vi.fn(async (): Promise<void> => {}),
         getAllDayEventsForDate: (): CalendarEvent[] => [],
         getEvents: (): CalendarEvent[] => [],
         getEventsForDate: (): CalendarEvent[] => [],
@@ -650,7 +651,7 @@ describe("zoom geometry", () => {
     }
   });
 
-  it("does not start drag-to-create for a two-finger touch on an empty day body", () => {
+  it("zooms through touchend without starting drag-to-create on an empty day body", () => {
     vi.useFakeTimers();
     vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback): number => {
       callback(0);
@@ -672,20 +673,38 @@ describe("zoom geometry", () => {
 
       callViewMethod(view, "render");
 
-      const dayBody = renderedGrid(view).querySelectorAll(".dl-day-body")
+      const grid = renderedGrid(view);
+      const bodyScroll = grid.querySelector(".dl-grid-body-scroll");
+      if (!bodyScroll) throw new Error("calendar body scroll was not rendered");
+      const dayBody = grid.querySelectorAll(".dl-day-body")
         .find((element) => element.dataset.date);
       if (!dayBody) throw new Error("calendar day body was not rendered");
+      const createEvent = Reflect.get(Reflect.get(Reflect.get(view, "plugin"), "calendarReader"), "createEvent");
 
       const startEvent = makeTouchEvent("touchstart", [
         { clientX: 120, clientY: 160 },
         { clientX: 220, clientY: 160 },
       ]);
       dayBody.dispatchEvent(startEvent);
+      bodyScroll.dispatchEvent(makeTouchEvent("touchstart", [
+        { clientX: 120, clientY: 160 },
+        { clientX: 220, clientY: 160 },
+      ]));
+      const moveEvent = makeTouchEvent("touchmove", [
+        { clientX: 120, clientY: 160 },
+        { clientX: 270, clientY: 160 },
+      ]);
+      bodyScroll.dispatchEvent(moveEvent);
+      bodyScroll.dispatchEvent(makeTouchEvent("touchend", []));
       vi.advanceTimersByTime(400);
 
       expect(startEvent.defaultPrevented).toBe(false);
+      expect(moveEvent.defaultPrevented).toBe(true);
+      expect(renderCssValue(grid, "--f-hour-px")).toBe("96px");
       expect(dayBody.querySelector(".dl-ghost-event")).toBeNull();
+      expect(Reflect.get(view, "activeTouchCreateCleanup")).toBeNull();
       expect(Reflect.get(view, "dragCreate")).toBeNull();
+      expect(createEvent).toHaveBeenCalledTimes(0);
     } finally {
       Platform.isMobile = wasMobile;
       Platform.isDesktop = wasDesktop;
