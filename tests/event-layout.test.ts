@@ -1212,6 +1212,68 @@ describe("event edit interactions", () => {
     }
   });
 
+  it("keeps long mobile edit content scrolling inside the sheet instead of the calendar body", () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback): number => {
+      callback(0);
+      return 1;
+    });
+    vi.stubGlobal("window", {
+      clearTimeout,
+      innerHeight: 640,
+      innerWidth: 390,
+      setTimeout,
+    });
+    const testDocument = new TestDocument();
+    vi.stubGlobal("document", testDocument);
+    const wasMobile = Platform.isMobile;
+    const wasDesktop = Platform.isDesktop;
+
+    try {
+      Platform.isMobile = true;
+      Platform.isDesktop = false;
+      const longDescription = Array.from({ length: 32 }, (_, index) => `Agenda item ${index + 1}`).join("\n");
+      const event: CalendarEvent = {
+        id: "event-1",
+        title: "Long planning review",
+        start: "2026-05-04T10:15:00Z",
+        end: "2026-05-04T11:45:00Z",
+        location: "Room 1",
+        body: longDescription,
+        calendar: "Work",
+      };
+      const view = createCalendarViewHarnessWithEvents([event]);
+
+      callViewMethod(view, "render");
+      const bodyScroll = renderedGrid(view).querySelector(".dl-grid-body-scroll");
+      if (!bodyScroll) throw new Error("calendar body scroll was not rendered");
+
+      callViewMethod(view, "showEventEditPopover", event, "2026-05-04", makeTouchEvent("touchend", [{ clientX: 120, clientY: 160 }]), false);
+      vi.runOnlyPendingTimers();
+      bodyScroll.scrollTop = 240;
+
+      const sheet = testDocument.body.querySelector(".dl-edit-sheet");
+      if (!sheet) throw new Error("mobile edit sheet was not rendered");
+      const formScroll = sheet.querySelector(".dl-edit-form-scroll");
+      if (!formScroll) throw new Error("mobile edit form scroll region was not rendered");
+
+      formScroll.scrollTop = 320;
+      formScroll.dispatchEvent(new Event("scroll"));
+
+      expect(sheet.querySelector(".dl-edit-desc-input")?.value).toBe(longDescription);
+      expect(sheet.children.indexOf(formScroll)).toBeLessThan(sheet.children.length - 1);
+      expect(formScroll.scrollTop).toBe(320);
+      expect(bodyScroll.scrollTop).toBe(240);
+      expect(cssRule(".dl-edit-form-scroll")).toContain("overflow-y: auto");
+      expect(cssRule(".dl-edit-form-scroll")).toContain("overscroll-behavior: contain");
+    } finally {
+      Platform.isMobile = wasMobile;
+      Platform.isDesktop = wasDesktop;
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("keeps the mobile edit sheet anchored inside the viewport and safe area", () => {
     const mobileOverlayRule = cssRule(".dl-edit-overlay--mobile");
     const mobileSheetRule = cssRule(".dl-edit-sheet");
