@@ -37,6 +37,10 @@ class TestDocument {
   readonly body = new RenderElement("body");
   private readonly listeners = new Map<string, EventListenerOrEventListenerObject[]>();
 
+  querySelector(selector: string): RenderElement | null {
+    return this.body.querySelector(selector);
+  }
+
   addEventListener(type: string, listener: EventListenerOrEventListenerObject): void {
     const listeners = this.listeners.get(type) ?? [];
     listeners.push(listener);
@@ -90,6 +94,9 @@ class RenderElement {
     contains: (className: string): boolean => this.classes.has(className),
   };
   textContent = "";
+  value = "";
+  disabled = false;
+  step = "";
   scrollTop = 0;
   clientHeight = 720;
   offsetHeight = 20;
@@ -156,6 +163,8 @@ class RenderElement {
   }
 
   setAttribute(_name: string, _value: string): void {}
+
+  focus(): void {}
 
   addEventListener(type: string, _listener: EventListenerOrEventListenerObject, _options?: AddEventListenerOptions): void {
     this.listenerCounts.set(type, this.eventListenerCount(type) + 1);
@@ -402,6 +411,10 @@ function makeWheelEvent(deltaY: number, clientY: number, ctrlKey: boolean): Even
   Object.defineProperty(event, "clientY", { value: clientY });
   Object.defineProperty(event, "ctrlKey", { value: ctrlKey });
   return event;
+}
+
+function renderText(element: RenderElement): string {
+  return [element.textContent, ...element.children.map(renderText)].join("");
 }
 
 describe("topFromISO", () => {
@@ -1056,6 +1069,70 @@ describe("event edit rules", () => {
 });
 
 describe("event edit interactions", () => {
+  it("initializes the edit popover with title, time, location, description and calendar", () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback): number => {
+      callback(0);
+      return 1;
+    });
+    vi.stubGlobal("window", {
+      clearTimeout,
+      innerHeight: 800,
+      innerWidth: 1200,
+      setTimeout,
+    });
+    const testDocument = new TestDocument();
+    vi.stubGlobal("document", testDocument);
+    const wasMobile = Platform.isMobile;
+    const wasDesktop = Platform.isDesktop;
+
+    try {
+      Platform.isMobile = false;
+      Platform.isDesktop = true;
+      const event: CalendarEvent = {
+        id: "event-1",
+        title: "Planning review",
+        start: "2026-05-04T10:15:00Z",
+        end: "2026-05-04T11:45:00Z",
+        location: "Room 1",
+        body: "Review current milestones",
+        calendar: "Work",
+      };
+      const view = createCalendarViewHarnessWithEvents([event]);
+      Reflect.set(Reflect.get(Reflect.get(view, "plugin"), "settings"), "caldav", {
+        discoveredCalendars: [
+          { href: "/work/", displayName: "Work" },
+          { href: "/private/", displayName: "Private" },
+        ],
+        selectedCalendars: [],
+      });
+
+      callViewMethod(view, "showEventEditPopover", event, "2026-05-04", makeMouseEvent("click"), false);
+      vi.runOnlyPendingTimers();
+
+      const popover = testDocument.body.querySelector(".dl-edit-popover");
+      if (!popover) throw new Error("edit popover was not rendered");
+      const textInputs = popover.querySelectorAll(".dl-create-input");
+      const timeInputs = popover.querySelectorAll(".dl-create-time-input");
+      const descriptionInput = popover.querySelector("textarea");
+      const activeCalendar = popover.querySelector(".dl-create-cal-chip--active");
+
+      expect(textInputs.map((input) => input.value)).toEqual([
+        "Planning review",
+        "Room 1",
+      ]);
+      expect(timeInputs.map((input) => input.value)).toEqual(["10:15", "11:45"]);
+      expect(descriptionInput?.value).toBe("Review current milestones");
+      expect(activeCalendar).not.toBeNull();
+      expect(activeCalendar ? renderText(activeCalendar) : "").toBe("Work");
+    } finally {
+      Platform.isMobile = wasMobile;
+      Platform.isDesktop = wasDesktop;
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("opens the edit popover on desktop single-click and the note on double-click", () => {
     vi.useFakeTimers();
     vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback): number => {
