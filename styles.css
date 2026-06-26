@@ -1188,6 +1188,10 @@
     border-color: var(--interactive-accent);
 }
 
+.dl-create-input--invalid {
+    border-color: var(--color-red);
+}
+
 .dl-create-time-sep {
     color: var(--text-muted);
     font-size: 0.88em;

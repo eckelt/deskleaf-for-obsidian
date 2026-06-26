@@ -1900,11 +1900,12 @@ export class DeskleafCalendarView extends ItemView {
     const createBtn = actions.createEl("button", { cls: "dl-create-btn dl-create-btn--primary", text: "Erstellen" });
 
     const confirm = async () => {
+      endInput.removeClass("dl-create-input--invalid");
       const title = titleInput.value.trim();
       if (!title) { titleInput.focus(); return; }
       const s = parseClockTime(startInput.value);
       const e = parseClockTime(endInput.value);
-      if (e <= s) { endInput.style.borderColor = "var(--color-red)"; return; }
+      if (e <= s) { endInput.addClass("dl-create-input--invalid"); return; }
       popover.remove();
       cleanup();
       try {
@@ -2093,9 +2094,9 @@ export class DeskleafCalendarView extends ItemView {
     const saveBtn = readOnly ? null : actions.createEl("button", { cls: "dl-create-btn dl-create-btn--primary dl-edit-save-btn", text: "Speichern" });
 
     const clearErrors = () => {
-      titleInput.style.borderColor = "";
-      startInput.style.borderColor = "";
-      endInput.style.borderColor = "";
+      titleInput.removeClass("dl-create-input--invalid");
+      startInput.removeClass("dl-create-input--invalid");
+      endInput.removeClass("dl-create-input--invalid");
     };
     const validate = (): EventUpdate | null => {
       clearErrors();
@@ -2111,9 +2112,9 @@ export class DeskleafCalendarView extends ItemView {
         notes: descInput.value,
         calendar: calendarValue,
       });
-      if (!titleInput.value.trim()) { titleInput.style.borderColor = "var(--color-red)"; titleInput.focus(); return null; }
-      if (!startInput.value) { startInput.style.borderColor = "var(--color-red)"; startInput.focus(); return null; }
-      if (!endInput.value || e <= s) { endInput.style.borderColor = "var(--color-red)"; endInput.focus(); return null; }
+      if (!titleInput.value.trim()) { titleInput.addClass("dl-create-input--invalid"); titleInput.focus(); return null; }
+      if (!startInput.value) { startInput.addClass("dl-create-input--invalid"); startInput.focus(); return null; }
+      if (!endInput.value || e <= s) { endInput.addClass("dl-create-input--invalid"); endInput.focus(); return null; }
       return update;
     };
     const close = () => { overlay.remove(); cleanup(); };
