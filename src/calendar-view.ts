@@ -26,6 +26,8 @@ import {
   parseDate,
   shortDayLabel,
   getWeekNumber,
+  minsToTimeStr,
+  minsToISO,
 } from "./date-utils";
 import type { DayColumn } from "./date-utils";
 import { openFile } from "./open-file";
@@ -38,8 +40,6 @@ import {
   hourPxForPinch,
   scrollTopForZoomAnchor,
   snapMins,
-  minsToTimeStr,
-  minsToISO,
 } from "./event-layout";
 import type { EventLayout } from "./event-layout";
 import { getBusinessHoursSegment } from "./business-hours";

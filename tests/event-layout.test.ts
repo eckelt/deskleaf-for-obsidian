@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { Platform } from "obsidian";
 import { DeskleafCalendarView, isEventReadOnly } from "../src/calendar-view";
 import { validateEventEditInput } from "../src/event-edit";
+import { minsToISO, minsToTimeStr } from "../src/date-utils";
 import {
   assignColumns,
   clampHourPx,
@@ -10,8 +11,6 @@ import {
   hourPxForPinch,
   scrollTopForZoomAnchor,
   snapMins,
-  minsToTimeStr,
-  minsToISO,
   topFromISO,
 } from "../src/event-layout";
 import type { CalendarEvent } from "../src/types";

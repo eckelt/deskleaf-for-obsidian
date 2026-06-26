@@ -15,6 +15,18 @@ export function toTimeStr(iso: string): string {
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
+export function minsToTimeStr(mins: number): string {
+  return `${String(Math.floor(mins / 60)).padStart(2, "0")}:${String(mins % 60).padStart(2, "0")}`;
+}
+
+export function minsToISO(date: string, mins: number): string {
+  const offset = -new Date().getTimezoneOffset();
+  const sign = offset >= 0 ? "+" : "-";
+  const abs = Math.abs(offset);
+  const tz = `${sign}${String(Math.floor(abs / 60)).padStart(2, "0")}:${String(abs % 60).padStart(2, "0")}`;
+  return `${date}T${minsToTimeStr(mins)}:00${tz}`;
+}
+
 /** Parse YYYY-MM-DD into a local Date at midnight */
 export function parseDate(s: string): Date {
   const [y, m, d] = s.split("-").map(Number);

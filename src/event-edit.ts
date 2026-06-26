@@ -1,5 +1,5 @@
 import type { EventEditInput, EventUpdate } from "./types";
-import { minsToISO } from "./event-layout";
+import { minsToISO } from "./date-utils";
 
 export function parseClockTime(value: string): number {
   const [hours, minutes] = value.split(":").map(Number);
