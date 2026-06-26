@@ -1985,7 +1985,65 @@ export class DeskleafCalendarView extends ItemView {
     const endDate = toDateStr(initialEnd);
     const durationMin = Math.max(15, Math.round((initialEnd.getTime() - initialStart.getTime()) / 60000));
 
-    if (Platform.isMobile) popover.createDiv("dl-edit-sheet-handle");
+    let handleDragStartY: number | null = null;
+    let handleDragCurrentY: number | null = null;
+    const handleDismissThresholdPx = 72;
+    const touchY = (ev: TouchEvent): number | null => {
+      const touch = ev.touches[0] ?? ev.changedTouches[0];
+      return touch ? touch.clientY : null;
+    };
+    const setSheetDragOffset = (offsetPx: number) => {
+      popover.style.setProperty("--f-edit-sheet-drag-y", `${Math.max(0, offsetPx)}px`);
+    };
+    const resetSheetDrag = () => {
+      handleDragStartY = null;
+      handleDragCurrentY = null;
+      setSheetDragOffset(0);
+    };
+    const currentHandleDragDistance = (): number => {
+      if (handleDragStartY === null || handleDragCurrentY === null) return 0;
+      return handleDragCurrentY - handleDragStartY;
+    };
+
+    if (Platform.isMobile) {
+      const handle = popover.createDiv("dl-edit-sheet-handle");
+      handle.setAttribute("role", "button");
+      handle.setAttribute("aria-label", "Editor schliessen");
+      const beginTouchDrag = (ev: TouchEvent) => {
+        const y = touchY(ev);
+        if (y === null) return;
+        handleDragStartY = y;
+        handleDragCurrentY = y;
+        document.addEventListener("touchmove", continueTouchDrag, { passive: false });
+        document.addEventListener("touchend", finishHandleDrag);
+        document.addEventListener("touchcancel", cancelHandleDrag);
+      };
+      const continueTouchDrag = (ev: TouchEvent) => {
+        const y = touchY(ev);
+        if (y === null || handleDragStartY === null) return;
+        handleDragCurrentY = y;
+        const distance = currentHandleDragDistance();
+        if (distance <= 0) return;
+        ev.preventDefault();
+        setSheetDragOffset(distance);
+      };
+      const finishHandleDrag = () => {
+        const shouldClose = currentHandleDragDistance() >= handleDismissThresholdPx;
+        resetSheetDrag();
+        removeHandleDragListeners();
+        if (shouldClose) close();
+      };
+      const cancelHandleDrag = () => {
+        resetSheetDrag();
+        removeHandleDragListeners();
+      };
+      const removeHandleDragListeners = () => {
+        document.removeEventListener("touchmove", continueTouchDrag);
+        document.removeEventListener("touchend", finishHandleDrag);
+        document.removeEventListener("touchcancel", cancelHandleDrag);
+      };
+      handle.addEventListener("touchstart", beginTouchDrag);
+    }
 
     const header = popover.createDiv("dl-edit-header");
     header.createDiv({ cls: "dl-edit-heading", text: readOnly ? "Event ansehen" : "Event bearbeiten" });
