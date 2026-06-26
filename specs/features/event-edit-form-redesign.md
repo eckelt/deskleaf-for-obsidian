@@ -85,16 +85,20 @@ _None_
 
 ## Affected Areas
 - `src/calendar-view.ts`: `showEventEditPopover(...)` structure/classes, mobile/desktop positioning, close behavior wiring if class names change.
+- `src/event-edit.ts` or similarly focused helper module: pure edit rules such as read-only classification and input validation, if they need to be shared or tested outside the view.
 - `styles.css`: Dedicated edit-form styling for mobile bottom sheet and desktop dialog/popover states.
 - `tests/*.test.ts`: Focused DOM/class/interaction coverage where feasible.
 
 ## Test Expectations
 - Automated coverage for the shared edit-form rendering path is sufficient; tests do not need to duplicate every field on both desktop and mobile if the same builder function renders them.
-- Automated DOM-level coverage should assert representative mobile behavior: mobile edit form gets the bottom-sheet class/structure, contains the current event values, and keeps save/cancel actions present for writable events.
-- Automated DOM-level coverage should assert representative desktop behavior: desktop edit form gets the desktop edit-dialog/popover class/structure, is distinct from the create-only styling, and contains the current event values.
+- Automated DOM-level coverage should assert representative mobile behavior: the mobile edit form gets the bottom-sheet class/structure, contains the current event values, and keeps save/cancel actions present for writable events. CSS implementation details such as exact pixels, `safe-area-inset` arithmetic and animation timing are covered by manual QA unless they are expressed through stable classes or CSS custom properties.
+- Automated DOM-level coverage should assert representative desktop behavior: the desktop edit form gets the desktop edit-dialog/popover class/structure, is distinct from the create-only styling, and contains the current event values. Stable width and viewport-safe placement do not require brittle layout assertions in Vitest.
+- Automated coverage should verify long-content support through stable structure: a dedicated scrollable form/body container exists inside the sheet/dialog. Visual scroll feel remains manual QA.
+- Automated coverage should verify Escape and outside-click/tap close the edit form without `updateEvent` or note sync; one representative close-path test may cover the shared close implementation when Escape and outside-click call the same close function.
 - Automated coverage should verify read-only rendering has no save action and does not call `updateEvent`.
 - Automated coverage should verify cancel/close still avoids `updateEvent` and note sync.
 - Existing tests for VEVENT updates, backend update paths, note sync, recurring scope and validation remain the behavioral safety net; do not rewrite them solely for visual class changes.
+- Create-popover regression coverage should be representative: opening the create popover and successfully invoking the existing create path is enough to prove shared style changes did not break creation.
 - Manual QA in Obsidian is required for visual fit: mobile bottom sheet on iPhone-sized viewport, desktop Obsidian window at narrow and normal widths, dark and light themes, long description, read-only event and recurring-event save prompt.
 
 ---

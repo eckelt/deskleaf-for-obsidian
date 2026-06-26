@@ -1840,12 +1840,13 @@ export class DeskleafCalendarView extends ItemView {
     document.body.style.userSelect = "";
   }
 
-  private showCreatePopover(
+  showCreatePopover(
     date: string,
     startMin: number,
     endMin: number,
     pos: { clientX: number; clientY: number },
   ) {
+    document.querySelector(".dl-edit-overlay")?.remove();
     document.querySelector(".dl-edit-overlay")?.remove();
     document.querySelector(".dl-create-popover")?.remove();
 
@@ -1968,7 +1969,7 @@ export class DeskleafCalendarView extends ItemView {
     }, 0);
   }
 
-  private showEventEditPopover(
+  showEventEditPopover(
     event: CalendarEvent,
     date: string,
     _source: MouseEvent | TouchEvent,
