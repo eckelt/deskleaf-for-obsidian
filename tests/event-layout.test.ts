@@ -1,8 +1,8 @@
 import { readFileSync } from "node:fs";
 import { describe, it, expect, vi } from "vitest";
 import { Platform } from "obsidian";
-import { DeskleafCalendarView, isEventReadOnly } from "../src/calendar-view";
-import { validateEventEditInput } from "../src/event-edit";
+import { DeskleafCalendarView } from "../src/calendar-view";
+import { isEventReadOnly, validateEventEditInput } from "../src/event-edit";
 import { minsToISO, minsToTimeStr } from "../src/date-utils";
 import {
   assignColumns,

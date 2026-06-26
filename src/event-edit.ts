@@ -1,9 +1,14 @@
-import type { EventEditInput, EventUpdate } from "./types";
+import type { CalendarEvent, EventEditInput, EventUpdate } from "./types";
 import { minsToISO } from "./date-utils";
+import { isFeedEvent } from "./ical-feed-manager";
 
 export function parseClockTime(value: string): number {
   const [hours, minutes] = value.split(":").map(Number);
   return (hours || 0) * 60 + (minutes || 0);
+}
+
+export function isEventReadOnly(event: CalendarEvent): boolean {
+  return !!event.isCancelled || isFeedEvent(event) || !!event.isAllDay || event.isOrganizer === false;
 }
 
 export function validateEventEditInput(input: EventEditInput): EventUpdate | null {

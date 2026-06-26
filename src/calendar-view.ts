@@ -43,7 +43,7 @@ import {
 } from "./event-layout";
 import type { EventLayout } from "./event-layout";
 import { getBusinessHoursSegment } from "./business-hours";
-import { parseClockTime, validateEventEditInput } from "./event-edit";
+import { isEventReadOnly, parseClockTime, validateEventEditInput } from "./event-edit";
 
 export const VIEW_TYPE_CALENDAR = "deskleaf-calendar";
 
@@ -214,10 +214,6 @@ export function clockIconSvg(size: number): string {
 
 export function isUrlLocation(location: string | null | undefined): boolean {
   return /\b(?:https?:\/\/|www\.)\S+/i.test(location?.trim() ?? "");
-}
-
-export function isEventReadOnly(event: CalendarEvent): boolean {
-  return !!event.isCancelled || isFeedEvent(event) || !!event.isAllDay || event.isOrganizer === false;
 }
 
 // ── Time grid constants ──────────────────────────────────────────────
