@@ -1355,6 +1355,69 @@ describe("event edit interactions", () => {
     expect(mobileSheetActionsRule).toContain("padding-bottom: max(10px, env(safe-area-inset-bottom))");
   });
 
+  it("keeps the desktop edit dialog stable and viewport-safe", () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("window", {
+      clearTimeout,
+      innerHeight: 800,
+      innerWidth: 1200,
+      setTimeout,
+    });
+    const testDocument = new TestDocument();
+    vi.stubGlobal("document", testDocument);
+    const wasMobile = Platform.isMobile;
+    const wasDesktop = Platform.isDesktop;
+
+    try {
+      Platform.isMobile = false;
+      Platform.isDesktop = true;
+      const event: CalendarEvent = {
+        id: "event-1",
+        title: "Planning review",
+        start: "2026-05-04T10:15:00Z",
+        end: "2026-05-04T11:45:00Z",
+        location: "Room 1",
+        body: "Review current milestones",
+        calendar: "Work",
+      };
+      const view = createCalendarViewHarnessWithEvents([event]);
+
+      callViewMethod(view, "showEventEditPopover", event, "2026-05-04", makeMouseEvent("click"), false);
+      vi.runOnlyPendingTimers();
+
+      const overlay = testDocument.body.querySelector(".dl-edit-overlay--desktop");
+      const dialog = testDocument.body.querySelector(".dl-edit-dialog");
+      if (!dialog) throw new Error("desktop edit dialog was not rendered");
+
+      expect(overlay).not.toBeNull();
+      expect(dialog.classList.contains("dl-create-popover")).toBe(false);
+      expect(dialog.querySelector(".dl-edit-section")).not.toBeNull();
+      expect(dialog.querySelector(".dl-edit-form-scroll")).not.toBeNull();
+      expect(dialog.style.getPropertyValue("left")).toBe("");
+      expect(dialog.style.getPropertyValue("top")).toBe("");
+      expect(dialog.style.getPropertyValue("transform")).toBe("");
+
+      const overlayRule = cssRule(".dl-edit-overlay");
+      const surfaceRule = cssRule(".dl-edit-surface");
+      const dialogRule = cssRule(".dl-edit-dialog");
+      const createRule = cssRule(".dl-create-popover");
+
+      expect(overlayRule).toContain("inset: 0");
+      expect(overlayRule).toContain("align-items: center");
+      expect(overlayRule).toContain("justify-content: center");
+      expect(surfaceRule).toContain("width: min(420px, calc(100vw - 36px))");
+      expect(surfaceRule).toContain("max-height: calc(100vh - 36px)");
+      expect(surfaceRule).toContain("overflow: hidden");
+      expect(dialogRule).toContain("min-width: min(420px, calc(100vw - 36px))");
+      expect(createRule).toContain("max-width: min(360px, calc(100vw - 24px))");
+    } finally {
+      Platform.isMobile = wasMobile;
+      Platform.isDesktop = wasDesktop;
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("renders read-only details without save and closing does not update the backend", () => {
     vi.useFakeTimers();
     vi.stubGlobal("window", {
