@@ -199,10 +199,10 @@ describe("AC3 — event appearance in calendar view", () => {
 
 describe("AC4 — read-only enforcement for feed events", () => {
   // AC: Abonnierte Feeds sind read-only — Drag-to-move, Drag-to-resize und Drag-to-create erzeugen für diese Events keine Schreiboperation; der Nutzer sieht keinen Drag-Handle und keinen Resize-Griff an diesen Cards.
-  it("parseICalendar sets isOrganizer to false on all feed events", () => {
+  it("parseICalendar leaves organizer ownership unspecified for regular parsed events", () => {
     const events = parseICalendar(MINIMAL_ICAL("uid-ac4", "Read-only Event"), "Some Feed");
     expect(events.length).toBeGreaterThan(0);
-    expect(events.every((e) => e.isOrganizer === false)).toBe(true);
+    expect(events.every((e) => e.isOrganizer === undefined)).toBe(true);
   });
 
   // AC: Abonnierte Feeds sind read-only — Drag-to-move, Drag-to-resize und Drag-to-create erzeugen für diese Events keine Schreiboperation; der Nutzer sieht keinen Drag-Handle und keinen Resize-Griff an diesen Cards.

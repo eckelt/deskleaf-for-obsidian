@@ -2009,29 +2009,39 @@ export class DeskleafCalendarView extends ItemView {
       const handle = popover.createDiv("dl-edit-sheet-handle");
       handle.setAttribute("role", "button");
       handle.setAttribute("aria-label", "Editor schliessen");
-      const beginTouchDrag = (ev: TouchEvent) => {
-        const y = touchY(ev);
-        if (y === null) return;
-        handleDragStartY = y;
-        handleDragCurrentY = y;
-        document.addEventListener("touchmove", continueTouchDrag, { passive: false });
-        document.addEventListener("touchend", finishHandleDrag);
-        document.addEventListener("touchcancel", cancelHandleDrag);
+      const beginHandleDrag = (clientY: number) => {
+        handleDragStartY = clientY;
+        handleDragCurrentY = clientY;
       };
-      const continueTouchDrag = (ev: TouchEvent) => {
-        const y = touchY(ev);
-        if (y === null || handleDragStartY === null) return;
-        handleDragCurrentY = y;
+      const continueHandleDrag = (clientY: number): boolean => {
+        if (handleDragStartY === null) return false;
+        handleDragCurrentY = clientY;
         const distance = currentHandleDragDistance();
-        if (distance <= 0) return;
-        ev.preventDefault();
+        if (distance <= 0) return false;
         setSheetDragOffset(distance);
+        return true;
       };
       const finishHandleDrag = () => {
         const shouldClose = currentHandleDragDistance() >= handleDismissThresholdPx;
         resetSheetDrag();
-        removeHandleDragListeners();
         if (shouldClose) close();
+      };
+      const beginTouchDrag = (ev: TouchEvent) => {
+        const y = touchY(ev);
+        if (y === null) return;
+        beginHandleDrag(y);
+        document.addEventListener("touchmove", continueTouchDrag, { passive: false });
+        document.addEventListener("touchend", finishTouchDrag);
+        document.addEventListener("touchcancel", cancelHandleDrag);
+      };
+      const continueTouchDrag = (ev: TouchEvent) => {
+        const y = touchY(ev);
+        if (y === null) return;
+        if (continueHandleDrag(y)) ev.preventDefault();
+      };
+      const finishTouchDrag = () => {
+        removeHandleDragListeners();
+        finishHandleDrag();
       };
       const cancelHandleDrag = () => {
         resetSheetDrag();
@@ -2039,10 +2049,34 @@ export class DeskleafCalendarView extends ItemView {
       };
       const removeHandleDragListeners = () => {
         document.removeEventListener("touchmove", continueTouchDrag);
-        document.removeEventListener("touchend", finishHandleDrag);
+        document.removeEventListener("touchend", finishTouchDrag);
         document.removeEventListener("touchcancel", cancelHandleDrag);
       };
+      const beginPointerDrag = (ev: PointerEvent) => {
+        if (ev.pointerType === "mouse" && ev.button !== 0) return;
+        beginHandleDrag(ev.clientY);
+        document.addEventListener("pointermove", continuePointerDrag);
+        document.addEventListener("pointerup", finishPointerDrag);
+        document.addEventListener("pointercancel", cancelPointerDrag);
+      };
+      const continuePointerDrag = (ev: PointerEvent) => {
+        if (continueHandleDrag(ev.clientY)) ev.preventDefault();
+      };
+      const finishPointerDrag = () => {
+        removePointerDragListeners();
+        finishHandleDrag();
+      };
+      const cancelPointerDrag = () => {
+        resetSheetDrag();
+        removePointerDragListeners();
+      };
+      const removePointerDragListeners = () => {
+        document.removeEventListener("pointermove", continuePointerDrag);
+        document.removeEventListener("pointerup", finishPointerDrag);
+        document.removeEventListener("pointercancel", cancelPointerDrag);
+      };
       handle.addEventListener("touchstart", beginTouchDrag);
+      handle.addEventListener("pointerdown", beginPointerDrag);
     }
 
     const header = popover.createDiv("dl-edit-header");

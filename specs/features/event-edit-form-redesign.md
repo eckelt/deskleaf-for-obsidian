@@ -13,8 +13,9 @@ Als Nutzer möchte ich bestehende Events in einer bewusst gestalteten Edit-Maske
 ## Acceptance Criteria
 - [ ] AC1: Auf Mobile öffnet die bestehende Event-Edit-Maske als Bottom Sheet, das von unten in den Viewport kommt, die verfügbare Breite nutzt, Safe-Area-Inset berücksichtigt und nicht außerhalb des sichtbaren Bereichs liegt.
 - [ ] AC2: Das mobile Bottom Sheet hat eine erkennbare Sheet-Struktur mit Griff/Handle, Kopfbereich, scrollbarem Formularbereich und am unteren Rand erreichbaren Aktionen; lange Inhalte scrollen innerhalb des Sheets statt den Kalender darunter zu verschieben.
+- [ ] AC2a: Der mobile Sheet-Handle ist nicht nur dekorativ: Ein klares Ziehen nach unten schließt das Sheet ohne Backend-Update und ohne Note-Sync. Kurze oder versehentliche Bewegungen dürfen das Sheet nicht schließen.
 - [ ] AC3: Auf Desktop öffnet die bestehende Event-Edit-Maske als bewusst gestalteter Dialog/Popover mit stabiler Breite, klarer Feldgruppierung und viewport-sicherer Positionierung; sie darf weder an der Event-Card kleben noch zufällig wie ein Create-Popover wirken.
-- [ ] AC4: Mobile und Desktop verwenden dieselben vorhandenen Edit-Felder und Werte wie `edit-existing-events`: Titel, Startzeit, Endzeit, Ort, Beschreibung, Kalender, Speichern, Abbrechen/Schließen und Löschen/Ablehnen, sofern das Event schreibbar ist.
+- [ ] AC4: Mobile und Desktop verwenden dieselben vorhandenen Edit-Felder und Werte wie `edit-existing-events`: Titel, Startzeit, Endzeit, Ort, Beschreibung, Kalender, Speichern, Abbrechen/Schließen und Löschen/Ablehnen, sofern das Event nach der bestehenden `edit-existing-events`-Semantik schreibbar ist. Das Redesign darf keine zusätzlichen Events read-only machen.
 - [ ] AC5: Read-only Events behalten die bestehende Semantik: Felder sind nicht bearbeitbar, es gibt keine Speichern-Option, und die Maske erklärt knapp, dass das Event in Deskleaf schreibgeschützt ist.
 - [ ] AC6: Wiederkehrende Events behalten den bestehenden Speichern-Flow: Nach Speichern erscheint vor dem Backend-Write die Auswahl zwischen dieser Instanz und der Serie.
 - [ ] AC7: Abbrechen, Outside-Click/Outside-Tap und Escape schließen die Maske ohne Backend-Update und ohne Note-Sync; Speichern und Löschen/Ablehnen behalten die bestehenden Schreibpfade.
@@ -37,6 +38,16 @@ Scenario: Mobile long content stays inside the sheet
   When the user opens the event editor on mobile
   Then the form content scrolls inside the sheet
   And the calendar behind the sheet does not become the active scroll target for the form content
+```
+
+```gherkin
+Scenario: Mobile sheet handle dismisses the editor
+  Given the user has opened the mobile edit sheet for a writable event
+  When the user drags the sheet handle clearly downward
+  Then the edit sheet closes
+  And no backend update and no note sync are triggered
+  When the user opens the sheet again and makes only a short accidental handle movement
+  Then the edit sheet remains open
 ```
 
 ```gherkin
@@ -95,11 +106,22 @@ _None_
 - Automated DOM-level coverage should assert representative desktop behavior: the desktop edit form gets the desktop edit-dialog/popover class/structure, is distinct from the create-only styling, and contains the current event values. Stable width and viewport-safe placement do not require brittle layout assertions in Vitest.
 - Automated coverage should verify long-content support through stable structure: a dedicated scrollable form/body container exists inside the sheet/dialog. Visual scroll feel remains manual QA.
 - Automated coverage should verify Escape and outside-click/tap close the edit form without `updateEvent` or note sync; one representative close-path test may cover the shared close implementation when Escape and outside-click call the same close function.
+- Automated coverage should verify the mobile handle drag path through stable pointer/touch events: a downward drag beyond the chosen threshold closes the sheet without `updateEvent` or note sync, while a short movement below the threshold leaves it open.
 - Automated coverage should verify read-only rendering has no save action and does not call `updateEvent`.
+- Automated coverage should include at least one writable EventKit-style or CalDAV-style event that still renders editable fields and a save action, so the redesign cannot regress writable events into read-only mode.
 - Automated coverage should verify cancel/close still avoids `updateEvent` and note sync.
 - Existing tests for VEVENT updates, backend update paths, note sync, recurring scope and validation remain the behavioral safety net; do not rewrite them solely for visual class changes.
 - Create-popover regression coverage should be representative: opening the create popover and successfully invoking the existing create path is enough to prove shared style changes did not break creation.
 - Manual QA in Obsidian is required for visual fit: mobile bottom sheet on iPhone-sized viewport, desktop Obsidian window at narrow and normal widths, dark and light themes, long description, read-only event and recurring-event save prompt.
+- Manual QA must include dragging the mobile sheet handle down to dismiss and verifying normal writable events still show editable controls.
+
+## Fix-Forward Clarifications
+
+### 2026-06-26
+
+Human acceptance feedback clarified two product expectations:
+- Normal writable events must stay editable after the redesign; showing them as read-only is a regression against `edit-existing-events`.
+- A visible mobile sheet handle implies direct manipulation. The handle must support downward drag-to-dismiss, not only signal that the surface is a sheet.
 
 ---
 
