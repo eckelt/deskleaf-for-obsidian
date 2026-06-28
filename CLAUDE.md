@@ -84,11 +84,12 @@ Vault plugin path:
 `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/Connections/.obsidian/plugins/deskleaf-for-obsidian/`
 
 **Deploy before human review.** A feature is only reviewable once it actually
-runs in the vault. After a feature PR is merged to `main` and before the issue
-is handed to human acceptance (`status:ready-for-acceptance`), the merged `main`
-must be built and deployed via `bash deploy.sh`. Never request human review of a
-feature that lives only on a branch or in an undeployed build — the reviewer
-would be testing code that isn't running.
+runs in the vault. Never request human review of a feature that lives only on a
+branch or in an undeployed build — the reviewer would be testing code that isn't
+running. The autonomous pipeline enforces this: `issue-watch.sh` deploys the
+merged build to the vault (`deploy_to_vault`) right after merge and before it
+sets `status:ready-for-acceptance`. For manual/interactive changes, run
+`bash deploy.sh` yourself before asking anyone to test.
 
 ---
 

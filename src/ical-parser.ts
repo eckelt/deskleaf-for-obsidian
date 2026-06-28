@@ -170,7 +170,6 @@ function buildEvent(props: ICalProp[], calendarName: string): CalendarEvent | nu
     organizer,
     isRecurring: !!first("RRULE") || !!first("RECURRENCE-ID"),
     isCancelled: first("STATUS")?.value?.toUpperCase() === "CANCELLED",
-    isOrganizer: false,
     meetingPlatform: detectMeetingPlatform(haystack),
     calendar: calendarName,
   };

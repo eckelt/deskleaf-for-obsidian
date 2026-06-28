@@ -3,6 +3,7 @@ import { describe, it, expect, vi } from "vitest";
 import { Platform } from "obsidian";
 import { DeskleafCalendarView } from "../src/calendar-view";
 import { isEventReadOnly, validateEventEditInput } from "../src/event-edit";
+import { parseICalendar } from "../src/ical-parser";
 import { minsToISO, minsToTimeStr } from "../src/date-utils";
 import {
   assignColumns,
@@ -1108,6 +1109,26 @@ describe("event edit rules", () => {
     expect(isEventReadOnly({ ...editable, isAllDay: true })).toBe(true);
     expect(isEventReadOnly({ ...editable, isCancelled: true })).toBe(true);
     expect(isEventReadOnly({ ...editable, isOrganizer: false })).toBe(true);
+  });
+
+  it("keeps normal CalDAV parsed events writable unless another read-only rule applies", () => {
+    const events = parseICalendar([
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "BEGIN:VEVENT",
+      "UID:caldav-own-event",
+      "SUMMARY:Writable CalDAV Event",
+      "DTSTART:20260626T090000Z",
+      "DTEND:20260626T100000Z",
+      "ORGANIZER;CN=Nils:mailto:nils@example.com",
+      "END:VEVENT",
+      "END:VCALENDAR",
+      "",
+    ].join("\r\n"), "Work");
+
+    expect(events).toHaveLength(1);
+    expect(events[0].isOrganizer).toBeUndefined();
+    expect(isEventReadOnly(events[0])).toBe(false);
   });
 
   it("builds an update for valid edit input", () => {

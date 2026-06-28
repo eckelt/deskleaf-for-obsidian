@@ -53,6 +53,18 @@ class TestEvent {
   stopPropagation(): void {}
 }
 
+class TestTouchEvent extends TestEvent {
+  readonly touches: Array<{ clientY: number }>;
+  readonly changedTouches: Array<{ clientY: number }>;
+
+  constructor(type: string, init: { clientY: number; bubbles?: boolean }) {
+    super(type, { bubbles: init.bubbles });
+    const touch = { clientY: init.clientY };
+    this.touches = type === "touchend" || type === "touchcancel" ? [] : [touch];
+    this.changedTouches = [touch];
+  }
+}
+
 type TestListener = (event: TestEvent) => void;
 
 class TestElement {
@@ -226,6 +238,7 @@ function installObsidianDomHelpers(): void {
   Object.defineProperty(globalThis, "HTMLElement", { value: TestElement, configurable: true });
   Object.defineProperty(globalThis, "MouseEvent", { value: TestEvent, configurable: true });
   Object.defineProperty(globalThis, "KeyboardEvent", { value: TestEvent, configurable: true });
+  Object.defineProperty(globalThis, "TouchEvent", { value: TestTouchEvent, configurable: true });
   Object.defineProperty(globalThis, "requestAnimationFrame", {
     value: (callback: FrameRequestCallback) => window.setTimeout(() => callback(0), 0),
     configurable: true,
@@ -394,6 +407,39 @@ describe("event edit form redesign", () => {
     expect(body).not.toBeNull();
     expect(body?.contains(editor.querySelector("textarea"))).toBe(true);
     expect(editor.querySelector(".dl-edit-actions")).not.toBeNull();
+  });
+
+  it("dismisses the mobile sheet only after a clear downward handle drag", async () => {
+    Platform.isMobile = true;
+    Platform.isDesktop = false;
+    const plugin = makePlugin();
+    const view = makeView(plugin);
+
+    let editor = openEditor(view, makeEvent());
+    const handle = editor.querySelector(".dl-edit-sheet-handle");
+    expect(handle).not.toBeNull();
+
+    handle?.dispatchEvent(new TouchEvent("touchstart", { clientY: 100, bubbles: true }));
+    document.body.dispatchEvent(new TouchEvent("touchmove", { clientY: 190, bubbles: true }));
+    document.body.dispatchEvent(new TouchEvent("touchend", { clientY: 190, bubbles: true }));
+    await vi.runAllTimersAsync();
+
+    expect(document.querySelector(".dl-edit-surface")).toBeNull();
+    expect(plugin.calendarReader.updateEvent).not.toHaveBeenCalled();
+    expect(plugin.noteManager.syncEventNote).not.toHaveBeenCalled();
+
+    editor = openEditor(view, makeEvent());
+    const newHandle = editor.querySelector(".dl-edit-sheet-handle");
+    expect(newHandle).not.toBeNull();
+
+    newHandle?.dispatchEvent(new TouchEvent("touchstart", { clientY: 100, bubbles: true }));
+    document.body.dispatchEvent(new TouchEvent("touchmove", { clientY: 135, bubbles: true }));
+    document.body.dispatchEvent(new TouchEvent("touchend", { clientY: 135, bubbles: true }));
+    await vi.runAllTimersAsync();
+
+    expect(document.querySelector(".dl-edit-surface")).not.toBeNull();
+    expect(plugin.calendarReader.updateEvent).not.toHaveBeenCalled();
+    expect(plugin.noteManager.syncEventNote).not.toHaveBeenCalled();
   });
 
   it("opens writable desktop events as a distinct edit dialog with grouped fields", () => {
