@@ -2009,6 +2009,23 @@ export class DeskleafCalendarView extends ItemView {
       const handle = popover.createDiv("dl-edit-sheet-handle");
       handle.setAttribute("role", "button");
       handle.setAttribute("aria-label", "Editor schliessen");
+      type SheetDismissTarget = EventTarget & {
+        tagName: string;
+        closest(selector: string): Element | null;
+      };
+      const isSheetDismissTarget = (target: EventTarget | null): target is SheetDismissTarget => {
+        if (target === null || typeof target !== "object") return false;
+        return "tagName" in target
+          && typeof target.tagName === "string"
+          && "closest" in target
+          && typeof target.closest === "function";
+      };
+      const canStartSheetDismissDrag = (target: EventTarget | null): boolean => {
+        if (!isSheetDismissTarget(target)) return false;
+        const tagName = target.tagName.toLowerCase();
+        if (["button", "input", "select", "textarea", "a"].includes(tagName)) return false;
+        return target.closest(".dl-edit-form-scroll") === null;
+      };
       const beginHandleDrag = (clientY: number) => {
         handleDragStartY = clientY;
         handleDragCurrentY = clientY;
@@ -2027,6 +2044,8 @@ export class DeskleafCalendarView extends ItemView {
         if (shouldClose) close();
       };
       const beginTouchDrag = (ev: TouchEvent) => {
+        if (!canStartSheetDismissDrag(ev.target)) return;
+        ev.stopPropagation();
         const y = touchY(ev);
         if (y === null) return;
         beginHandleDrag(y);
@@ -2054,6 +2073,8 @@ export class DeskleafCalendarView extends ItemView {
       };
       const beginPointerDrag = (ev: PointerEvent) => {
         if (ev.pointerType === "mouse" && ev.button !== 0) return;
+        if (!canStartSheetDismissDrag(ev.target)) return;
+        ev.stopPropagation();
         beginHandleDrag(ev.clientY);
         document.addEventListener("pointermove", continuePointerDrag);
         document.addEventListener("pointerup", finishPointerDrag);
@@ -2075,6 +2096,8 @@ export class DeskleafCalendarView extends ItemView {
         document.removeEventListener("pointerup", finishPointerDrag);
         document.removeEventListener("pointercancel", cancelPointerDrag);
       };
+      popover.addEventListener("touchstart", beginTouchDrag);
+      popover.addEventListener("pointerdown", beginPointerDrag);
       handle.addEventListener("touchstart", beginTouchDrag);
       handle.addEventListener("pointerdown", beginPointerDrag);
     }
