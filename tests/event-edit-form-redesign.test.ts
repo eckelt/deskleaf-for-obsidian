@@ -12,6 +12,10 @@ class TestStyle {
   setProperty(name: string, value: string): void {
     this.values.set(name, value);
   }
+
+  getPropertyValue(name: string): string {
+    return this.values.get(name) ?? "";
+  }
 }
 
 class TestClassList {
@@ -442,6 +446,54 @@ describe("event edit form redesign", () => {
     expect(plugin.noteManager.syncEventNote).not.toHaveBeenCalled();
   });
 
+  it("dismisses mobile sheets from non-interactive chrome while preserving field and action interaction", async () => {
+    Platform.isMobile = true;
+    Platform.isDesktop = false;
+    const plugin = makePlugin();
+    const view = makeView(plugin);
+
+    let editor = openEditor(view, makeEvent());
+    const header = editor.querySelector(".dl-edit-header");
+    expect(header).not.toBeNull();
+
+    header?.dispatchEvent(new TouchEvent("touchstart", { clientY: 100, bubbles: true }));
+    document.body.dispatchEvent(new TouchEvent("touchmove", { clientY: 190, bubbles: true }));
+    document.body.dispatchEvent(new TouchEvent("touchend", { clientY: 190, bubbles: true }));
+    await vi.runAllTimersAsync();
+
+    expect(document.querySelector(".dl-edit-surface")).toBeNull();
+    expect(plugin.calendarReader.updateEvent).not.toHaveBeenCalled();
+    expect(plugin.noteManager.syncEventNote).not.toHaveBeenCalled();
+
+    editor = openEditor(view, makeEvent());
+    const titleInput = editor.querySelector<HTMLInputElement>('input[placeholder="Titel..."]');
+    expect(titleInput).not.toBeNull();
+    titleInput?.dispatchEvent(new TouchEvent("touchstart", { clientY: 100, bubbles: true }));
+    document.body.dispatchEvent(new TouchEvent("touchmove", { clientY: 190, bubbles: true }));
+    document.body.dispatchEvent(new TouchEvent("touchend", { clientY: 190, bubbles: true }));
+    await vi.runAllTimersAsync();
+    expect(document.querySelector(".dl-edit-surface")).not.toBeNull();
+
+    const formBody = editor.querySelector(".dl-edit-form-scroll");
+    expect(formBody).not.toBeNull();
+    formBody?.dispatchEvent(new TouchEvent("touchstart", { clientY: 100, bubbles: true }));
+    document.body.dispatchEvent(new TouchEvent("touchmove", { clientY: 190, bubbles: true }));
+    document.body.dispatchEvent(new TouchEvent("touchend", { clientY: 190, bubbles: true }));
+    await vi.runAllTimersAsync();
+    expect(document.querySelector(".dl-edit-surface")).not.toBeNull();
+
+    const cancelButton = editor.querySelector<HTMLButtonElement>(".dl-edit-cancel-btn");
+    expect(cancelButton).not.toBeNull();
+    cancelButton?.dispatchEvent(new TouchEvent("touchstart", { clientY: 100, bubbles: true }));
+    document.body.dispatchEvent(new TouchEvent("touchmove", { clientY: 190, bubbles: true }));
+    document.body.dispatchEvent(new TouchEvent("touchend", { clientY: 190, bubbles: true }));
+    await vi.runAllTimersAsync();
+
+    expect(document.querySelector(".dl-edit-surface")).not.toBeNull();
+    expect(plugin.calendarReader.updateEvent).not.toHaveBeenCalled();
+    expect(plugin.noteManager.syncEventNote).not.toHaveBeenCalled();
+  });
+
   it("opens writable desktop events as a distinct edit dialog with grouped fields", () => {
     const plugin = makePlugin();
     const view = makeView(plugin);
@@ -486,6 +538,29 @@ describe("event edit form redesign", () => {
     const actionsRule = cssRule(".dl-edit-actions");
     expect(actionsRule).toContain("border-top: 1px solid var(--background-modifier-border)");
     expect(actionsRule).toContain("background: var(--background-secondary)");
+  });
+
+  it("keeps edit form and sidebar roots horizontally contained", () => {
+    const surfaceRule = cssRule(".dl-edit-surface");
+    expect(surfaceRule).toContain("overflow-x: hidden");
+    expect(surfaceRule).toContain("max-width: calc(100vw - 16px)");
+
+    const formRule = cssRule(".dl-edit-form-scroll");
+    expect(formRule).toContain("overflow-x: hidden");
+
+    const actionsRule = cssRule(".dl-edit-actions");
+    expect(actionsRule).toContain("flex-wrap: wrap");
+    expect(actionsRule).toContain("min-width: 0");
+
+    const sidebarRootRule = cssRule(".dl-sidebar-root");
+    expect(sidebarRootRule).toContain("overflow-x: hidden");
+
+    const sidebarToolbarRule = cssRule(".dl-sidebar-toolbar");
+    expect(sidebarToolbarRule).toContain("max-width: 100%");
+    expect(sidebarToolbarRule).toContain("overflow: hidden");
+
+    const minicalGridRule = cssRule(".dl-minical-grid");
+    expect(minicalGridRule).toContain("min-width: 0");
   });
 
   it("renders read-only event details without save and without backend updates on close", async () => {

@@ -1523,10 +1523,10 @@ describe("event edit interactions", () => {
       expect(overlayRule).toContain("inset: 0");
       expect(overlayRule).toContain("align-items: center");
       expect(overlayRule).toContain("justify-content: center");
-      expect(surfaceRule).toContain("width: min(420px, calc(100vw - 36px))");
+      expect(surfaceRule).toContain("max-width: calc(100vw - 16px)");
       expect(surfaceRule).toContain("max-height: calc(100vh - 36px)");
-      expect(surfaceRule).toContain("overflow: hidden");
-      expect(dialogRule).toContain("min-width: min(420px, calc(100vw - 36px))");
+      expect(surfaceRule).toContain("overflow-x: hidden");
+      expect(dialogRule).toContain("width: min(420px, calc(100vw - 36px))");
       expect(createRule).toContain("max-width: min(360px, calc(100vw - 24px))");
     } finally {
       Platform.isMobile = wasMobile;
