@@ -14,6 +14,7 @@ Als Nutzer möchte ich bestehende Events in einer bewusst gestalteten Edit-Maske
 - [ ] AC1: Auf Mobile öffnet die bestehende Event-Edit-Maske als Bottom Sheet, das von unten in den Viewport kommt, die verfügbare Breite nutzt, Safe-Area-Inset berücksichtigt und nicht außerhalb des sichtbaren Bereichs liegt.
 - [ ] AC2: Das mobile Bottom Sheet hat eine erkennbare Sheet-Struktur mit Griff/Handle, Kopfbereich, scrollbarem Formularbereich und am unteren Rand erreichbaren Aktionen; lange Inhalte scrollen innerhalb des Sheets statt den Kalender darunter zu verschieben.
 - [ ] AC2a: Der mobile Sheet-Handle ist nicht nur dekorativ: Ein klares Ziehen nach unten schließt das Sheet ohne Backend-Update und ohne Note-Sync. Kurze oder versehentliche Bewegungen dürfen das Sheet nicht schließen.
+- [ ] AC2b: Falls die aktuelle Obsidian-API ein natives mobiles Sheet/Modal-Element mit Bottom-up-Animation und Swipe-down-Dismiss bereitstellt, verwendet die Mobile-Edit-Maske dieses Element. Falls Obsidian nur ein normales `Modal` ohne steuerbaren Swipe-down-Dismiss bereitstellt, bleibt ein eigener Deskleaf-Bottom-Sheet-Container zulässig; die sichtbare Semantik aus AC1, AC2 und AC2a hat Vorrang.
 - [ ] AC3: Auf Desktop öffnet die bestehende Event-Edit-Maske als bewusst gestalteter Dialog/Popover mit stabiler Breite, klarer Feldgruppierung und viewport-sicherer Positionierung; sie darf weder an der Event-Card kleben noch zufällig wie ein Create-Popover wirken.
 - [ ] AC4: Mobile und Desktop verwenden dieselben vorhandenen Edit-Felder und Werte wie `edit-existing-events`: Titel, Startzeit, Endzeit, Ort, Beschreibung, Kalender, Speichern, Abbrechen/Schließen und Löschen/Ablehnen, sofern das Event nach der bestehenden `edit-existing-events`-Semantik schreibbar ist. Das Redesign darf keine zusätzlichen Events read-only machen.
 - [ ] AC5: Read-only Events behalten die bestehende Semantik: Felder sind nicht bearbeitbar, es gibt keine Speichern-Option, und die Maske erklärt knapp, dass das Event in Deskleaf schreibgeschützt ist.
@@ -91,12 +92,14 @@ _None_
 - This is a UI redesign of the existing editor, not a new event-editing capability.
 - The Apple Calendar screenshot is directional only: compact, intentional, sheet/dialog-like. The implementation must use Deskleaf's own visual language and Obsidian theme variables.
 - Mobile uses a bottom sheet because it gives the form a predictable touch target, avoids tiny floating popovers, and matches the user's explicit "slide from bottom up" request.
+- The user's 2026-06-29 clarification prefers an Obsidian-native bottom-up, swipe-dismiss surface if one exists. Current Obsidian typings expose `Modal` with mobile animation, but no explicit bottom-sheet or swipe-down-dismiss control. Builders must verify the available API at implementation time and use a native primitive only if it satisfies the full mobile close behavior; otherwise implement/keep the Deskleaf sheet behavior directly.
 - Desktop may be centered or card-adjacent as long as it is viewport-safe, stable, visually intentional and clearly an edit surface rather than the create popover.
 - The existing edit behavior from `specs/features/edit-existing-events.md` remains the behavioral contract for field values, validation, save, delete, read-only and recurring scope.
 
 ## Affected Areas
 - `src/calendar-view.ts`: `showEventEditPopover(...)` structure/classes, mobile/desktop positioning, close behavior wiring if class names change.
 - `src/event-edit.ts` or similarly focused helper module: pure edit rules such as read-only classification and input validation, if they need to be shared or tested outside the view.
+- Obsidian UI API: Check whether `Modal` or another available primitive can provide the exact mobile bottom-up plus swipe-down-dismiss behavior before choosing a custom sheet.
 - `styles.css`: Dedicated edit-form styling for mobile bottom sheet and desktop dialog/popover states.
 - `tests/*.test.ts`: Focused DOM/class/interaction coverage where feasible.
 
@@ -107,6 +110,7 @@ _None_
 - Automated coverage should verify long-content support through stable structure: a dedicated scrollable form/body container exists inside the sheet/dialog. Visual scroll feel remains manual QA.
 - Automated coverage should verify Escape and outside-click/tap close the edit form without `updateEvent` or note sync; one representative close-path test may cover the shared close implementation when Escape and outside-click call the same close function.
 - Automated coverage should verify the mobile handle drag path through stable pointer/touch events: a downward drag beyond the chosen threshold closes the sheet without `updateEvent` or note sync, while a short movement below the threshold leaves it open.
+- If the implementation uses an Obsidian-native mobile primitive, automated coverage should still assert the Deskleaf-visible contract: mobile edit opens as a bottom-anchored sheet-like surface and the supported downward dismiss path closes without `updateEvent` or note sync. If the implementation uses a custom sheet because Obsidian has no matching primitive, the test should cover the custom handle path.
 - Automated coverage should verify read-only rendering has no save action and does not call `updateEvent`.
 - Automated coverage should include at least one writable EventKit-style or CalDAV-style event that still renders editable fields and a save action, so the redesign cannot regress writable events into read-only mode.
 - Automated coverage should verify cancel/close still avoids `updateEvent` and note sync.
