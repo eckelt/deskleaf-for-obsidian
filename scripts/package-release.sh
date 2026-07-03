@@ -21,8 +21,28 @@ for file in "${REQUIRED_FILES[@]}"; do
   fi
 done
 
+is_macos_binary() {
+  local binary="$1"
+  local magic=""
+  magic="$(od -An -tx1 -N4 "$binary" | tr -d '[:space:]')"
+
+  case "$magic" in
+    cffaedfe|feedfacf|cafebabe|cafebabf)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
 if [[ ! -x "$PACKAGE_ROOT/deskleaf-calendar-sync" ]]; then
   echo "deskleaf-calendar-sync must be an executable release binary" >&2
+  exit 1
+fi
+
+if ! is_macos_binary "$PACKAGE_ROOT/deskleaf-calendar-sync"; then
+  echo "deskleaf-calendar-sync must be a macOS release binary built from the Swift project" >&2
   exit 1
 fi
 

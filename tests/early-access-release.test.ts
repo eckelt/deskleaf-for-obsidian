@@ -1,5 +1,5 @@
 import { execFile, spawn } from "node:child_process";
-import { mkdtemp, mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { copyFile, mkdtemp, mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -53,6 +53,13 @@ async function createBundleRoot(): Promise<string> {
   return root;
 }
 
+async function createReleasePackageRoot(): Promise<string> {
+  const root = await createBundleRoot();
+  await copyFile("deskleaf-calendar-sync", join(root, "deskleaf-calendar-sync"));
+  await execFileAsync("chmod", ["0755", join(root, "deskleaf-calendar-sync")]);
+  return root;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -67,7 +74,7 @@ function manifestIdFromJson(json: string): string {
 
 describe("early access release package", () => {
   it("creates a zip with the complete local plugin bundle and executable binary", async () => {
-    const packageRoot = await createBundleRoot();
+    const packageRoot = await createReleasePackageRoot();
     const zipPath = join(packageRoot, "deskleaf-for-obsidian.zip");
 
     await execFileAsync("bash", ["scripts/package-release.sh"], {
@@ -87,6 +94,22 @@ describe("early access release package", () => {
     await execFileAsync("unzip", ["-q", zipPath, "-d", extractDir]);
     const binaryMode = (await stat(join(extractDir, "deskleaf-calendar-sync"))).mode;
     expect(binaryMode & 0o111).not.toBe(0);
+
+    const { stdout: fileType } = await execFileAsync("file", [join(extractDir, "deskleaf-calendar-sync")]);
+    expect(fileType).toContain("Mach-O");
+  });
+
+  it("rejects an executable placeholder script instead of a macOS release binary", async () => {
+    const packageRoot = await createBundleRoot();
+    const zipPath = join(packageRoot, "deskleaf-for-obsidian.zip");
+
+    await expect(
+      execFileAsync("bash", ["scripts/package-release.sh"], {
+        env: { ...process.env, PACKAGE_ROOT: packageRoot, RELEASE_ZIP: zipPath },
+      }),
+    ).rejects.toMatchObject({
+      stderr: expect.stringContaining("deskleaf-calendar-sync must be a macOS release binary"),
+    });
   });
 
   it("publishes the packaged zip from the main release workflow", async () => {
