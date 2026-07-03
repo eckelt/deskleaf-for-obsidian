@@ -4,6 +4,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
+import { CalendarReader } from "../src/calendar-reader";
+import DeskleafPlugin from "../src/main";
+import { DEFAULT_SETTINGS } from "../src/types";
 
 const execFileAsync = promisify(execFile);
 
@@ -48,6 +51,18 @@ async function createBundleRoot(): Promise<string> {
   await writeFile(join(root, "deskleaf-calendar-sync"), "#!/bin/bash\n");
   await execFileAsync("chmod", ["0755", join(root, "install.sh"), join(root, "deskleaf-calendar-sync")]);
   return root;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function manifestIdFromJson(json: string): string {
+  const parsed: unknown = JSON.parse(json);
+  if (!isRecord(parsed) || typeof parsed.id !== "string") {
+    throw new Error("manifest.json must contain a string id");
+  }
+  return parsed.id;
 }
 
 describe("early access release package", () => {
@@ -118,5 +133,26 @@ describe("early access installer", () => {
     expect(installer).toContain("plugin_id_from_manifest");
     expect(installer).toContain(".obsidian/plugins/$PLUGIN_ID");
     expect(installer).not.toContain("/Users/nils");
+  });
+
+  it("installs to the directory Deskleaf uses for the default EventKit binary path", async () => {
+    const bundleRoot = await createBundleRoot();
+    const homeRoot = await mkdtemp(join(tmpdir(), "deskleaf-home-"));
+    const vaultRoot = await mkdtemp(join(tmpdir(), "deskleaf-vault-"));
+    await mkdir(join(vaultRoot, ".obsidian"));
+
+    await runBashWithInput(join(process.cwd(), "install.sh"), bundleRoot, { ...process.env, HOME: homeRoot }, `${vaultRoot}\n`);
+
+    const manifestId = manifestIdFromJson(await readFile(join(bundleRoot, "manifest.json"), "utf8"));
+    const pluginRoot = join(vaultRoot, ".obsidian", "plugins", manifestId);
+    const plugin = new DeskleafPlugin();
+    plugin.settings = { ...DEFAULT_SETTINGS, binaryPath: "" };
+    plugin.app = { vault: { adapter: { basePath: vaultRoot } } };
+    plugin.manifest = { dir: `.obsidian/plugins/${manifestId}` };
+
+    const reader = plugin["makeReader"]();
+
+    expect(reader).toBeInstanceOf(CalendarReader);
+    expect(reader.getPath()).toBe(join(pluginRoot, "deskleaf-calendar-sync"));
   });
 });
