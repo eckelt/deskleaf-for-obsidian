@@ -58,7 +58,7 @@ jobs:
           name: deskleaf-calendar-sync
       - run: chmod +x deskleaf-calendar-sync
       - name: Package plugin
-        run: zip -r deskleaf-for-obsidian.zip main.js styles.css manifest.json deskleaf-calendar-sync
+        run: bash scripts/package-release.sh
       - uses: softprops/action-gh-release@v3
         with:
           tag_name: latest
@@ -72,4 +72,5 @@ jobs:
             styles.css
             manifest.json
             deskleaf-calendar-sync
+            install.sh
             deskleaf-for-obsidian.zip
