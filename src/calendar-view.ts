@@ -186,6 +186,15 @@ function jitsiIconSvg(size: number): string {
   );
 }
 
+function meetingPlatformIconSvg(event: CalendarEvent, size: number): string | null {
+  const platform = event.meetingPlatform?.toLowerCase() ?? "";
+  const location = event.location?.toLowerCase() ?? "";
+  if (platform.includes("jitsi") || location.includes("jitsi") || location.includes("meet.jit.si")) return jitsiIconSvg(size);
+  if (platform.includes("teams") || location.includes("teams")) return teamsIconSvg(size);
+  if (platform.includes("meet") || (location.includes("meet") && location.includes("google"))) return meetIconSvg(size);
+  return null;
+}
+
 export function locationIconSvg(size: number): string {
   return (
     `<svg width="${size}" height="${size}" viewBox="0 0 20 20" style="display:inline-block;vertical-align:middle;flex-shrink:0;fill-rule:evenodd;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round">` +
@@ -1368,24 +1377,15 @@ export class DeskleafCalendarView extends ItemView {
     }
     titleRow.createDiv({ cls: "dl-event-title", text: event.title });
 
-    // 2. Location — second (if enough space)
-    if (heightPx > 40) {
-      if (isTeamsCard) {
-        const loc = card.createDiv({ cls: "dl-event-location dl-event-location--teams" });
-        loc.innerHTML = teamsIconSvg(10);
-      } else if (isMeetCard) {
-        const loc = card.createDiv({ cls: "dl-event-location dl-event-location--meet" });
-        loc.innerHTML = meetIconSvg(10);
-      } else if (isJitsiCard) {
-        const loc = card.createDiv({ cls: "dl-event-location dl-event-location--jitsi" });
-        loc.innerHTML = jitsiIconSvg(10);
-      } else if (event.location) {
-        const loc = card.createDiv({ cls: "dl-event-location" });
-        const iconWrap = loc.createSpan({ cls: "dl-event-icon-wrap" });
-        iconWrap.setAttribute("aria-hidden", "true");
-        iconWrap.innerHTML = isUrlLocation(event.location) ? globeIconSvg(9) : locationIconSvg(9);
-        loc.createSpan({ text: event.location.replace(/\n/g, ", ") });
-      }
+    // 2. Location — second, only for physical addresses (if enough space).
+    // Meeting and other URL locations are already represented by the platform
+    // icon in the title row, so the location line stays reserved for addresses.
+    if (heightPx > 40 && event.location && !isUrlLocation(event.location)) {
+      const loc = card.createDiv({ cls: "dl-event-location" });
+      const iconWrap = loc.createSpan({ cls: "dl-event-icon-wrap" });
+      iconWrap.setAttribute("aria-hidden", "true");
+      iconWrap.innerHTML = locationIconSvg(9);
+      loc.createSpan({ text: event.location.replace(/\n/g, ", ") });
     }
 
     // 3. Time — third (start – end, if enough space)
@@ -1993,6 +1993,7 @@ export class DeskleafCalendarView extends ItemView {
 
     const overlay = document.body.createDiv(`dl-edit-overlay ${Platform.isMobile ? "dl-edit-overlay--mobile" : "dl-edit-overlay--desktop"}`);
     const popover = overlay.createDiv(`dl-edit-surface ${Platform.isMobile ? "dl-edit-sheet" : "dl-edit-dialog"}`);
+    const overlayOpenedAt = Date.now();
     const initialStart = new Date(event.start);
     const initialEnd = new Date(event.end);
     const startMin = initialStart.getHours() * 60 + initialStart.getMinutes();
@@ -2118,146 +2119,228 @@ export class DeskleafCalendarView extends ItemView {
       handle.addEventListener("pointerdown", beginPointerDrag);
     }
 
+    const { discoveredCalendars, selectedCalendars } = this.plugin.settings.caldav;
+    const activeCals = discoveredCalendars.filter(c => selectedCalendars.length === 0 || selectedCalendars.includes(c.href));
+    let calendarValue = event.calendar ?? "";
+    const reader = this.plugin.calendarReader as { getEvents?: () => CalendarEvent[] };
+    const knownCalendarNames = activeCals.length > 0
+      ? activeCals.map(c => c.displayName).filter(Boolean)
+      : Array.from(new Set((reader.getEvents?.() ?? []).map(ev => ev.calendar ?? ""))).filter(Boolean);
+    if (calendarValue && !knownCalendarNames.includes(calendarValue)) knownCalendarNames.unshift(calendarValue);
+
     const header = popover.createDiv("dl-edit-header");
-    header.createDiv({ cls: "dl-edit-heading", text: readOnly ? "Event ansehen" : "Event bearbeiten" });
+    const headerRow = header.createDiv("dl-edit-header-row");
+    const headingGroup = headerRow.createDiv("dl-edit-heading-group");
+    if (readOnly || knownCalendarNames.length === 0) {
+      const headerDot = headingGroup.createDiv("dl-edit-header-dot");
+      headerDot.style.setProperty("--cal-h", String(this.calendarHue(calendarValue)));
+    } else {
+      const calBtn = headingGroup.createEl("button", { cls: "dl-edit-cal-btn" });
+      const calDot = calBtn.createDiv("dl-edit-header-dot");
+      const syncCalendarIndicator = () => {
+        calDot.style.setProperty("--cal-h", String(this.calendarHue(calendarValue)));
+        calBtn.setAttribute("aria-label", `Kalender: ${calendarValue || "kein Kalender"} – wechseln`);
+        calBtn.setAttribute("title", `Kalender: ${calendarValue || "kein Kalender"} – wechseln`);
+      };
+      syncCalendarIndicator();
+      calBtn.setAttribute("aria-haspopup", "listbox");
+      let calMenu: HTMLElement | null = null;
+      const closeCalMenu = () => {
+        calMenu?.remove();
+        calMenu = null;
+      };
+      const openCalMenu = () => {
+        calMenu = header.createDiv("dl-edit-cal-menu");
+        for (const name of knownCalendarNames) {
+          const item = calMenu.createEl("button", { cls: "dl-edit-cal-menu-item" });
+          if (name === calendarValue) item.addClass("dl-edit-cal-menu-item--active");
+          const itemDot = item.createDiv("dl-edit-header-dot");
+          itemDot.style.setProperty("--cal-h", String(this.calendarHue(name)));
+          item.createSpan({ cls: "dl-edit-cal-menu-name", text: name });
+          item.addEventListener("click", (ev) => {
+            ev.stopPropagation();
+            calendarValue = name;
+            syncCalendarIndicator();
+            closeCalMenu();
+          });
+        }
+      };
+      calBtn.addEventListener("mousedown", (ev) => ev.preventDefault());
+      calBtn.addEventListener("click", () => {
+        if (calMenu) closeCalMenu();
+        else openCalMenu();
+      });
+      popover.addEventListener("click", (ev) => {
+        if (!calMenu) return;
+        const target = ev.target as HTMLElement;
+        if (target.closest(".dl-edit-cal-menu") || target.closest(".dl-edit-cal-btn")) return;
+        closeCalMenu();
+      });
+    }
+    headingGroup.createDiv({ cls: "dl-edit-heading", text: readOnly ? "Event ansehen" : "Event bearbeiten" });
+    headerRow.createDiv({ cls: "dl-edit-header-date", text: dayHeaderLabel(initialStart) });
     if (readOnly) {
       header.createDiv({ cls: "dl-edit-readonly-note", text: "Dieses Event ist in Deskleaf schreibgeschuetzt." });
     }
 
     const form = popover.createDiv("dl-edit-form-scroll");
-    const titleSection = form.createDiv("dl-edit-section");
-    titleSection.createDiv({ cls: "dl-edit-label", text: "Titel" });
-    const titleInput = titleSection.createEl("input") as HTMLInputElement;
-    titleInput.type = "text";
-    titleInput.addClass("dl-create-input");
-    titleInput.addClass("dl-edit-title-input");
-    titleInput.placeholder = "Titel...";
-    titleInput.value = event.title;
-    titleInput.disabled = readOnly;
-
-    const timeSection = form.createDiv("dl-edit-section");
-    timeSection.createDiv({ cls: "dl-edit-label", text: "Zeit" });
-    const timeRow = timeSection.createDiv("dl-create-time-row dl-edit-time-row");
-    const startInput = timeRow.createEl("input") as HTMLInputElement;
-    startInput.type = "time";
-    startInput.addClass("dl-create-time-input");
-    startInput.addClass("dl-edit-start-input");
-    startInput.step = "60";
-    startInput.value = minsToTimeStr(startMin);
-    startInput.disabled = readOnly;
-    timeRow.createSpan({ cls: "dl-create-time-sep", text: "-" });
-    const endInput = timeRow.createEl("input") as HTMLInputElement;
-    endInput.type = "time";
-    endInput.addClass("dl-create-time-input");
-    endInput.addClass("dl-edit-end-input");
-    endInput.step = "60";
-    endInput.value = minsToTimeStr(endMin);
-    endInput.disabled = readOnly;
-    const keepValidEndAfterStartChange = () => {
-      if (readOnly) return;
-      const s = parseClockTime(startInput.value);
-      const e = parseClockTime(endInput.value);
-      if (endInput.value && e > s) return;
-      endInput.value = minsToTimeStr(Math.min(23 * 60 + 59, s + durationMin));
-    };
-    startInput.addEventListener("input", keepValidEndAfterStartChange);
-    startInput.addEventListener("change", keepValidEndAfterStartChange);
-
-    const detailsSection = form.createDiv("dl-edit-section");
-    detailsSection.createDiv({ cls: "dl-edit-label", text: "Details" });
-    const locationInput = detailsSection.createEl("input") as HTMLInputElement;
-    locationInput.type = "text";
-    locationInput.addClass("dl-create-input");
-    locationInput.addClass("dl-edit-location-input");
-    locationInput.placeholder = "Ort";
-    locationInput.value = event.location ?? "";
-    locationInput.disabled = readOnly;
-
-    const descInput = detailsSection.createEl("textarea") as HTMLTextAreaElement;
-    descInput.addClass("dl-create-desc");
-    descInput.addClass("dl-edit-desc-input");
-    descInput.placeholder = "Beschreibung";
-    descInput.value = event.body ?? "";
-    descInput.disabled = readOnly;
-
-    const locationUrl = extractLocationUrl(event.location);
-    if (locationUrl) {
-      const locationActions = detailsSection.createDiv("dl-edit-inline-actions");
-      const openLocationBtn = locationActions.createEl("button", {
-        cls: "dl-create-btn dl-edit-location-open-btn",
-        text: "URL öffnen",
-      });
-      openLocationBtn.addEventListener("mousedown", (ev) => ev.preventDefault());
-      openLocationBtn.addEventListener("click", () => {
-        window.open(locationUrl, "_blank", "noopener");
-      });
-    }
-
-    const { discoveredCalendars, selectedCalendars } = this.plugin.settings.caldav;
-    const activeCals = discoveredCalendars.filter(c => selectedCalendars.length === 0 || selectedCalendars.includes(c.href));
-    let calendarValue = event.calendar ?? "";
-    if (activeCals.length > 0) {
-      const calendarSection = form.createDiv("dl-edit-section");
-      calendarSection.createDiv({ cls: "dl-edit-label", text: "Kalender" });
-      const calRow = calendarSection.createDiv("dl-create-cal-row");
-      const knownCalendars = activeCals.some(c => c.displayName === calendarValue)
-        ? activeCals
-        : [{ href: "", displayName: calendarValue }, ...activeCals].filter(c => c.displayName);
-      for (const c of knownCalendars) {
-        const chip = calRow.createDiv("dl-create-cal-chip");
-        if (c.displayName === calendarValue) chip.addClass("dl-create-cal-chip--active");
-        const dot = chip.createDiv("dl-create-cal-dot");
-        dot.style.background = `hsl(${this.calendarHue(c.displayName)}, 65%, 52%)`;
-        chip.createSpan({ text: c.displayName });
-        if (!readOnly) {
-          chip.addEventListener("click", () => {
-            calendarValue = c.displayName;
-            calRow.querySelectorAll(".dl-create-cal-chip--active").forEach(el => el.removeClass("dl-create-cal-chip--active"));
-            chip.addClass("dl-create-cal-chip--active");
-          });
-        }
-      }
-    } else {
-      const calendarSection = form.createDiv("dl-edit-section");
-      calendarSection.createDiv({ cls: "dl-edit-label", text: "Kalender" });
-      const calendarInput = calendarSection.createEl("input") as HTMLInputElement;
-      calendarInput.type = "text";
-      calendarInput.addClass("dl-create-input");
-      calendarInput.placeholder = "Kalender";
-      calendarInput.value = calendarValue;
-      calendarInput.disabled = readOnly;
-      calendarInput.addEventListener("input", () => { calendarValue = calendarInput.value.trim(); });
-    }
 
     const rsvpReader = this.plugin.calendarReader;
-    if (event.rsvp && canUpdateRsvp(rsvpReader)) {
-      const rsvpSection = form.createDiv("dl-edit-section dl-edit-rsvp-section");
+    const renderRsvpSection = (formEl: HTMLElement, reader: RsvpCalendarReader) => {
+      const rsvpSection = formEl.createDiv("dl-edit-section dl-edit-rsvp-section");
       rsvpSection.createDiv({ cls: "dl-edit-label", text: "Teilnahme" });
       const rsvpActions = rsvpSection.createDiv("dl-edit-rsvp-actions");
       const rsvpError = rsvpSection.createDiv("dl-edit-rsvp-error");
-      const addRsvpButton = (response: RsvpResponse, label: string) => {
-        const button = rsvpActions.createEl("button", { cls: "dl-create-btn dl-edit-rsvp-btn", text: label });
-        if (event.rsvp?.status === response) button.addClass("dl-edit-rsvp-btn--active");
+      const rsvpButtons = new Map<RsvpResponse, HTMLButtonElement>();
+      const markActiveResponse = (response: RsvpResponse) => {
+        for (const [buttonResponse, button] of rsvpButtons) {
+          const isActive = buttonResponse === response;
+          if (isActive) button.addClass("dl-edit-rsvp-btn--active");
+          else button.removeClass("dl-edit-rsvp-btn--active");
+          button.setAttribute("aria-pressed", String(isActive));
+        }
+      };
+      const setRsvpPending = (pending: boolean) => {
+        for (const button of rsvpButtons.values()) button.disabled = pending;
+      };
+      const addRsvpButton = (response: RsvpResponse, label: string, icon: string) => {
+        const button = rsvpActions.createEl("button", {
+          cls: `dl-edit-rsvp-btn dl-edit-rsvp-btn--${response}`,
+        });
+        setIcon(button.createSpan("dl-edit-rsvp-icon"), icon);
+        button.createSpan({ cls: "dl-edit-rsvp-btn-label", text: label });
+        const isActive = event.rsvp?.status === response;
+        if (isActive) button.addClass("dl-edit-rsvp-btn--active");
+        button.setAttribute("aria-pressed", String(isActive));
+        rsvpButtons.set(response, button);
         button.addEventListener("mousedown", (ev) => ev.preventDefault());
         button.addEventListener("click", async () => {
           rsvpError.textContent = "";
+          setRsvpPending(true);
           try {
-            await rsvpReader.updateRsvp(event.id, response);
-            rsvpActions.querySelectorAll(".dl-edit-rsvp-btn--active").forEach((activeButton) => {
-              activeButton.removeClass("dl-edit-rsvp-btn--active");
-            });
-            button.addClass("dl-edit-rsvp-btn--active");
+            await reader.updateRsvp(event.id, response);
+            markActiveResponse(response);
             if (event.rsvp) event.rsvp.status = response;
           } catch (err) {
             const message = err instanceof Error ? err.message : String(err);
             rsvpError.textContent = `RSVP konnte nicht gespeichert werden: ${message}`;
             new Notice(`RSVP konnte nicht gespeichert werden: ${message}`);
+          } finally {
+            setRsvpPending(false);
           }
         });
       };
-      addRsvpButton("accepted", "Zusagen");
-      addRsvpButton("tentative", "Mit Vorbehalt");
-      addRsvpButton("declined", "Absagen");
+      addRsvpButton("accepted", "Zusagen", "check");
+      addRsvpButton("tentative", "Mit Vorbehalt", "help-circle");
+      addRsvpButton("declined", "Absagen", "x");
+    };
+    // For invitee (read-only) events RSVP is the primary interaction — surface it first.
+    if (event.rsvp && canUpdateRsvp(rsvpReader) && readOnly) renderRsvpSection(form, rsvpReader);
+
+    const locationUrl = extractLocationUrl(event.location);
+    const appendLocationOpenButton = (row: HTMLElement) => {
+      if (!locationUrl) return;
+      const openLocationBtn = row.createEl("button", { cls: "dl-edit-location-open-btn" });
+      const platformIcon = meetingPlatformIconSvg(event, 15);
+      if (platformIcon) openLocationBtn.innerHTML = platformIcon;
+      else setIcon(openLocationBtn, "external-link");
+      openLocationBtn.setAttribute("aria-label", "URL öffnen");
+      openLocationBtn.setAttribute("title", "URL öffnen");
+      openLocationBtn.addEventListener("mousedown", (ev) => ev.preventDefault());
+      openLocationBtn.addEventListener("click", () => {
+        window.open(locationUrl, "_blank", "noopener");
+      });
+    };
+
+    let titleInput: HTMLInputElement | null = null;
+    let startInput: HTMLInputElement | null = null;
+    let endInput: HTMLInputElement | null = null;
+    let locationInput: HTMLInputElement | null = null;
+    let descInput: HTMLTextAreaElement | null = null;
+
+    if (readOnly) {
+      form.createDiv({ cls: "dl-edit-ro-title", text: event.title });
+      const timeSection = form.createDiv("dl-edit-section");
+      timeSection.createDiv({ cls: "dl-edit-label", text: "Zeit" });
+      timeSection.createDiv({
+        cls: "dl-edit-ro-value",
+        text: `${minsToTimeStr(startMin)} – ${minsToTimeStr(endMin)}`,
+      });
+      if (event.location) {
+        const locationSection = form.createDiv("dl-edit-section");
+        locationSection.createDiv({ cls: "dl-edit-label", text: "Ort" });
+        const locationRow = locationSection.createDiv("dl-edit-location-row");
+        locationRow.createDiv({ cls: "dl-edit-ro-value dl-edit-ro-location", text: event.location });
+        appendLocationOpenButton(locationRow);
+      }
+      if (event.body) {
+        const descSection = form.createDiv("dl-edit-section");
+        descSection.createDiv({ cls: "dl-edit-label", text: "Beschreibung" });
+        descSection.createDiv({ cls: "dl-edit-ro-text", text: event.body });
+      }
+    } else {
+      const titleSection = form.createDiv("dl-edit-section dl-edit-section--title");
+      const titleField = titleSection.createEl("input") as HTMLInputElement;
+      titleField.type = "text";
+      titleField.addClass("dl-create-input");
+      titleField.addClass("dl-edit-title-input");
+      titleField.placeholder = "Titel...";
+      titleField.value = event.title;
+
+      const timeSection = form.createDiv("dl-edit-section");
+      timeSection.createDiv({ cls: "dl-edit-label", text: "Zeit" });
+      const timeRow = timeSection.createDiv("dl-create-time-row dl-edit-time-row");
+      const startField = timeRow.createEl("input") as HTMLInputElement;
+      startField.type = "time";
+      startField.addClass("dl-create-time-input");
+      startField.addClass("dl-edit-start-input");
+      startField.step = "60";
+      startField.value = minsToTimeStr(startMin);
+      timeRow.createSpan({ cls: "dl-create-time-sep", text: "-" });
+      const endField = timeRow.createEl("input") as HTMLInputElement;
+      endField.type = "time";
+      endField.addClass("dl-create-time-input");
+      endField.addClass("dl-edit-end-input");
+      endField.step = "60";
+      endField.value = minsToTimeStr(endMin);
+      const keepValidEndAfterStartChange = () => {
+        const s = parseClockTime(startField.value);
+        const e = parseClockTime(endField.value);
+        if (endField.value && e > s) return;
+        endField.value = minsToTimeStr(Math.min(23 * 60 + 59, s + durationMin));
+      };
+      startField.addEventListener("input", keepValidEndAfterStartChange);
+      startField.addEventListener("change", keepValidEndAfterStartChange);
+
+      const locationSection = form.createDiv("dl-edit-section");
+      locationSection.createDiv({ cls: "dl-edit-label", text: "Ort" });
+      const locationRow = locationSection.createDiv("dl-edit-location-row");
+      const locationField = locationRow.createEl("input") as HTMLInputElement;
+      locationField.type = "text";
+      locationField.addClass("dl-create-input");
+      locationField.addClass("dl-edit-location-input");
+      locationField.placeholder = "Ort";
+      locationField.value = event.location ?? "";
+      appendLocationOpenButton(locationRow);
+
+      // RSVP is an action, not free text — keep it above the description so the
+      // description stays the scrollable overflow and RSVP never lands below the
+      // sheet fold on mobile.
+      if (event.rsvp && canUpdateRsvp(rsvpReader)) renderRsvpSection(form, rsvpReader);
+
+      const descSection = form.createDiv("dl-edit-section");
+      descSection.createDiv({ cls: "dl-edit-label", text: "Beschreibung" });
+      const descField = descSection.createEl("textarea") as HTMLTextAreaElement;
+      descField.addClass("dl-create-desc");
+      descField.addClass("dl-edit-desc-input");
+      descField.placeholder = "Beschreibung";
+      descField.value = event.body ?? "";
+
+      titleInput = titleField;
+      startInput = startField;
+      endInput = endField;
+      locationInput = locationField;
+      descInput = descField;
     }
 
     const actions = popover.createDiv("dl-create-actions dl-edit-actions");
@@ -2269,11 +2352,12 @@ export class DeskleafCalendarView extends ItemView {
     const saveBtn = readOnly ? null : actions.createEl("button", { cls: "dl-create-btn dl-create-btn--primary dl-edit-save-btn", text: "Speichern" });
 
     const clearErrors = () => {
-      titleInput.removeClass("dl-create-input--invalid");
-      startInput.removeClass("dl-create-input--invalid");
-      endInput.removeClass("dl-create-input--invalid");
+      titleInput?.removeClass("dl-create-input--invalid");
+      startInput?.removeClass("dl-create-input--invalid");
+      endInput?.removeClass("dl-create-input--invalid");
     };
     const validate = (): EventUpdate | null => {
+      if (!titleInput || !startInput || !endInput) return null;
       clearErrors();
       const s = parseClockTime(startInput.value);
       const e = parseClockTime(endInput.value);
@@ -2283,8 +2367,8 @@ export class DeskleafCalendarView extends ItemView {
         endDate,
         startTime: startInput.value,
         endTime: endInput.value,
-        location: locationInput.value,
-        notes: descInput.value,
+        location: locationInput?.value ?? "",
+        notes: descInput?.value ?? "",
         calendar: calendarValue,
       });
       if (!titleInput.value.trim()) { titleInput.addClass("dl-create-input--invalid"); titleInput.focus(); return null; }
@@ -2335,7 +2419,7 @@ export class DeskleafCalendarView extends ItemView {
     });
     saveBtn?.addEventListener("mousedown", (ev) => ev.preventDefault());
     saveBtn?.addEventListener("click", save);
-    titleInput.addEventListener("keydown", (ev) => {
+    titleInput?.addEventListener("keydown", (ev) => {
       if (ev.key === "Enter" && !readOnly) { ev.preventDefault(); save(); }
       if (ev.key === "Escape") close();
     });
@@ -2347,6 +2431,11 @@ export class DeskleafCalendarView extends ItemView {
       if (ev.key === "Escape") close();
     };
     const onOverlayClick = (ev: MouseEvent) => {
+      // iOS fires a synthetic click ~300ms after the opening tap. On mobile that
+      // click lands on the freshly-created overlay and would dismiss the sheet
+      // immediately (intermittently, depending on the exact timing), so ignore
+      // overlay clicks that arrive right after opening.
+      if (Platform.isMobile && Date.now() - overlayOpenedAt < 500) return;
       if (ev.target === overlay) close();
     };
     const cleanup = () => {
@@ -2357,12 +2446,18 @@ export class DeskleafCalendarView extends ItemView {
     };
     overlay.addEventListener("click", onOverlayClick);
     setTimeout(() => {
-      document.addEventListener("mousedown", onOutside);
-      document.addEventListener("touchstart", onOutside);
+      // Mobile taps outside the sheet always hit the full-screen overlay, which
+      // closes via onOverlayClick. Document-level listeners must stay desktop-only:
+      // iOS fires synthetic mouse events ~300ms after the opening tap, and those
+      // would land outside the sheet and dismiss it immediately.
+      if (!Platform.isMobile) {
+        document.addEventListener("mousedown", onOutside);
+        document.addEventListener("touchstart", onOutside);
+      }
       document.addEventListener("keydown", onEscape);
     }, 0);
 
-    titleInput.focus();
+    if (!Platform.isMobile) titleInput?.focus();
   }
 
   private removeEventEditOverlay() {

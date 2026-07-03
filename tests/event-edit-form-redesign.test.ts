@@ -118,6 +118,10 @@ class TestElement {
     if (name === "value") this.value = value;
   }
 
+  getAttribute(name: string): string | null {
+    return this.attributes.get(name) ?? null;
+  }
+
   addEventListener(type: string, listener: TestListener): void {
     const listeners = this.listeners.get(type) ?? [];
     listeners.push(listener);
@@ -395,9 +399,37 @@ describe("event edit form redesign", () => {
     expect(editor.querySelector<HTMLInputElement>('input[placeholder="Titel..."]')?.value).toBe("Design Review");
     expect(editor.querySelector<HTMLInputElement>('input[placeholder="Ort"]')?.value).toBe("Hamburg Office");
     expect(editor.querySelector<HTMLTextAreaElement>("textarea")?.value).toBe("Discuss the redesigned edit form.");
-    expect(editor.textContent).toContain("Work");
+    expect(editor.querySelector(".dl-edit-cal-btn")?.getAttribute("aria-label")).toContain("Work");
     expect(actions?.textContent).toContain("Abbrechen");
     expect(actions?.textContent).toContain("Speichern");
+  });
+
+  it("moves the event to another calendar through the header calendar menu", async () => {
+    const plugin = makePlugin();
+    const view = makeView(plugin);
+
+    const editor = openEditor(view, makeEvent());
+    const calBtn = editor.querySelector<HTMLButtonElement>(".dl-edit-cal-btn");
+    expect(calBtn).not.toBeNull();
+    expect(calBtn?.getAttribute("aria-label")).toContain("Work");
+
+    calBtn?.click();
+    const menuItems = Array.from(editor.querySelectorAll<HTMLButtonElement>(".dl-edit-cal-menu-item"));
+    expect(menuItems.map((item) => item.textContent)).toEqual(["Work", "Private"]);
+
+    menuItems.find((item) => item.textContent === "Private")?.click();
+    expect(editor.querySelector(".dl-edit-cal-menu")).toBeNull();
+    expect(calBtn?.getAttribute("aria-label")).toContain("Private");
+
+    editor.querySelectorAll<HTMLButtonElement>(".dl-edit-actions button").forEach((button) => {
+      if (button.textContent === "Speichern") button.click();
+    });
+    await vi.runAllTimersAsync();
+
+    expect(plugin.calendarReader.updateEvent).toHaveBeenCalledWith(
+      "event-1",
+      expect.objectContaining({ calendar: "Private" }),
+    );
   });
 
   it("keeps long mobile content inside a dedicated scrollable form body", () => {
@@ -572,7 +604,11 @@ describe("event edit form redesign", () => {
 
     expect(editor.textContent).toContain("Dieses Event ist in Deskleaf schreibgeschuetzt.");
     expect(editor.textContent).not.toContain("Speichern");
-    expect(editor.querySelector<HTMLInputElement>('input[placeholder="Titel..."]')?.disabled).toBe(true);
+    expect(editor.querySelector("input")).toBeNull();
+    expect(editor.querySelector("textarea")).toBeNull();
+    expect(editor.querySelector(".dl-edit-ro-title")?.textContent).toBe("Design Review");
+    expect(editor.querySelector(".dl-edit-ro-location")?.textContent).toBe("Hamburg Office");
+    expect(editor.querySelector(".dl-edit-ro-text")?.textContent).toBe("Discuss the redesigned edit form.");
 
     editor.querySelector<HTMLButtonElement>("button")?.click();
     await vi.runAllTimersAsync();
@@ -668,7 +704,8 @@ describe("event edit form redesign", () => {
     const editor = openEditor(view, makeEvent({ location: "Join https://meet.example.test/room" }));
     const openButton = editor.querySelector<HTMLButtonElement>(".dl-edit-location-open-btn");
     expect(openButton).not.toBeNull();
-    expect(openButton?.textContent).toBe("URL öffnen");
+    expect(openButton?.getAttribute("aria-label")).toBe("URL öffnen");
+    expect(editor.querySelector(".dl-edit-location-row")?.contains(openButton!)).toBe(true);
 
     openButton?.click();
     await vi.runAllTimersAsync();

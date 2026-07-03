@@ -1013,7 +1013,7 @@
     justify-content: center;
     padding: 18px;
     box-sizing: border-box;
-    background: rgba(0, 0, 0, 0.12);
+    background: rgba(0, 0, 0, 0.28);
 }
 
 .dl-edit-surface {
@@ -1028,11 +1028,12 @@
     background: var(--background-primary);
     border: 1px solid var(--background-modifier-border);
     border-radius: 8px;
-    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.28), 0 2px 8px rgba(0, 0, 0, 0.12);
 }
 
 .dl-edit-dialog {
     width: min(420px, calc(100vw - 36px));
+    animation: dl-edit-dialog-in 140ms ease-out;
 }
 
 .dl-edit-sheet {
@@ -1041,8 +1042,31 @@
     max-height: min(82vh, 640px);
     margin-top: auto;
     margin-bottom: max(8px, env(safe-area-inset-bottom));
-    border-radius: 8px 8px 0 0;
+    border-radius: 14px 14px 0 0;
     transform: translateY(var(--f-edit-sheet-drag-y, 0));
+    animation: dl-edit-sheet-in 240ms cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+
+/* From-only keyframes: the browser animates towards the element's computed
+   style, so the sheet's drag transform stays the single source of truth. */
+@keyframes dl-edit-dialog-in {
+    from {
+        opacity: 0;
+        transform: translateY(6px) scale(0.98);
+    }
+}
+
+@keyframes dl-edit-sheet-in {
+    from {
+        transform: translateY(100%);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dl-edit-dialog,
+    .dl-edit-sheet {
+        animation: none;
+    }
 }
 
 .dl-edit-overlay--mobile {
@@ -1051,32 +1075,137 @@
 }
 
 .dl-edit-sheet-handle {
-    width: 38px;
-    height: 4px;
+    width: 44px;
+    height: 5px;
     flex: 0 0 auto;
     align-self: center;
     margin: 8px 0 2px;
     border-radius: 999px;
-    background: var(--background-modifier-border);
+    background: var(--background-modifier-border-hover, var(--background-modifier-border));
     cursor: grab;
     touch-action: none;
 }
 
 .dl-edit-header {
     flex: 0 0 auto;
-    padding: 10px 14px 8px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 12px 16px 10px;
     border-bottom: 1px solid var(--background-modifier-border);
 }
 
+.dl-edit-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    min-width: 0;
+}
+
+.dl-edit-heading-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.dl-edit-header-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: hsl(var(--cal-h, 188), 58%, 47%);
+}
+
+.theme-dark .dl-edit-header-dot {
+    background: hsl(var(--cal-h, 188), 78%, 63%);
+}
+
+.dl-edit-cal-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    flex-shrink: 0;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    cursor: pointer;
+}
+
+.dl-edit-cal-btn:hover {
+    background: var(--background-modifier-hover);
+}
+
+.dl-edit-cal-menu {
+    position: absolute;
+    top: calc(100% - 4px);
+    left: 12px;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px;
+    min-width: 180px;
+    max-height: 40vh;
+    overflow-y: auto;
+    background: var(--background-primary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+
+.dl-edit-cal-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border: none;
+    border-radius: 5px;
+    background: transparent;
+    color: var(--text-normal);
+    font-size: 0.84em;
+    text-align: left;
+    cursor: pointer;
+}
+
+.dl-edit-cal-menu-item:hover {
+    background: var(--background-modifier-hover);
+}
+
+.dl-edit-cal-menu-item--active {
+    background: hsla(var(--accent-h), var(--accent-s), var(--accent-l), 0.12);
+    font-weight: 600;
+}
+
+.dl-edit-cal-menu-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .dl-edit-heading {
-    font-size: 0.9em;
+    font-size: 0.92em;
     font-weight: 600;
     color: var(--text-normal);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dl-edit-header-date {
+    font-size: 0.78em;
+    color: var(--text-muted);
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
 }
 
 .dl-edit-readonly-note {
-    margin-top: 4px;
-    font-size: 0.78em;
+    font-size: 0.76em;
     line-height: 1.4;
     color: var(--text-muted);
 }
@@ -1088,61 +1217,241 @@
     overflow-x: hidden;
     overflow-y: auto;
     overscroll-behavior: contain;
-    padding: 12px 14px;
+    padding: 14px 16px;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 14px;
 }
 
 .dl-edit-section {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 5px;
     min-width: 0;
 }
 
 .dl-edit-label {
-    font-size: 0.72em;
+    font-size: 0.68em;
     font-weight: 600;
     color: var(--text-muted);
     text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+/* Field polish scoped to the edit surface so the create popover keeps its own look */
+
+.dl-edit-surface .dl-create-input,
+.dl-edit-surface .dl-create-time-input,
+.dl-edit-surface .dl-create-desc {
+    background: var(--background-modifier-form-field, var(--background-primary));
+    border-radius: 6px;
+    padding: 7px 10px;
+    transition: border-color 100ms ease, box-shadow 100ms ease;
+}
+
+.dl-edit-surface .dl-create-input:focus,
+.dl-edit-surface .dl-create-time-input:focus,
+.dl-edit-surface .dl-create-desc:focus {
+    border-color: var(--interactive-accent);
+    box-shadow: 0 0 0 2px hsla(var(--accent-h), var(--accent-s), var(--accent-l), 0.2);
+}
+
+.dl-edit-surface .dl-create-input:disabled,
+.dl-edit-surface .dl-create-time-input:disabled,
+.dl-edit-surface .dl-create-desc:disabled {
+    opacity: 0.65;
+    -webkit-text-fill-color: var(--text-muted);
+}
+
+.dl-edit-surface .dl-edit-title-input {
+    font-size: 1.02em;
+    font-weight: 600;
+}
+
+.dl-edit-surface .dl-edit-desc-input {
+    height: 76px;
+    line-height: 1.45;
 }
 
 .dl-edit-time-row {
-    max-width: 260px;
+    max-width: 280px;
+}
+
+/* Read-only detail view: plain text instead of disabled inputs */
+
+.dl-edit-ro-title {
+    font-size: 1.05em;
+    font-weight: 600;
+    line-height: 1.35;
+    color: var(--text-normal);
+    overflow-wrap: anywhere;
+}
+
+.dl-edit-ro-value {
+    font-size: 0.88em;
+    color: var(--text-normal);
+    font-variant-numeric: tabular-nums;
+}
+
+.dl-edit-ro-location {
+    flex: 1;
+    min-width: 0;
+    align-self: center;
+    overflow-wrap: anywhere;
+}
+
+.dl-edit-ro-text {
+    font-size: 0.84em;
+    line-height: 1.5;
+    color: var(--text-normal);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.dl-edit-location-row {
+    display: flex;
+    gap: 6px;
+    min-width: 0;
+}
+
+.dl-edit-location-row .dl-edit-location-input {
+    flex: 1;
+    min-width: 0;
+}
+
+.dl-edit-location-open-btn {
+    flex: 0 0 auto;
+    width: 33px;
+    min-height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 6px;
+    background: var(--background-secondary);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: color 100ms ease, border-color 100ms ease;
+}
+
+.dl-edit-location-open-btn:hover {
+    color: var(--text-accent);
+    border-color: var(--interactive-accent);
+    background: var(--background-modifier-hover);
+}
+
+.dl-edit-location-open-btn svg {
+    width: 15px;
+    height: 15px;
+}
+
+.dl-edit-surface .dl-create-cal-chip--active {
+    border-color: var(--interactive-accent);
+    background: hsla(var(--accent-h), var(--accent-s), var(--accent-l), 0.12);
+    color: var(--text-normal);
+    font-weight: 500;
 }
 
 .dl-edit-actions {
     flex: 0 0 auto;
     min-width: 0;
-    padding: 10px 14px;
+    gap: 8px;
+    padding: 12px 16px;
     border-top: 1px solid var(--background-modifier-border);
     background: var(--background-secondary);
     flex-wrap: wrap;
+}
+
+.dl-edit-actions .dl-create-btn {
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 0.82em;
 }
 
 .dl-edit-sheet .dl-edit-actions {
     padding-bottom: max(10px, env(safe-area-inset-bottom));
 }
 
-.dl-edit-inline-actions,
+/* ── RSVP segmented control ─────────────────────────────────────── */
+
 .dl-edit-rsvp-actions {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 6px;
     min-width: 0;
 }
 
+.dl-edit-rsvp-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 8px 4px;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 6px;
+    background: var(--background-secondary);
+    color: var(--text-muted);
+    font-size: 0.76em;
+    line-height: 1.3;
+    cursor: pointer;
+    min-width: 0;
+    transition: background 100ms ease, border-color 100ms ease, color 100ms ease;
+}
+
+.dl-edit-rsvp-btn:hover:not(.dl-edit-rsvp-btn--active) {
+    background: var(--background-modifier-hover);
+    color: var(--text-normal);
+}
+
+.dl-edit-rsvp-btn:disabled {
+    opacity: 0.55;
+    cursor: default;
+}
+
+.dl-edit-rsvp-icon {
+    display: flex;
+}
+
+.dl-edit-rsvp-btn svg {
+    width: 15px;
+    height: 15px;
+}
+
+.dl-edit-rsvp-btn-label {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+
+/* Response hues from the Monokai calendar palette: green · yellow · pink.
+   Active states reuse the event-card tint formula for both themes. */
+.dl-edit-rsvp-btn--accepted { --f-rsvp-h: 96; }
+.dl-edit-rsvp-btn--tentative { --f-rsvp-h: 48; }
+.dl-edit-rsvp-btn--declined { --f-rsvp-h: 346; }
+
 .dl-edit-rsvp-btn--active {
-    border-color: var(--interactive-accent);
-    color: var(--text-accent);
+    background: hsl(var(--f-rsvp-h), 52%, 91%);
+    border-color: hsl(var(--f-rsvp-h), 58%, 47%);
+    color: hsl(var(--f-rsvp-h), 58%, 24%);
+    font-weight: 600;
+}
+
+.theme-dark .dl-edit-rsvp-btn--active {
+    background: hsl(var(--f-rsvp-h), 28%, 15%);
+    border-color: hsl(var(--f-rsvp-h), 78%, 63%);
+    color: hsl(var(--f-rsvp-h), 72%, 70%);
 }
 
 .dl-edit-rsvp-error {
-    min-height: 1.2em;
     color: var(--text-error);
     font-size: 0.78em;
     line-height: 1.35;
+}
+
+.dl-edit-rsvp-error:empty {
+    display: none;
 }
 
 .dl-color-swatches {
@@ -1476,14 +1785,6 @@
     text-overflow: ellipsis;
     opacity: 0.82;
     min-width: 0;
-}
-
-.dl-event-location--teams {
-    position: absolute;
-    bottom: 3px;
-    right: 5px;
-    margin-top: 0;
-    opacity: 0.7;
 }
 
 .dl-event-removal-hint {

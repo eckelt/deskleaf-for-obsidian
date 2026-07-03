@@ -1,7 +1,7 @@
 {
   "id": "obs-focal",
   "name": "Deskleaf for Obsidian",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "minAppVersion": "1.4.0",
   "description": "Calendar, notes, todos and topics — your macOS calendar in Obsidian.",
   "author": "Nils Eckelt",

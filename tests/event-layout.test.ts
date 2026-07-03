@@ -1291,7 +1291,6 @@ describe("event edit interactions", () => {
       const textInputs = popover.querySelectorAll(".dl-create-input");
       const timeInputs = popover.querySelectorAll(".dl-create-time-input");
       const descriptionInput = popover.querySelector("textarea");
-      const activeCalendar = popover.querySelector(".dl-create-cal-chip--active");
 
       expect(popover.classList.contains("dl-create-popover")).toBe(false);
       expect(popover.querySelector(".dl-edit-header")).not.toBeNull();
@@ -1303,6 +1302,11 @@ describe("event edit interactions", () => {
       ]);
       expect(timeInputs.map((input) => input.value)).toEqual(["10:15", "11:45"]);
       expect(descriptionInput?.value).toBe("Review current milestones");
+
+      const calendarButton = popover.querySelector(".dl-edit-cal-btn");
+      if (!calendarButton) throw new Error("calendar button was not rendered");
+      calendarButton.dispatchEvent(new Event("click", { cancelable: true }));
+      const activeCalendar = popover.querySelector(".dl-edit-cal-menu-item--active");
       expect(activeCalendar).not.toBeNull();
       expect(activeCalendar ? renderText(activeCalendar) : "").toBe("Work");
     } finally {
@@ -1583,7 +1587,10 @@ describe("event edit interactions", () => {
 
       expect(dialog.querySelector(".dl-edit-readonly-note")).not.toBeNull();
       expect(dialog.querySelector(".dl-edit-save-btn")).toBeNull();
-      expect(dialog.querySelector(".dl-edit-title-input")?.disabled).toBe(true);
+      expect(dialog.querySelector(".dl-edit-title-input")).toBeNull();
+      expect(dialog.querySelector("input")).toBeNull();
+      const readOnlyTitle = dialog.querySelector(".dl-edit-ro-title");
+      expect(readOnlyTitle ? renderText(readOnlyTitle) : "").toBe("Planning review");
 
       const closeButton = dialog
         .querySelectorAll(".dl-create-btn")
@@ -1661,10 +1668,13 @@ describe("event edit interactions", () => {
       timeInputs[1].value = "10:00";
       textInputs[1].value = "Room 2";
       descriptionInput.value = "Changed description";
+      const calendarMenuButton = popover.querySelector(".dl-edit-cal-btn");
+      if (!calendarMenuButton) throw new Error("calendar button was not rendered");
+      calendarMenuButton.dispatchEvent(new Event("click", { cancelable: true }));
       const privateCalendar = popover
-        .querySelectorAll(".dl-create-cal-chip")
-        .find((chip) => renderText(chip) === "Private");
-      if (!privateCalendar) throw new Error("private calendar chip was not rendered");
+        .querySelectorAll(".dl-edit-cal-menu-item")
+        .find((item) => renderText(item) === "Private");
+      if (!privateCalendar) throw new Error("private calendar menu item was not rendered");
       privateCalendar.dispatchEvent(new Event("click", { cancelable: true }));
 
       const cancelButton = popover
@@ -1694,7 +1704,6 @@ describe("event edit interactions", () => {
       const reopenedTextInputs = reopenedPopover.querySelectorAll(".dl-create-input");
       const reopenedTimeInputs = reopenedPopover.querySelectorAll(".dl-create-time-input");
       const reopenedDescriptionInput = reopenedPopover.querySelector("textarea");
-      const activeCalendar = reopenedPopover.querySelector(".dl-create-cal-chip--active");
 
       expect(reopenedTextInputs.map((input) => input.value)).toEqual([
         "Planning review",
@@ -1702,6 +1711,11 @@ describe("event edit interactions", () => {
       ]);
       expect(reopenedTimeInputs.map((input) => input.value)).toEqual(["10:15", "11:45"]);
       expect(reopenedDescriptionInput?.value).toBe("Review current milestones");
+
+      const reopenedCalendarButton = reopenedPopover.querySelector(".dl-edit-cal-btn");
+      if (!reopenedCalendarButton) throw new Error("calendar button was not re-rendered");
+      reopenedCalendarButton.dispatchEvent(new Event("click", { cancelable: true }));
+      const activeCalendar = reopenedPopover.querySelector(".dl-edit-cal-menu-item--active");
       expect(activeCalendar ? renderText(activeCalendar) : "").toBe("Work");
     } finally {
       Platform.isMobile = wasMobile;
@@ -1780,10 +1794,13 @@ describe("event edit interactions", () => {
       timeInputs[1].value = "10:00";
       textInputs[1].value = "Local edit room";
       descriptionInput.value = "Local edit description";
+      const calendarMenuButton = popover.querySelector(".dl-edit-cal-btn");
+      if (!calendarMenuButton) throw new Error("calendar button was not rendered");
+      calendarMenuButton.dispatchEvent(new Event("click", { cancelable: true }));
       const privateCalendar = popover
-        .querySelectorAll(".dl-create-cal-chip")
-        .find((chip) => renderText(chip) === "Private");
-      if (!privateCalendar) throw new Error("private calendar chip was not rendered");
+        .querySelectorAll(".dl-edit-cal-menu-item")
+        .find((item) => renderText(item) === "Private");
+      if (!privateCalendar) throw new Error("private calendar menu item was not rendered");
       privateCalendar.dispatchEvent(new Event("click", { cancelable: true }));
 
       const saveButton = popover.querySelector(".dl-edit-save-btn");
@@ -1854,8 +1871,19 @@ describe("event edit interactions", () => {
       if (!titleInput) throw new Error("title input was not rendered");
       titleInput.value = "Changed title";
 
-      const outside = testDocument.body.createDiv("outside");
-      testDocument.dispatchEvent(makeTouchEvent("touchstart", [{ clientX: 1, clientY: 1 }]), outside);
+      // Mobile outside taps always land on the full-screen overlay; document-level
+      // outside listeners stay desktop-only to survive iOS synthetic mouse events.
+      const overlay = testDocument.body.querySelector(".dl-edit-overlay");
+      if (!overlay) throw new Error("edit overlay was not rendered");
+
+      // iOS fires a synthetic click on the overlay ~300ms after the opening tap.
+      // It must not dismiss the freshly-opened sheet.
+      overlay.dispatchEvent(makeMouseEvent("click"));
+      expect(surface.isConnected).toBe(true);
+
+      // A deliberate outside tap later on does dismiss the sheet.
+      vi.advanceTimersByTime(600);
+      overlay.dispatchEvent(makeMouseEvent("click"));
 
       expect(surface.isConnected).toBe(false);
       expect(updateEvent).not.toHaveBeenCalled();
