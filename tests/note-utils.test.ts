@@ -81,6 +81,19 @@ describe("sanitizeFilename", () => {
 });
 
 describe("cleanBody", () => {
+  const googleMeetDelimiter = "-::~:~::~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~::~:~::-";
+  const googleMeetBoilerplate = [
+    googleMeetDelimiter,
+    "Join with Google Meet: https://meet.google.com/pam-uaqp-wyj",
+    "Or dial: (DE) +49 40 8081615507 PIN: 924830059#",
+    "More phone numbers: https://tel.meet/pam-uaqp-wyj?pin=4910928293376&hs=7",
+    "",
+    "Learn more about Meet at: https://support.google.com/a/users/answer/9282720",
+    "",
+    "Please do not edit this section.",
+    googleMeetDelimiter,
+  ].join("\n");
+
   it("returns empty string for null", () => {
     expect(cleanBody(null)).toBe("");
   });
@@ -131,13 +144,7 @@ describe("cleanBody", () => {
       "Agenda",
       "- Review milestones",
       "",
-      "-::~:~::~:~:~:~:~:~:~:~:~::~:~::-",
-      "Join with Google Meet: https://meet.google.com/abc-defg-hij",
-      "Or dial: (US) +1 234-567-8901 PIN: 123 456 789#",
-      "More phone numbers: https://tel.meet/abc-defg-hij",
-      "Learn more about Meet at https://support.google.com/a/users/answer/9282720",
-      "Please do not edit this section.",
-      "-::~:~::~:~:~:~:~:~:~:~:~::~:~::-",
+      googleMeetBoilerplate,
       "",
       "Bring current numbers",
     ].join("\n");
@@ -156,5 +163,17 @@ describe("cleanBody", () => {
     ].join("\n");
 
     expect(cleanBody(body)).toBe("Before\nAfter");
+  });
+
+  it("keeps non-Google-Meet content between delimiter-looking lines", () => {
+    const body = [
+      "Agenda",
+      googleMeetDelimiter,
+      "This is user-written context, not generated Google Meet boilerplate.",
+      googleMeetDelimiter,
+      "Follow-up",
+    ].join("\n");
+
+    expect(cleanBody(body)).toBe(body);
   });
 });
