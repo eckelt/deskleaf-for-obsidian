@@ -2316,6 +2316,7 @@ export class DeskleafCalendarView extends ItemView {
         await this.plugin.noteManager.syncEventNote(event, updatedEvent);
       } catch (err: any) {
         new Notice(`Fehler beim Speichern: ${err?.message ?? err}`);
+        this.render();
       }
     };
 
@@ -2571,6 +2572,7 @@ export class DeskleafCalendarView extends ItemView {
         );
       } catch (err: any) {
         new Notice(`Fehler beim Verschieben: ${err?.message ?? err}`);
+        this.render();
       }
     };
 
@@ -2634,6 +2636,7 @@ export class DeskleafCalendarView extends ItemView {
         );
       } catch (err: any) {
         new Notice(`Fehler beim Ändern: ${err?.message ?? err}`);
+        this.render();
       }
     };
 

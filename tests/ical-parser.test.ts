@@ -150,6 +150,34 @@ describe("updateVEvent", () => {
   });
 });
 
+describe("parseICalendar", () => {
+  it("cleans Google Meet provider text while preserving remote event facts and platform detection", () => {
+    const ical = [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "BEGIN:VEVENT",
+      "UID:event-1",
+      "DTSTART:20260703T080000Z",
+      "DTEND:20260703T090000Z",
+      "SUMMARY:Planning",
+      "LOCATION:Room A",
+      "DESCRIPTION:Agenda\\n-::~:~::~:~:~:~:~:~:~:~:~::~:~::-\\nJoin with Google Meet: https://meet.google.com/abc-defg-hij\\nPlease do not edit this section.\\n-::~:~::~:~:~:~:~:~:~:~:~::~:~::-\\nFollow-up",
+      "END:VEVENT",
+      "END:VCALENDAR",
+    ].join("\r\n") + "\r\n";
+
+    const [event] = parseICalendar(ical, "Work");
+
+    expect(event.title).toBe("Planning");
+    expect(event.start).toBe("2026-07-03T08:00:00Z");
+    expect(event.end).toBe("2026-07-03T09:00:00Z");
+    expect(event.location).toBe("Room A");
+    expect(event.calendar).toBe("Work");
+    expect(event.body).toBe("Agenda\nFollow-up");
+    expect(event.meetingPlatform).toBe("meet");
+  });
+});
+
 describe("CalDAV RSVP parsing and updates", () => {
   it("marks the current user as RSVP-capable when an ATTENDEE line matches", () => {
     const ical = [

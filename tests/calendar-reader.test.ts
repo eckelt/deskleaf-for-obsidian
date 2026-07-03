@@ -59,3 +59,48 @@ describe("CalendarReader.updateEvent", () => {
     expect(onChange).toHaveBeenCalledOnce();
   });
 });
+
+describe("CalendarReader binary import", () => {
+  it("cleans provider text from imported event bodies without changing other fields", async () => {
+    const reader = new CalendarReader("/tmp/deskleaf-calendar-sync");
+    const execFile = vi.fn((_: string, args: string[], __: object, callback: (err: Error | null, stdout: string) => void) => {
+      if (args[0] !== "export") {
+        callback(new Error(`Unexpected command: ${args[0]}`), "");
+        return;
+      }
+      callback(null, JSON.stringify([{
+        id: "event-1",
+        title: "Planning",
+        start: "2026-07-03T08:00:00Z",
+        end: "2026-07-03T09:00:00Z",
+        location: "Room A",
+        body: [
+          "Agenda",
+          "-::~:~::~:~:~:~:~:~:~:~:~::~:~::-",
+          "Join with Google Meet: https://meet.google.com/abc-defg-hij",
+          "Please do not edit this section.",
+          "-::~:~::~:~:~:~:~:~:~:~:~::~:~::-",
+          "Follow-up",
+        ].join("\n"),
+        meetingPlatform: "meet",
+        calendar: "Work",
+      }]));
+    });
+
+    Reflect.set(reader, "execFile", execFile);
+    Reflect.set(reader, "existsSync", () => true);
+
+    await reader.load();
+
+    expect(reader.getEvents()).toEqual([expect.objectContaining({
+      id: "event-1",
+      title: "Planning",
+      start: "2026-07-03T08:00:00Z",
+      end: "2026-07-03T09:00:00Z",
+      location: "Room A",
+      body: "Agenda\nFollow-up",
+      meetingPlatform: "meet",
+      calendar: "Work",
+    })]);
+  });
+});

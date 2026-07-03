@@ -1,4 +1,5 @@
 import type { CalendarEvent, EventUpdate, EventRsvp, RsvpResponse } from "./types";
+import { cleanBody } from "./note-utils.ts";
 
 // ── Line unfolding & property parsing ────────────────────────────
 
@@ -193,7 +194,7 @@ function buildEvent(props: ICalProp[], calendarName: string, currentUserEmail?: 
     end,
     isAllDay,
     location,
-    body: description,
+    body: cleanBody(description),
     attendees,
     numAttendees: attendeeProps.length,
     organizer,

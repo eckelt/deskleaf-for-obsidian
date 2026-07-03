@@ -1,6 +1,7 @@
 import { Notice } from "obsidian";
 import type { CalendarEvent, EventUpdate } from "./types";
 import { getEventsForDate, getAllDayEventsForDate } from "./event-filter";
+import { cleanBody } from "./note-utils";
 import type { ChildProcess, execFile as ExecFile, spawn as Spawn } from "child_process";
 import type { existsSync as ExistsSync } from "fs";
 
@@ -170,7 +171,7 @@ export class CalendarReader {
   private handleLine(line: string): void {
     if (!line) return;
     try {
-      const events = JSON.parse(line) as CalendarEvent[];
+      const events = this.cleanEvents(JSON.parse(line) as CalendarEvent[]);
       this.events    = events;
       this.loadError = null;
       this.cacheDate = new Date().toISOString();
@@ -184,6 +185,13 @@ export class CalendarReader {
     } catch (e) {
       console.error("[Focal] Failed to parse events from binary:", e);
     }
+  }
+
+  private cleanEvents(events: CalendarEvent[]): CalendarEvent[] {
+    return events.map((event) => ({
+      ...event,
+      body: cleanBody(event.body),
+    }));
   }
 
   private async tryLoadCache(): Promise<void> {

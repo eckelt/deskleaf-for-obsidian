@@ -481,6 +481,13 @@ function makeMouseEvent(type: string): Event {
   return event;
 }
 
+function makePointerMouseEvent(type: string, clientY: number): Event {
+  const event = makeMouseEvent(type);
+  Object.defineProperty(event, "clientX", { value: 120 });
+  Object.defineProperty(event, "clientY", { value: clientY });
+  return event;
+}
+
 function makeKeyboardEvent(type: string, key: string): Event {
   const event = new Event(type, { cancelable: true });
   Object.defineProperty(event, "key", { value: key });
@@ -2081,6 +2088,60 @@ describe("event edit interactions", () => {
       Platform.isMobile = wasMobile;
       Platform.isDesktop = wasDesktop;
       vi.useRealTimers();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("re-renders confirmed reader state when a desktop resize write fails", async () => {
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback): number => {
+      callback(0);
+      return 1;
+    });
+    vi.stubGlobal("window", {
+      clearTimeout,
+      innerHeight: 800,
+      innerWidth: 1200,
+      setTimeout,
+    });
+    const testDocument = new TestDocument();
+    vi.stubGlobal("document", testDocument);
+    const wasMobile = Platform.isMobile;
+    const wasDesktop = Platform.isDesktop;
+
+    try {
+      Platform.isMobile = false;
+      Platform.isDesktop = true;
+      const event = makeEvent("event-1", "2026-05-04T10:00:00Z", "2026-05-04T11:00:00Z");
+      const view = createCalendarViewHarnessWithEvents([event]);
+      const calendarReader = Reflect.get(Reflect.get(view, "plugin"), "calendarReader");
+      const moveEvent = vi.fn(async (): Promise<void> => {
+        throw new Error("backend rejected resize");
+      });
+      Reflect.set(calendarReader, "moveEvent", moveEvent);
+
+      callViewMethod(view, "render");
+      const renderFromReader = vi.fn();
+      Reflect.set(view, "render", renderFromReader);
+      const card = renderedGrid(view).querySelector(".dl-event-card");
+      if (!card) throw new Error("event card was not rendered");
+      const handle = card.querySelector(".dl-resize-handle--bottom");
+      if (!handle) throw new Error("resize handle was not rendered");
+
+      handle.dispatchEvent(makePointerMouseEvent("mousedown", 704));
+      testDocument.dispatchEvent(makePointerMouseEvent("mousemove", 672), handle);
+      testDocument.dispatchEvent(makePointerMouseEvent("mouseup", 672), handle);
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(moveEvent).toHaveBeenCalledWith(
+        "event-1",
+        "2026-05-04T10:00:00+00:00",
+        "2026-05-04T10:30:00+00:00",
+      );
+      expect(renderFromReader).toHaveBeenCalledOnce();
+    } finally {
+      Platform.isMobile = wasMobile;
+      Platform.isDesktop = wasDesktop;
       vi.unstubAllGlobals();
     }
   });

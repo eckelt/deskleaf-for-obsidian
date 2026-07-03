@@ -121,3 +121,46 @@ describe("CalDAVReader.updateEvent", () => {
     expect(Reflect.get(reader, "fetchAll")).toHaveBeenCalledOnce();
   });
 });
+
+describe("CalDAVReader cache precedence", () => {
+  it("uses cache only until a successful backend reload replaces stale timing", async () => {
+    const reader = new CalDAVReader("https://example.test", "user", "pass");
+    const remoteIcal = EVENT_ICAL
+      .replace("DTEND:20260616T090000Z", "DTEND:20260616T100000Z")
+      .replace("SUMMARY:Old title", "SUMMARY:Remote title");
+    const client = {
+      discoverCalendars: vi.fn(async () => [{ href: "/calendars/work/", displayName: "Work" }]),
+      fetchEvents: vi.fn(async () => [{ href: "/calendars/work/event-1.ics", ical: remoteIcal }]),
+    };
+    const staleCache = [{
+      id: "event-1",
+      title: "Cached title",
+      start: "2026-06-16T08:00:00Z",
+      end: "2026-06-16T08:30:00Z",
+    }];
+    const saved = vi.fn(async () => undefined);
+
+    Reflect.set(reader, "client", client);
+    reader.setCacheCallbacks(
+      saved,
+      async () => ({ events: staleCache, date: "2026-06-15T12:00:00Z" }),
+    );
+
+    await reader.load();
+
+    expect(reader.getEvents()).toEqual([expect.objectContaining({
+      id: "event-1",
+      title: "Remote title",
+      start: "2026-06-16T08:00:00Z",
+      end: "2026-06-16T10:00:00Z",
+      calendar: "Work",
+    })]);
+    expect(saved).toHaveBeenCalledWith(
+      [expect.objectContaining({
+        id: "event-1",
+        end: "2026-06-16T10:00:00Z",
+      })],
+      expect.any(String),
+    );
+  });
+});
