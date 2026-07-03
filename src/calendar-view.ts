@@ -11,7 +11,7 @@ import {
   normalizePath,
 } from "obsidian";
 import type DeskleafPlugin from "./main";
-import type { CalendarEvent, EventUpdate } from "./types";
+import type { CalendarEvent, EventUpdate, RsvpResponse } from "./types";
 import { isFeedEvent } from "./ical-feed-manager";
 import {
   toDateStr,
@@ -214,6 +214,22 @@ export function clockIconSvg(size: number): string {
 
 export function isUrlLocation(location: string | null | undefined): boolean {
   return /\b(?:https?:\/\/|www\.)\S+/i.test(location?.trim() ?? "");
+}
+
+function extractLocationUrl(location: string | null | undefined): string | null {
+  const match = /\b(?:https?:\/\/|www\.)\S+/i.exec(location?.trim() ?? "");
+  if (!match) return null;
+  return match[0].startsWith("http") ? match[0] : `https://${match[0]}`;
+}
+
+interface RsvpCalendarReader {
+  updateRsvp(id: string, response: RsvpResponse): Promise<void>;
+}
+
+function canUpdateRsvp(reader: unknown): reader is RsvpCalendarReader {
+  if (reader === null || typeof reader !== "object") return false;
+  return "updateRsvp" in reader
+    && typeof reader.updateRsvp === "function";
 }
 
 // ── Time grid constants ──────────────────────────────────────────────
@@ -2164,6 +2180,19 @@ export class DeskleafCalendarView extends ItemView {
     descInput.value = event.body ?? "";
     descInput.disabled = readOnly;
 
+    const locationUrl = extractLocationUrl(event.location);
+    if (locationUrl) {
+      const locationActions = detailsSection.createDiv("dl-edit-inline-actions");
+      const openLocationBtn = locationActions.createEl("button", {
+        cls: "dl-create-btn dl-edit-location-open-btn",
+        text: "URL öffnen",
+      });
+      openLocationBtn.addEventListener("mousedown", (ev) => ev.preventDefault());
+      openLocationBtn.addEventListener("click", () => {
+        window.open(locationUrl, "_blank", "noopener");
+      });
+    }
+
     const { discoveredCalendars, selectedCalendars } = this.plugin.settings.caldav;
     const activeCals = discoveredCalendars.filter(c => selectedCalendars.length === 0 || selectedCalendars.includes(c.href));
     let calendarValue = event.calendar ?? "";
@@ -2198,6 +2227,33 @@ export class DeskleafCalendarView extends ItemView {
       calendarInput.value = calendarValue;
       calendarInput.disabled = readOnly;
       calendarInput.addEventListener("input", () => { calendarValue = calendarInput.value.trim(); });
+    }
+
+    const rsvpReader = this.plugin.calendarReader;
+    if (event.rsvp && canUpdateRsvp(rsvpReader)) {
+      const rsvpSection = form.createDiv("dl-edit-section dl-edit-rsvp-section");
+      rsvpSection.createDiv({ cls: "dl-edit-label", text: "Teilnahme" });
+      const rsvpActions = rsvpSection.createDiv("dl-edit-rsvp-actions");
+      const rsvpError = rsvpSection.createDiv("dl-edit-rsvp-error");
+      const addRsvpButton = (response: RsvpResponse, label: string) => {
+        const button = rsvpActions.createEl("button", { cls: "dl-create-btn dl-edit-rsvp-btn", text: label });
+        if (event.rsvp?.status === response) button.addClass("dl-edit-rsvp-btn--active");
+        button.addEventListener("mousedown", (ev) => ev.preventDefault());
+        button.addEventListener("click", async () => {
+          rsvpError.textContent = "";
+          try {
+            await rsvpReader.updateRsvp(event.id, response);
+            close();
+          } catch (err) {
+            const message = err instanceof Error ? err.message : String(err);
+            rsvpError.textContent = `RSVP konnte nicht gespeichert werden: ${message}`;
+            new Notice(`RSVP konnte nicht gespeichert werden: ${message}`);
+          }
+        });
+      };
+      addRsvpButton("accepted", "Zusagen");
+      addRsvpButton("tentative", "Mit Vorbehalt");
+      addRsvpButton("declined", "Absagen");
     }
 
     const actions = popover.createDiv("dl-create-actions dl-edit-actions");

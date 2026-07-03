@@ -1,4 +1,4 @@
-import type { CalendarEvent, EventUpdate } from "./types";
+import type { CalendarEvent, EventUpdate, EventRsvp, RsvpResponse } from "./types";
 
 // ── Line unfolding & property parsing ────────────────────────────
 
@@ -122,7 +122,35 @@ function buildProps(props: ICalProp[]): Record<string, ICalProp[]> {
   return map;
 }
 
-function buildEvent(props: ICalProp[], calendarName: string): CalendarEvent | null {
+function normalizeMailto(value: string): string {
+  return value.replace(/^mailto:/i, "").trim().toLowerCase();
+}
+
+function rsvpStatusFromPartstat(value: string | undefined): RsvpResponse | null {
+  switch (value?.toUpperCase()) {
+    case "ACCEPTED":
+      return "accepted";
+    case "TENTATIVE":
+      return "tentative";
+    case "DECLINED":
+      return "declined";
+    default:
+      return null;
+  }
+}
+
+function findEventRsvp(attendeeProps: ICalProp[], currentUserEmail: string | undefined): EventRsvp | undefined {
+  const normalizedUser = currentUserEmail?.trim().toLowerCase();
+  if (!normalizedUser) return undefined;
+  const match = attendeeProps.find((attendee) => normalizeMailto(attendee.value) === normalizedUser);
+  if (!match) return undefined;
+  return {
+    attendeeEmail: normalizeMailto(match.value),
+    status: rsvpStatusFromPartstat(match.params.PARTSTAT),
+  };
+}
+
+function buildEvent(props: ICalProp[], calendarName: string, currentUserEmail?: string): CalendarEvent | null {
   const m = buildProps(props);
   const first = (name: string) => m[name]?.[0];
 
@@ -146,6 +174,7 @@ function buildEvent(props: ICalProp[], calendarName: string): CalendarEvent | nu
   const attendees = attendeeProps
     .map(p => p.params.CN ?? p.value.replace(/^mailto:/i, ""))
     .filter(Boolean);
+  const rsvp = findEventRsvp(attendeeProps, currentUserEmail);
 
   const organizerProp = first("ORGANIZER");
   const organizer = unescape(
@@ -168,6 +197,7 @@ function buildEvent(props: ICalProp[], calendarName: string): CalendarEvent | nu
     attendees,
     numAttendees: attendeeProps.length,
     organizer,
+    ...(rsvp ? { rsvp } : {}),
     isRecurring: !!first("RRULE") || !!first("RECURRENCE-ID"),
     isCancelled: first("STATUS")?.value?.toUpperCase() === "CANCELLED",
     meetingPlatform: detectMeetingPlatform(haystack),
@@ -177,7 +207,7 @@ function buildEvent(props: ICalProp[], calendarName: string): CalendarEvent | nu
 
 // ── Public API ────────────────────────────────────────────────────
 
-export function parseICalendar(icalText: string, calendarName = ""): CalendarEvent[] {
+export function parseICalendar(icalText: string, calendarName = "", currentUserEmail?: string): CalendarEvent[] {
   const lines = unfold(icalText).split(/\r?\n/);
   const events: CalendarEvent[] = [];
   let inEvent = false;
@@ -188,7 +218,7 @@ export function parseICalendar(icalText: string, calendarName = ""): CalendarEve
     if (line === "BEGIN:VEVENT") { inEvent = true; props = []; }
     else if (line === "END:VEVENT") {
       inEvent = false;
-      const ev = buildEvent(props, calendarName);
+      const ev = buildEvent(props, calendarName, currentUserEmail);
       if (ev) events.push(ev);
     } else if (inEvent) {
       props.push(parseProp(line));
@@ -285,4 +315,50 @@ export function updateVEvent(icalText: string, update: EventUpdate): string {
     )
   );
   return next;
+}
+
+function partstatForResponse(response: RsvpResponse): string {
+  switch (response) {
+    case "accepted":
+      return "ACCEPTED";
+    case "tentative":
+      return "TENTATIVE";
+    case "declined":
+      return "DECLINED";
+  }
+}
+
+function updateAttendeeLinePartstat(line: string, partstat: string): string {
+  const colon = line.indexOf(":");
+  if (colon === -1) return line;
+  const namePart = line.slice(0, colon);
+  const valuePart = line.slice(colon);
+  if (/;PARTSTAT=/i.test(namePart)) {
+    return `${namePart.replace(/;PARTSTAT=[^;:]*/i, `;PARTSTAT=${partstat}`)}${valuePart}`;
+  }
+  return `${namePart};PARTSTAT=${partstat}${valuePart}`;
+}
+
+export function updateVEventAttendeePartstat(
+  icalText: string,
+  attendeeEmail: string,
+  response: RsvpResponse,
+): string {
+  const normalizedAttendeeEmail = attendeeEmail.trim().toLowerCase();
+  const nextPartstat = partstatForResponse(response);
+
+  return updateFirstVEvent(icalText, (eventText) => {
+    const lines = eventText.split(/\r?\n/);
+    let updated = false;
+    const nextLines = lines.map((line) => {
+      if (updated || !line.toUpperCase().startsWith("ATTENDEE")) return line;
+      const colon = line.indexOf(":");
+      if (colon === -1) return line;
+      if (normalizeMailto(line.slice(colon + 1)) !== normalizedAttendeeEmail) return line;
+      updated = true;
+      return updateAttendeeLinePartstat(line, nextPartstat);
+    });
+    if (!updated) throw new Error("Keine passende Teilnehmerzeile für RSVP gefunden");
+    return nextLines.join("\r\n");
+  });
 }

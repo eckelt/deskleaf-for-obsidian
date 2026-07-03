@@ -1,8 +1,14 @@
 import { Notice } from "obsidian";
-import type { CalendarEvent, EventUpdate } from "./types";
+import type { CalendarEvent, EventUpdate, RsvpResponse } from "./types";
 import { getEventsForDate, getAllDayEventsForDate } from "./event-filter";
 import { CalDAVClient, type CalDAVCalendar } from "./caldav-client";
-import { parseICalendar, buildVEvent, updateVEventTimes, updateVEvent } from "./ical-parser";
+import {
+  parseICalendar,
+  buildVEvent,
+  updateVEventTimes,
+  updateVEvent,
+  updateVEventAttendeePartstat,
+} from "./ical-parser";
 
 const POLL_MS = 5 * 60 * 1000; // 5 minutes
 const DAYS_BACK = 90;
@@ -122,7 +128,7 @@ export class CalDAVReader {
         try {
           const results = await this.client.fetchEvents(calendar.href, from, to);
           for (const { href, ical } of results) {
-            const parsed = parseICalendar(ical, calendar.displayName);
+            const parsed = parseICalendar(ical, calendar.displayName, this.currentUserEmail());
             for (const ev of parsed) {
               allEvents.push(ev);
               this.hrefMap.set(ev.id, href);
@@ -229,6 +235,14 @@ export class CalDAVReader {
     await this.fetchAll();
   }
 
+  async updateRsvp(id: string, response: RsvpResponse): Promise<void> {
+    const href = this.requireHref(id);
+    const currentIcal = await this.client.getEvent(href);
+    const updatedIcal = updateVEventAttendeePartstat(currentIcal, this.currentUserEmail(), response);
+    await this.client.putEvent(href, updatedIcal, false);
+    await this.fetchAll();
+  }
+
   // ── Helpers ───────────────────────────────────────────────────
 
   private resolveCalendar(name?: string): CalDAVCalendar {
@@ -247,5 +261,12 @@ export class CalDAVReader {
 
   private uidFromId(id: string): string {
     return id.includes("_") ? id.slice(0, id.indexOf("_")) : id;
+  }
+
+  private currentUserEmail(): string {
+    const decodedPrincipal = decodeURIComponent(this.principalPath);
+    const marker = "/dav/principals/user/";
+    if (!decodedPrincipal.startsWith(marker)) return "";
+    return decodedPrincipal.slice(marker.length).replace(/\/$/, "");
   }
 }

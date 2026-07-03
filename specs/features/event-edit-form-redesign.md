@@ -8,7 +8,7 @@
 - GitHub issue: https://github.com/eckelt/deskleaf-for-obsidian/issues/12
 
 ## User Story
-Als Nutzer möchte ich bestehende Events in einer bewusst gestalteten Edit-Maske bearbeiten können, damit sich das Ändern von Titel, Zeit, Ort, Beschreibung und Kalender auf Mobile und Desktop wie ein sauberer Teil von Deskleaf anfühlt und nicht wie ein zufällig platzierter Popover.
+Als Nutzer möchte ich bestehende Events in einer bewusst gestalteten Edit-Maske bearbeiten, auf Einladungen reagieren und Orts-URLs öffnen können, damit sich Event-Arbeit auf Mobile und Desktop wie ein sauberer Teil von Deskleaf anfühlt und nicht wie ein zufällig platzierter Popover.
 
 ## Acceptance Criteria
 - [ ] AC1: Auf Mobile öffnet die bestehende Event-Edit-Maske als Bottom Sheet, das von unten in den Viewport kommt, die verfügbare Breite nutzt, Safe-Area-Inset berücksichtigt und nicht außerhalb des sichtbaren Bereichs liegt.
@@ -18,13 +18,17 @@ Als Nutzer möchte ich bestehende Events in einer bewusst gestalteten Edit-Maske
 - [ ] AC2c: Auf Mobile schließt ein klares Nach-unten-Wischen nicht nur auf dem sichtbaren Handle, sondern auf allen nicht-interaktiven Sheet-Flächen ohne Backend-Update und ohne Note-Sync. Interaktive Felder, Buttons, Selects und der interne Formular-Scrollbereich behalten ihre normale Bedienung und dürfen nicht durch den Dismiss-Gesture abgefangen werden.
 - [ ] AC3: Auf Desktop öffnet die bestehende Event-Edit-Maske als bewusst gestalteter Dialog/Popover mit stabiler Breite, klarer Feldgruppierung und viewport-sicherer Positionierung; sie darf weder an der Event-Card kleben noch zufällig wie ein Create-Popover wirken.
 - [ ] AC4: Mobile und Desktop verwenden dieselben vorhandenen Edit-Felder und Werte wie `edit-existing-events`: Titel, Startzeit, Endzeit, Ort, Beschreibung, Kalender, Speichern, Abbrechen/Schließen und Löschen/Ablehnen, sofern das Event nach der bestehenden `edit-existing-events`-Semantik schreibbar ist. Das Redesign darf keine zusätzlichen Events read-only machen.
-- [ ] AC5: Read-only Events behalten die bestehende Semantik: Felder sind nicht bearbeitbar, es gibt keine Speichern-Option, und die Maske erklärt knapp, dass das Event in Deskleaf schreibgeschützt ist.
+- [ ] AC5: Read-only Events behalten die bestehende Edit-Semantik: Felder sind nicht bearbeitbar, es gibt keine Speichern-Option, und die Maske erklärt knapp, dass das Event in Deskleaf schreibgeschützt ist. Unterstützte RSVP-Aktionen dürfen trotzdem sichtbar sein, weil sie keine Event-Detailbearbeitung sind.
 - [ ] AC6: Wiederkehrende Events behalten den bestehenden Speichern-Flow: Nach Speichern erscheint vor dem Backend-Write die Auswahl zwischen dieser Instanz und der Serie.
 - [ ] AC7: Abbrechen, Outside-Click/Outside-Tap und Escape schließen die Maske ohne Backend-Update und ohne Note-Sync; Speichern und Löschen/Ablehnen behalten die bestehenden Schreibpfade.
 - [ ] AC8: Das Redesign bleibt innerhalb des Deskleaf/Obsidian-Designsystems: Monokai-Pro-kompatible Flächen, Obsidian-Theme-Variablen, kompakte operative UI, keine Apple-Calendar-Kopie und keine dekorative Marketing-Optik.
 - [ ] AC9: Create-Popover und bestehende mobile Start-/Endzeit-Handle-Bearbeitung bleiben funktional; gemeinsame Styles dürfen nur verändert werden, wenn Create- und Edit-Zustände danach weiterhin unterscheidbar und viewport-sicher sind.
 - [ ] AC10: Die Event-Edit-Maske darf auf keiner unterstützten Viewport-Breite horizontal scrollen. Inhalte, Formularfelder und Aktionsleisten müssen innerhalb der Sheet-/Dialogbreite umbrechen, schrumpfen oder vertikal fließen.
 - [ ] AC11: Die Deskleaf-Sidebar darf durch dieses Fix-Forward keine horizontale Scrollbarkeit zeigen; Topics, Mini-Kalender, Toolbar und Todos müssen horizontal im Sidebar-Viewport bleiben, während vertikales Scrollen der Listen erhalten bleibt.
+- [ ] AC12: Wenn ein Event einen Ort mit URL enthält, bietet die Edit-Maske eine klar erkennbare URL-Aktion an, die die URL im Systembrowser beziehungsweise in Obsidian-default-external-open öffnet. Für v1 reicht das Öffnen der URL; ein eingebetteter Meeting-Client, Preview oder Provider-spezifischer Join-Flow ist nicht Teil des Scopes.
+- [ ] AC13: Wenn der Nutzer Teilnehmer eines Events ist und das aktive Backend RSVP technisch anbietet, zeigt die Edit-Maske eine RSVP-Aktionsgruppe mit genau diesen Antworten: `Zusagen`, `Mit Vorbehalt`/`Vielleicht`, `Absagen`.
+- [ ] AC14: RSVP-Aktionen werden ausgeblendet, wenn Deskleaf für das konkrete Event oder Backend keine belastbare RSVP-Operation anbieten kann. In diesem Fall bleibt das Event read-only beziehungsweise editierbar nach der bestehenden `edit-existing-events`-Semantik, aber ohne kaputte oder wirkungslose RSVP-Buttons.
+- [ ] AC15: Eine erfolgreiche RSVP-Aktion schreibt ausschließlich den Teilnahme-Status, lädt den Kalender anschließend neu und löst keine Event-Note-Synchronisation aus. Eine fehlgeschlagene RSVP-Aktion zeigt einen Fehlerhinweis und lässt den sichtbaren RSVP-Zustand unverändert.
 
 ## Acceptance Scenarios
 ```gherkin
@@ -85,12 +89,36 @@ Scenario: Desktop edit form feels distinct from create
 ```
 
 ```gherkin
-Scenario: Read-only edit form keeps write actions unavailable
-  Given a read-only event is visible in the calendar view
+Scenario: Read-only edit form keeps event editing unavailable
+  Given a read-only event without RSVP support is visible in the calendar view
   When the user opens the event editor
   Then the form shows the event details in a disabled/read-only state
   And no save action is available
   And closing the form does not call the backend update path
+```
+
+```gherkin
+Scenario: Location URL opens externally
+  Given an event has a location value containing a URL
+  When the user opens the event editor
+  Then the form shows an action for opening the URL
+  When the user activates that action
+  Then Deskleaf opens the URL externally
+  And no event update and no note sync are triggered
+```
+
+```gherkin
+Scenario: RSVP actions are offered only when supported
+  Given the user is an invitee on an event where the active backend supports RSVP
+  When the user opens the event editor
+  Then the form shows actions for Zusagen, Mit Vorbehalt/Vielleicht and Absagen
+  When the user chooses Mit Vorbehalt/Vielleicht
+  Then Deskleaf writes the tentative RSVP state through the backend
+  And the calendar reloads
+  And no event note sync is triggered
+  Given another event or backend cannot offer RSVP safely
+  When the user opens the event editor
+  Then no RSVP actions are shown
 ```
 
 ```gherkin
@@ -104,8 +132,10 @@ Scenario: Cancel and save semantics are unchanged
 
 ## Out of Scope
 - Neue bearbeitbare Event-Felder.
-- Teilnehmerbearbeitung, RSVP, Einladungen oder neue Zeitvorschläge.
-- Backend-Änderungen an EventKit, CalDAV oder iCal-Feed-Handling.
+- Teilnehmerbearbeitung, neue Einladungen oder neue Zeitvorschläge.
+- RSVP jenseits der drei expliziten Antworten `Zusagen`, `Mit Vorbehalt`/`Vielleicht`, `Absagen`.
+- RSVP für Events oder Backends, bei denen Deskleaf keinen eindeutigen aktuellen Teilnehmer und keinen sicheren Schreibpfad bestimmen kann.
+- Backend-Änderungen jenseits des eng notwendigen dedizierten RSVP-Schreibpfads.
 - Änderungen am Create-Event-Workflow außer notwendige Style-Entkopplung.
 - Pixelgenaue Nachbildung von Apple Calendar.
 
@@ -113,17 +143,23 @@ Scenario: Cancel and save semantics are unchanged
 _None_
 
 ## Design Decisions
-- This is a UI redesign of the existing editor, not a new event-editing capability.
+- This is primarily a UI redesign of the existing editor. The only added capabilities are action affordances attached to the same event surface: opening a location URL and sending one of the three scoped RSVP responses.
 - The Apple Calendar screenshot is directional only: compact, intentional, sheet/dialog-like. The implementation must use Deskleaf's own visual language and Obsidian theme variables.
 - Mobile uses a bottom sheet because it gives the form a predictable touch target, avoids tiny floating popovers, and matches the user's explicit "slide from bottom up" request.
 - The user's 2026-06-29 clarification prefers an Obsidian-native bottom-up, swipe-dismiss surface if one exists. Current Obsidian typings expose `Modal` with mobile animation, but no explicit bottom-sheet or swipe-down-dismiss control. Builders must verify the available API at implementation time and use a native primitive only if it satisfies the full mobile close behavior; otherwise implement/keep the Deskleaf sheet behavior directly.
 - The user's 2026-06-29 acceptance feedback makes the sheet dismiss target larger than the visible handle: the same deliberate downward dismiss gesture should work on non-interactive sheet chrome and empty areas, while form controls and internal scrolling keep priority.
+- The user's 2026-07-03 clarification adds two v1 actions to the edit surface: location URLs should simply open externally, and RSVP should expose the three explicit responses `Zusagen`, `Mit Vorbehalt`/`Vielleicht`, `Absagen` only when the backend can actually perform them.
+- RSVP is an invitation action, not an edit-save action. It must not reuse `updateEvent(...)`, must not trigger linked-note sync, and must be hidden instead of shown disabled when unsupported.
 - Desktop may be centered or card-adjacent as long as it is viewport-safe, stable, visually intentional and clearly an edit surface rather than the create popover.
 - The existing edit behavior from `specs/features/edit-existing-events.md` remains the behavioral contract for field values, validation, save, delete, read-only and recurring scope.
 
 ## Affected Areas
 - `src/calendar-view.ts`: `showEventEditPopover(...)` structure/classes, mobile/desktop positioning, close behavior wiring if class names change.
-- `src/event-edit.ts` or similarly focused helper module: pure edit rules such as read-only classification and input validation, if they need to be shared or tested outside the view.
+- `src/calendar-view.ts`: Location URL action rendering and external-open wiring in the edit surface.
+- `src/event-edit.ts` or similarly focused helper module: pure edit rules such as read-only classification, input validation, URL extraction and RSVP availability mapping, if they need to be shared or tested outside the view.
+- `src/types.ts`: Add explicit RSVP response/status types only if needed by the backend contract.
+- `src/calendar-reader.ts` and `src/caldav-reader.ts`: Add a dedicated RSVP capability/write method only where the backend can identify the current user's attendee entry and write the response safely.
+- `src/ical-parser.ts` and `src/caldav-client.ts`: CalDAV RSVP support may require preserving/updating the current user's `ATTENDEE;PARTSTAT=...` line and writing the event resource without corrupting unrelated iCalendar properties.
 - Obsidian UI API: Check whether `Modal` or another available primitive can provide the exact mobile bottom-up plus swipe-down-dismiss behavior before choosing a custom sheet.
 - `src/sidebar-view.ts`: Verify sidebar structure does not require horizontal overflow for toolbar, topics, mini-calendar or todos.
 - `styles.css`: Dedicated edit-form styling for mobile bottom sheet and desktop dialog/popover states.
@@ -143,10 +179,14 @@ _None_
 - Automated coverage should verify read-only rendering has no save action and does not call `updateEvent`.
 - Automated coverage should include at least one writable EventKit-style or CalDAV-style event that still renders editable fields and a save action, so the redesign cannot regress writable events into read-only mode.
 - Automated coverage should verify cancel/close still avoids `updateEvent` and note sync.
+- Automated coverage should verify URL extraction/opening through a stable helper or DOM test: a location containing `https://...` or `www...` exposes one open action, activates the external-open path, and does not call `updateEvent` or note sync.
+- Automated coverage should verify RSVP availability through representative cases: supported invitee event shows exactly `Zusagen`, `Mit Vorbehalt`/`Vielleicht`, `Absagen`; unsupported backend/event hides the RSVP group entirely.
+- Automated coverage should verify a successful RSVP action calls the dedicated RSVP backend path, reloads/refreshes through the existing reader behavior where applicable, and does not call `updateEvent` or linked-note sync.
+- Automated coverage should verify an RSVP failure leaves the edit surface in place or otherwise preserves the visible event state while showing an error notice.
 - Existing tests for VEVENT updates, backend update paths, note sync, recurring scope and validation remain the behavioral safety net; do not rewrite them solely for visual class changes.
 - Create-popover regression coverage should be representative: opening the create popover and successfully invoking the existing create path is enough to prove shared style changes did not break creation.
-- Manual QA in Obsidian is required for visual fit: mobile bottom sheet on iPhone-sized viewport, desktop Obsidian window at narrow and normal widths, dark and light themes, long description, read-only event and recurring-event save prompt.
-- Manual QA must include dragging the mobile sheet handle down to dismiss, swiping down on a blank/non-interactive sheet area to dismiss, verifying form controls do not dismiss accidentally, verifying normal writable events still show editable controls, and confirming that neither the edit form nor the sidebar can be scrolled horizontally.
+- Manual QA in Obsidian is required for visual fit: mobile bottom sheet on iPhone-sized viewport, desktop Obsidian window at narrow and normal widths, dark and light themes, long description, read-only event, invitee event with RSVP support, location URL and recurring-event save prompt.
+- Manual QA must include dragging the mobile sheet handle down to dismiss, swiping down on a blank/non-interactive sheet area to dismiss, verifying form controls do not dismiss accidentally, verifying normal writable events still show editable controls, confirming that neither the edit form nor the sidebar can be scrolled horizontally, opening a URL from the edit form, and verifying unsupported RSVP buttons are hidden.
 
 ## Fix-Forward Clarifications
 
@@ -161,6 +201,12 @@ Human acceptance feedback clarified two product expectations:
 Human acceptance feedback clarified two additional fit-and-finish expectations:
 - The mobile dismiss target is currently too small. A clear downward swipe on non-interactive sheet chrome or empty sheet areas must dismiss the editor, while real form controls and internal scrolling remain usable.
 - Horizontal scrolling in the event edit form and the Deskleaf sidebar is a regression. Both surfaces must be horizontally contained again.
+
+### 2026-07-03
+
+Human clarification added two v1 interaction requirements:
+- Location values that contain URLs should expose an action to open the URL externally; opening is sufficient for v1.
+- RSVP should support `Zusagen`, `Mit Vorbehalt`/`Vielleicht` and `Absagen`, but the buttons must be hidden when Deskleaf cannot offer the action reliably for the current event/backend.
 
 ---
 

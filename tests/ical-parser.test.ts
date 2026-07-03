@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseICalendar, updateVEvent } from "../src/ical-parser";
+import { parseICalendar, updateVEvent, updateVEventAttendeePartstat } from "../src/ical-parser";
 
 const EVENT = [
   "BEGIN:VCALENDAR",
@@ -147,5 +147,48 @@ describe("updateVEvent", () => {
 
     const [event] = parseICalendar(updated, "Work");
     expect(event.body).toBe("Heute sucht Manuel außer der Reihe aus und der Termin findet im Hofbräuhaus statt. 🍻");
+  });
+});
+
+describe("CalDAV RSVP parsing and updates", () => {
+  it("marks the current user as RSVP-capable when an ATTENDEE line matches", () => {
+    const ical = [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "BEGIN:VEVENT",
+      "UID:event-1",
+      "DTSTART:20260616T080000Z",
+      "DTEND:20260616T090000Z",
+      "SUMMARY:RSVP event",
+      "ATTENDEE;CN=Nils;PARTSTAT=NEEDS-ACTION:mailto:user@example.test",
+      "ATTENDEE;CN=Other;PARTSTAT=ACCEPTED:mailto:other@example.test",
+      "END:VEVENT",
+      "END:VCALENDAR",
+    ].join("\r\n") + "\r\n";
+
+    const [event] = parseICalendar(ical, "Work", "user@example.test");
+
+    expect(event.rsvp).toEqual({ attendeeEmail: "user@example.test", status: null });
+  });
+
+  it("updates only the matching ATTENDEE PARTSTAT", () => {
+    const ical = [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "BEGIN:VEVENT",
+      "UID:event-1",
+      "DTSTART:20260616T080000Z",
+      "DTEND:20260616T090000Z",
+      "SUMMARY:RSVP event",
+      "ATTENDEE;CN=Nils;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION:mailto:user@example.test",
+      "ATTENDEE;CN=Other;PARTSTAT=ACCEPTED:mailto:other@example.test",
+      "END:VEVENT",
+      "END:VCALENDAR",
+    ].join("\r\n") + "\r\n";
+
+    const updated = updateVEventAttendeePartstat(ical, "user@example.test", "tentative");
+
+    expect(updated).toContain("ATTENDEE;CN=Nils;ROLE=REQ-PARTICIPANT;PARTSTAT=TENTATIVE:mailto:user@example.test");
+    expect(updated).toContain("ATTENDEE;CN=Other;PARTSTAT=ACCEPTED:mailto:other@example.test");
   });
 });

@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Platform, WorkspaceLeaf } from "obsidian";
 import { DeskleafCalendarView } from "../src/calendar-view";
 import type { CalendarEvent, DeskleafSettings, EventUpdate } from "../src/types";
-import { DEFAULT_SETTINGS } from "../src/types";
+import { DEFAULT_SETTINGS, type RsvpResponse } from "../src/types";
 
 class TestStyle {
   borderColor = "";
@@ -224,6 +224,7 @@ interface CalendarReaderHarness {
   updateEvent: ReturnType<typeof vi.fn<[string, EventUpdate], Promise<void>>>;
   cancelEvent: ReturnType<typeof vi.fn<[string, string?], Promise<void>>>;
   createEvent: ReturnType<typeof vi.fn<[EventUpdate], Promise<void>>>;
+  updateRsvp: ReturnType<typeof vi.fn<[string, RsvpResponse], Promise<void>>>;
 }
 
 interface NoteManagerHarness {
@@ -317,6 +318,7 @@ function makePlugin(): PluginHarness {
       updateEvent: vi.fn<[string, EventUpdate], Promise<void>>().mockResolvedValue(),
       cancelEvent: vi.fn<[string, string?], Promise<void>>().mockResolvedValue(),
       createEvent: vi.fn<[EventUpdate], Promise<void>>().mockResolvedValue(),
+      updateRsvp: vi.fn<[string, RsvpResponse], Promise<void>>().mockResolvedValue(),
     },
     noteManager: {
       syncEventNote: vi.fn<[CalendarEvent, CalendarEvent], Promise<void>>().mockResolvedValue(),
@@ -653,6 +655,84 @@ describe("event edit form redesign", () => {
     await vi.runAllTimersAsync();
 
     expect(plugin.calendarReader.cancelEvent).toHaveBeenCalledWith("event-1", "this");
+    expect(plugin.calendarReader.updateEvent).not.toHaveBeenCalled();
+    expect(plugin.noteManager.syncEventNote).not.toHaveBeenCalled();
+  });
+
+  it("opens location URLs externally without event update or note sync", async () => {
+    const plugin = makePlugin();
+    const view = makeView(plugin);
+    const openExternal = vi.fn();
+    window.open = openExternal;
+
+    const editor = openEditor(view, makeEvent({ location: "Join https://meet.example.test/room" }));
+    const openButton = editor.querySelector<HTMLButtonElement>(".dl-edit-location-open-btn");
+    expect(openButton).not.toBeNull();
+    expect(openButton?.textContent).toBe("URL öffnen");
+
+    openButton?.click();
+    await vi.runAllTimersAsync();
+
+    expect(openExternal).toHaveBeenCalledWith("https://meet.example.test/room", "_blank", "noopener");
+    expect(plugin.calendarReader.updateEvent).not.toHaveBeenCalled();
+    expect(plugin.noteManager.syncEventNote).not.toHaveBeenCalled();
+  });
+
+  it("shows RSVP actions only for supported invitee events", async () => {
+    const plugin = makePlugin();
+    const view = makeView(plugin);
+
+    const editor = openEditor(view, makeEvent({
+      isOrganizer: false,
+      rsvp: { attendeeEmail: "user@example.test", status: null },
+    }), true);
+    const rsvpGroup = editor.querySelector(".dl-edit-rsvp-actions");
+    expect(rsvpGroup).not.toBeNull();
+    const rsvpButtons = Array.from(rsvpGroup?.querySelectorAll<HTMLButtonElement>("button") ?? []);
+    expect(rsvpButtons.map((button) => button.textContent)).toEqual(["Zusagen", "Mit Vorbehalt", "Absagen"]);
+
+    rsvpButtons.forEach((button) => {
+      if (button.textContent === "Mit Vorbehalt") button.click();
+    });
+    await vi.runAllTimersAsync();
+
+    expect(plugin.calendarReader.updateRsvp).toHaveBeenCalledWith("event-1", "tentative");
+    expect(plugin.calendarReader.updateEvent).not.toHaveBeenCalled();
+    expect(plugin.noteManager.syncEventNote).not.toHaveBeenCalled();
+
+    const unsupportedPlugin = makePlugin();
+    Reflect.deleteProperty(unsupportedPlugin.calendarReader, "updateRsvp");
+    const unsupportedView = makeView(unsupportedPlugin);
+    const unsupportedEditor = openEditor(unsupportedView, makeEvent({
+      isOrganizer: false,
+      rsvp: { attendeeEmail: "user@example.test", status: null },
+    }), true);
+    expect(unsupportedEditor.querySelector(".dl-edit-rsvp-actions")).toBeNull();
+  });
+
+  it("keeps the editor open and visible RSVP state unchanged when RSVP fails", async () => {
+    const plugin = makePlugin();
+    plugin.calendarReader.updateRsvp.mockRejectedValueOnce(new Error("CalDAV rejected RSVP"));
+    const view = makeView(plugin);
+
+    const editor = openEditor(view, makeEvent({
+      isOrganizer: false,
+      rsvp: { attendeeEmail: "user@example.test", status: "accepted" },
+    }), true);
+    const activeRsvpButtons = () => Array.from(
+      editor.querySelectorAll<HTMLButtonElement>(".dl-edit-rsvp-btn--active"),
+      (button) => button.textContent,
+    );
+
+    expect(activeRsvpButtons()).toEqual(["Zusagen"]);
+    editor.querySelectorAll<HTMLButtonElement>(".dl-edit-rsvp-actions button").forEach((button) => {
+      if (button.textContent === "Absagen") button.click();
+    });
+    await vi.runAllTimersAsync();
+
+    expect(document.querySelector(".dl-edit-surface")).not.toBeNull();
+    expect(activeRsvpButtons()).toEqual(["Zusagen"]);
+    expect(editor.querySelector(".dl-edit-rsvp-error")?.textContent).toContain("CalDAV rejected RSVP");
     expect(plugin.calendarReader.updateEvent).not.toHaveBeenCalled();
     expect(plugin.noteManager.syncEventNote).not.toHaveBeenCalled();
   });

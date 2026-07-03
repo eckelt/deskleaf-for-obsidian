@@ -2020,6 +2020,70 @@ describe("event edit interactions", () => {
       vi.unstubAllGlobals();
     }
   });
+
+  it("commits mobile long-press handle time edits through the existing move path", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-04T12:00:00Z"));
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback): number => {
+      callback(0);
+      return 1;
+    });
+    vi.stubGlobal("window", {
+      clearTimeout,
+      innerWidth: 390,
+      setTimeout,
+    });
+    vi.stubGlobal("navigator", {});
+    const testDocument = new TestDocument();
+    vi.stubGlobal("document", testDocument);
+    const wasMobile = Platform.isMobile;
+    const wasDesktop = Platform.isDesktop;
+
+    try {
+      Platform.isMobile = true;
+      Platform.isDesktop = false;
+      const event = makeEvent("event-1", "2026-05-04T10:00:00Z", "2026-05-04T11:00:00Z");
+      const view = createCalendarViewHarnessWithEvents([event]);
+      const calendarReader = Reflect.get(Reflect.get(view, "plugin"), "calendarReader");
+      const moveEvent = vi.fn(async (): Promise<void> => {});
+      Reflect.set(calendarReader, "moveEvent", moveEvent);
+
+      callViewMethod(view, "render");
+      const card = renderedGrid(view).querySelector(".dl-event-card");
+      if (!card) throw new Error("event card was not rendered");
+
+      card.dispatchEvent(makeTouchEvent("touchstart", [{ clientX: 120, clientY: 640 }]));
+      vi.advanceTimersByTime(350);
+      vi.runOnlyPendingTimers();
+
+      const topHandle = card.querySelector(".dl-edit-handle--top");
+      const bottomHandle = card.querySelector(".dl-edit-handle--bottom");
+      if (!topHandle) throw new Error("top edit handle was not rendered");
+      if (!bottomHandle) throw new Error("bottom edit handle was not rendered");
+
+      topHandle.dispatchEvent(makeTouchEvent("touchstart", [{ clientX: 120, clientY: 640 }]));
+      topHandle.dispatchEvent(makeTouchEvent("touchmove", [{ clientX: 120, clientY: 608 }]));
+      topHandle.dispatchEvent(makeTouchEvent("touchend", [{ clientX: 120, clientY: 608 }]));
+      bottomHandle.dispatchEvent(makeTouchEvent("touchstart", [{ clientX: 120, clientY: 704 }]));
+      bottomHandle.dispatchEvent(makeTouchEvent("touchmove", [{ clientX: 120, clientY: 736 }]));
+      bottomHandle.dispatchEvent(makeTouchEvent("touchend", [{ clientX: 120, clientY: 736 }]));
+
+      const outside = testDocument.body.createDiv("outside");
+      testDocument.dispatchEvent(makeTouchEvent("touchstart", [{ clientX: 1, clientY: 1 }]), outside);
+      await Promise.resolve();
+
+      expect(moveEvent).toHaveBeenCalledWith(
+        "event-1",
+        "2026-05-04T09:30:00+00:00",
+        "2026-05-04T11:30:00+00:00",
+      );
+    } finally {
+      Platform.isMobile = wasMobile;
+      Platform.isDesktop = wasDesktop;
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    }
+  });
 });
 
 describe("assignColumns", () => {
