@@ -688,11 +688,10 @@ describe("event edit form redesign", () => {
     }), true);
     const rsvpGroup = editor.querySelector(".dl-edit-rsvp-actions");
     expect(rsvpGroup).not.toBeNull();
-    expect(rsvpGroup?.textContent).toContain("Zusagen");
-    expect(rsvpGroup?.textContent).toContain("Mit Vorbehalt");
-    expect(rsvpGroup?.textContent).toContain("Absagen");
+    const rsvpButtons = Array.from(rsvpGroup?.querySelectorAll<HTMLButtonElement>("button") ?? []);
+    expect(rsvpButtons.map((button) => button.textContent)).toEqual(["Zusagen", "Mit Vorbehalt", "Absagen"]);
 
-    rsvpGroup?.querySelectorAll<HTMLButtonElement>("button").forEach((button) => {
+    rsvpButtons.forEach((button) => {
       if (button.textContent === "Mit Vorbehalt") button.click();
     });
     await vi.runAllTimersAsync();
