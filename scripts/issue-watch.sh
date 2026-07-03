@@ -7,6 +7,9 @@ REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 STATE_FILE="${REPO_DIR}/scripts/.issue-watch-state.json"
 AGENTS_DIR="${REPO_DIR}/.github/agents"
 WORKTREE_BASE="${HOME}/.cache/deskleaf-worktrees"   # bewusst außerhalb von iCloud
+# Obsidian-Vault: Ziel des Auto-Deploys nach dem Merge. Ohne diesen Schritt läuft
+# die menschliche Abnahme gegen veralteten Vault-Code (siehe CLAUDE.md, Build & deploy).
+VAULT_DIR="${HOME}/Library/Mobile Documents/iCloud~md~obsidian/Documents/Connections/.obsidian/plugins/deskleaf-for-obsidian"
 
 # Bot-Marker: jeder maschinelle Kommentar beginnt damit. Der Loop triggert nur
 # auf Kommentare, die NICHT damit beginnen (= menschliche Eingabe).
@@ -20,26 +23,27 @@ LABEL_ACCEPT="status:ready-for-acceptance"
 LABEL_EPIC="status:epic"
 LABEL_WONTFIX="wontfix"
 
-MAX_BUILD_ATTEMPTS=3        # Build→Review→Validate-Runden pro Issue, dann Eskalation
+MAX_BUILD_ATTEMPTS=6        # Build→Review→Validate-Runden pro Issue, dann Eskalation
 AC_ESCALATE_THRESHOLD=2     # gleiches AC X-mal rot → zurück zum Planner
+MAX_PLANNER_RETURNS=2       # Circuit Breaker: danach wartet das Issue auf Human
 POLL_INTERVAL=60
 
 # Pro-Stage-Backend (claude|codex) und optionales Modell. Per Env-Var temporär
-# überschreibbar, z.B.:  PLANNER_BACKEND=codex bash scripts/issue-watch.sh
-# Default: urteilskritische Stages (Planner/Reviewer/Validator) auf Claude Opus,
-# der durchsatzlastige Builder auf Codex.
+# überschreibbar, z.B.:  PLANNER_MODEL=gpt-5.5 bash scripts/issue-watch.sh
+# Default: alle Stages auf Codex mit dem Default-Modell des Codex-Backends.
 # Leeres Modell = Default des jeweiligen Backends.
-PLANNER_BACKEND="${PLANNER_BACKEND:-claude}";     PLANNER_MODEL="${PLANNER_MODEL:-opus}"
+PLANNER_BACKEND="${PLANNER_BACKEND:-codex}";      PLANNER_MODEL="${PLANNER_MODEL:-}"
 BUILDER_BACKEND="${BUILDER_BACKEND:-codex}";      BUILDER_MODEL="${BUILDER_MODEL:-}"
-REVIEWER_BACKEND="${REVIEWER_BACKEND:-claude}";   REVIEWER_MODEL="${REVIEWER_MODEL:-opus}"
-VALIDATOR_BACKEND="${VALIDATOR_BACKEND:-claude}"; VALIDATOR_MODEL="${VALIDATOR_MODEL:-opus}"
+REVIEWER_BACKEND="${REVIEWER_BACKEND:-codex}";    REVIEWER_MODEL="${REVIEWER_MODEL:-}"
+VALIDATOR_BACKEND="${VALIDATOR_BACKEND:-codex}";  VALIDATOR_MODEL="${VALIDATOR_MODEL:-}"
 
 # Codex-Rechte — knapp statt Holzhammer: Schreibzugriff nur im Workspace, Netz
 # an (gh/push/merge brauchen es), nie interaktive Rückfrage (Headless kann nicht
 # antworten). Für feinere Kontrolle (z.B. rm verbieten, Netz auf api.github.com
 # beschränken): Command-Rules in .codex/rules/ bzw. ein Profil via `-p <name>`.
 # Grober Fallback: CODEX_PERM_ARGS=(--dangerously-bypass-approvals-and-sandbox)
-CODEX_PERM_ARGS=(--sandbox workspace-write --ask-for-approval never \
+CODEX_PERM_ARGS=(--sandbox workspace-write \
+    -c approval_policy=\"never\" \
     -c sandbox_workspace_write.network_access=true)
 
 # ── State-Datei ────────────────────────────────────────────────────────────────
@@ -79,7 +83,7 @@ init_issue() {
     local number="$1"
     local tmp; tmp=$(mktemp)
     jq --arg n "$number" \
-        '.issues[$n] = {"stage":"new","specPath":"","prNumber":"","lastHumanCommentAt":"1970-01-01T00:00:00Z","fixForwardNote":"","lastFailedAc":"","acFailStreak":0}' \
+        '.issues[$n] = {"stage":"new","specPath":"","prNumber":"","lastHumanCommentAt":"1970-01-01T00:00:00Z","fixForwardNote":"","lastFailedAc":"","acFailStreak":0,"plannerReturnCount":0}' \
         "$STATE_FILE" > "$tmp"
     mv "$tmp" "$STATE_FILE"
 }
@@ -108,27 +112,33 @@ post_comment() {
     gh issue comment "$number" --body "$body" --repo "$(get_repo)" >/dev/null
 }
 
-# Gibt den letzten Kommentar als "createdAt<TAB>body" zurück (leer, falls keiner).
-latest_comment() {
+# Gibt den neuesten menschlichen Kommentar als "createdAt<TAB>body" zurück
+# (leer, falls keiner). Bot-Kommentare können menschliche Kommentare überholen;
+# deshalb darf nicht nur der allerletzte Kommentar betrachtet werden.
+latest_human_comment() {
     local number="$1"
-    gh issue view "$number" --repo "$(get_repo)" --json comments \
-        --jq '.comments[-1] // empty | "\(.createdAt)\t\(.body)"' 2>/dev/null || echo ""
+    # gh's --jq nimmt nur einen Filter-String und kann keine jq-Variablen binden;
+    # darum gh nur das rohe JSON ausgeben lassen und mit echtem jq (--arg) filtern.
+    gh issue view "$number" --repo "$(get_repo)" --json comments 2>/dev/null \
+        | jq -r --arg bot "$BOT" \
+            '.comments
+                | map(select(.body | startswith($bot) | not))
+                | .[-1] // empty
+                | "\(.createdAt)\t\(.body)"' 2>/dev/null || echo ""
 }
 
-# Erfolg, wenn es eine neue MENSCHLICHE Eingabe gibt (letzter Kommentar ohne
-# Bot-Marker und neuer als die zuletzt verarbeitete). Setzt bei Treffer
+# Erfolg, wenn es eine neue MENSCHLICHE Eingabe gibt (neuester menschlicher
+# Kommentar neuer als die zuletzt verarbeitete). Setzt bei Treffer
 # HUMAN_REPLY (Kommentartext) und aktualisiert lastHumanCommentAt.
 HUMAN_REPLY=""
 human_replied() {
     local number="$1"
-    local last; last=$(latest_comment "$number")
+    local last; last=$(latest_human_comment "$number")
     [[ -n "$last" ]] || return 1
 
     local created body
     created="${last%%$'\t'*}"
     body="${last#*$'\t'}"
-
-    [[ "$body" == "$BOT"* ]] && return 1   # Bot-Kommentar → ignorieren
 
     local seen; seen=$(get_field "$number" "lastHumanCommentAt" "1970-01-01T00:00:00Z")
     [[ "$created" > "$seen" ]] || return 1
@@ -157,20 +167,38 @@ ${instruction}"
 # Ruft einen Agenten im gewählten Backend auf. Stdout = Agent-Antwort; das
 # Zeilen-Protokoll wird von den Aufrufern via grep herausgefiltert.
 # run_agent <backend> <model> <dir> <prompt>
+is_default_model() {
+    local model="$1"
+    [[ -z "$model" || "$model" == "default" || "$model" == "-" ]]
+}
+
+display_model() {
+    local model="$1"
+    if is_default_model "$model"; then
+        echo "default"
+    else
+        echo "$model"
+    fi
+}
+
 run_agent() {
     local backend="$1" model="$2" dir="$3" prompt="$4"
     case "$backend" in
         claude)
             # Rechte: .claude/settings.json-Allowlist + acceptEdits für Edits.
             local args=(--permission-mode acceptEdits)
-            [[ -n "$model" ]] && args+=(--model "$model")
+            is_default_model "$model" || args+=(--model "$model")
             ( cd "$dir" && claude "${args[@]}" -p "$prompt" ) ;;
         codex)
             # Rechte aus CODEX_PERM_ARGS (workspace-write + Netz, nie nachfragen).
             # -o schreibt NUR die finale Antwort raus (Reasoning-Log verwerfen).
             local last; last=$(mktemp)
             local args=(exec "${CODEX_PERM_ARGS[@]}" --cd "$dir" -o "$last")
-            [[ -n "$model" ]] && args+=(--model "$model")
+            local git_dir; git_dir=$(git -C "$dir" rev-parse --path-format=absolute --git-dir 2>/dev/null || true)
+            local git_common_dir; git_common_dir=$(git -C "$dir" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)
+            [[ -n "$git_dir" ]] && args+=(--add-dir "$git_dir")
+            [[ -n "$git_common_dir" && "$git_common_dir" != "$git_dir" ]] && args+=(--add-dir "$git_common_dir")
+            is_default_model "$model" || args+=(--model "$model")
             # Fortschritt nach stderr (sichtbar, nicht ins Parsing eingefangen);
             # die saubere finale Antwort kommt aus -o.
             codex "${args[@]}" "$prompt" 1>&2 || true
@@ -255,6 +283,18 @@ dispatch_planning() {
     local number="$1" title="$2" body="$3"
     local stage; stage=$(get_field "$number" "stage" "new")
 
+    if [[ "$stage" != "new" && "$stage" != "planning" && "$stage" != "awaiting-author" ]]; then
+        if human_replied "$number"; then
+            set_field "$number" "fixForwardNote" "$HUMAN_REPLY"
+            set_field "$number" "stage" "planning"
+            remove_label "$number" "$LABEL_READY_BUILD"
+            remove_label "$number" "$LABEL_ACCEPT"
+            add_label "$number" "$LABEL_PLANNING"
+            echo "  [#${number}] Menschlicher Kommentar hat Vorrang; zurück zum Planner."
+            return
+        fi
+    fi
+
     case "$stage" in
         new)
             plan "$number" "$title" "$body" "" ;;
@@ -317,11 +357,31 @@ Repository: ${wt}" \
     run_agent "$VALIDATOR_BACKEND" "$VALIDATOR_MODEL" "$wt" "$CLAUDE_PROMPT"
 }
 
+# Deployt den frisch gemergten Build aus dem Worktree in den Obsidian-Vault.
+# Baut aus genau dem Code, der gerade nach main gemergt wurde (node_modules ist
+# bereits in den Worktree verlinkt) und kopiert die Plugin-Artefakte. Gibt 0 bei
+# Erfolg zurück, sonst 1 — der Aufrufer meldet einen Fehler im Issue, statt die
+# Abnahme stillschweigend gegen alten Vault-Code laufen zu lassen.
+# Muss VOR cleanup_worktree laufen, solange der Worktree noch existiert.
+deploy_to_vault() {
+    local wt="$1"
+    [[ -d "$VAULT_DIR" ]] || return 1
+    ( cd "$wt" && npm run build ) >/dev/null 2>&1 || return 1
+    cp "${wt}/main.js"       "${VAULT_DIR}/main.js"       || return 1
+    cp "${wt}/styles.css"    "${VAULT_DIR}/styles.css"    || return 1
+    cp "${wt}/manifest.json" "${VAULT_DIR}/manifest.json" || return 1
+    return 0
+}
+
 # Räumt Worktree und lokalen Branch weg.
 cleanup_worktree() {
     local wt="$1" branch="$2"
-    git -C "$REPO_DIR" worktree remove --force "$wt" 2>/dev/null || rm -rf "$wt"
-    git -C "$REPO_DIR" branch -D "$branch" 2>/dev/null || true
+    if [[ -n "$wt" ]]; then
+        git -C "$REPO_DIR" worktree remove --force "$wt" 2>/dev/null || rm -rf "$wt"
+    fi
+    if [[ -n "$branch" ]]; then
+        git -C "$REPO_DIR" branch -D "$branch" 2>/dev/null || true
+    fi
     git -C "$REPO_DIR" worktree prune 2>/dev/null || true
 }
 
@@ -329,12 +389,40 @@ cleanup_worktree() {
 back_to_planner() {
     local number="$1" wt="$2" branch="$3" reason="$4"
     cleanup_worktree "$wt" "$branch"
+    local return_count; return_count=$(get_field "$number" "plannerReturnCount" "0")
+    return_count=$(( return_count + 1 ))
+    set_field_num "$number" "plannerReturnCount" "$return_count"
+
+    if (( return_count > MAX_PLANNER_RETURNS )); then
+        set_field "$number" "stage" "awaiting-author"
+        set_field "$number" "prNumber" ""
+        set_field "$number" "fixForwardNote" ""
+        remove_label "$number" "$LABEL_READY_BUILD"
+        remove_label "$number" "$LABEL_PLANNING"
+        add_label "$number" "$LABEL_AWAITING"
+        post_comment "$number" "**Pipeline**: Circuit Breaker aktiv. Das Issue wurde ${return_count}x vom Build-Lane zurück zum Planner geschickt und wartet jetzt auf menschliche Entscheidung, um weitere Token-Kosten zu vermeiden. Letzter Grund: ${reason}"
+        return
+    fi
+
     set_field "$number" "stage" "planning"
     set_field "$number" "prNumber" ""
     set_field "$number" "fixForwardNote" "$reason"
     remove_label "$number" "$LABEL_READY_BUILD"
     add_label "$number" "$LABEL_PLANNING"
     post_comment "$number" "**Pipeline**: Zurück zum Planner. Grund: ${reason}"
+}
+
+send_pipeline_failure_to_planner() {
+    local number="$1" wt="$2" branch="$3" reason="$4"
+    cleanup_worktree "$wt" "$branch"
+    set_field "$number" "stage" "planning"
+    set_field "$number" "prNumber" ""
+    set_field "$number" "fixForwardNote" "PIPELINE FAILURE: ${reason}
+
+This is a pipeline/infrastructure failure, not product feedback. Decide whether to ask the human to fix pipeline state, mark the issue as awaiting-author, or reroute only if the issue/spec actually needs a product clarification."
+    remove_label "$number" "$LABEL_READY_BUILD"
+    add_label "$number" "$LABEL_PLANNING"
+    post_comment "$number" "**Pipeline**: Technischer Pipeline-Fehler. Übergabe an den Feature Planner zur Einordnung. Grund: ${reason}"
 }
 
 # Fährt eine Issue komplett durch Build → Review → Validate → Merge.
@@ -344,7 +432,7 @@ build_lane() {
     local spec; spec=$(get_field "$number" "specPath" "")
 
     if [[ -z "$spec" || ! -f "${REPO_DIR}/${spec}" ]]; then
-        back_to_planner "$number" "" "" "Spec nicht gefunden (\`${spec:-leer}\`)."
+        send_pipeline_failure_to_planner "$number" "" "" "Spec nicht gefunden (\`${spec:-leer}\`)."
         return 0
     fi
 
@@ -359,6 +447,9 @@ build_lane() {
     ln -sfn "${REPO_DIR}/node_modules" "${wt}/node_modules"   # Installations-Overhead sparen
     mkdir -p "${wt}/.claude"   # permission-Allowlist mit in den Worktree geben
     cp "${REPO_DIR}/.claude/settings.json" "${wt}/.claude/settings.json" 2>/dev/null || true
+    cp "${REPO_DIR}/CLAUDE.md" "${wt}/CLAUDE.md"
+    mkdir -p "${wt}/docs"
+    cp "${REPO_DIR}/docs/design-system.md" "${wt}/docs/design-system.md"
     mkdir -p "${wt}/$(dirname "$spec")"   # Spec in den Worktree spiegeln — Builder/Validator lesen sie dort
     cp "${REPO_DIR}/${spec}" "${wt}/${spec}"
 
@@ -375,7 +466,17 @@ build_lane() {
             pr=$(echo "$b" | sed 's/^PR: *//')
             set_field "$number" "prNumber" "$pr"
         else
-            back_to_planner "$number" "$wt" "$branch" "Builder: $(echo "$b" | sed 's/^FAIL: *//')"
+            # Guard: Ein Branch ohne eigenen Commit gegenüber origin/main bedeutet,
+            # dass der Builder nichts geändert hat — fast immer eine bereits
+            # umgesetzte oder dem Issue falsch zugewiesene Spec, KEIN Git-/Infra-
+            # Problem. Klar benennen, statt den leeren Diff als Branch-State-Fehler
+            # zu framen (siehe #12: Edit-Issue bekam die Pinch-Spec).
+            if [[ -z "$(git -C "$wt" log --oneline origin/main..HEAD 2>/dev/null)" ]]; then
+                send_pipeline_failure_to_planner "$number" "$wt" "$branch" \
+                    "Builder hat keine Änderung produziert (Branch identisch mit origin/main). Die Spec \`${spec}\` ist vermutlich bereits umgesetzt oder diesem Issue falsch zugewiesen — bitte die Spec-Zuordnung prüfen, nicht den Branch-/Git-State."
+            else
+                send_pipeline_failure_to_planner "$number" "$wt" "$branch" "Builder konnte keinen PR liefern: $(echo "$b" | sed 's/^FAIL: *//')"
+            fi
             return 0
         fi
 
@@ -389,16 +490,19 @@ build_lane() {
         local val; val=$(validate_step "$wt" "$spec")
         if echo "$val" | grep -q "^PASS"; then
             if gh pr merge "$pr" --squash --delete-branch --repo "$repo" >/dev/null 2>&1; then
+                local deploy_note="und in den Vault deployt"
+                deploy_to_vault "$wt" \
+                    || deploy_note="gemergt, aber der **Vault-Deploy ist fehlgeschlagen** — bitte \`bash deploy.sh\` manuell ausführen, bevor du testest"
                 cleanup_worktree "$wt" "$branch"
                 remove_label "$number" "$LABEL_READY_BUILD"
                 add_label "$number" "$LABEL_ACCEPT"
                 set_field "$number" "stage" "ready-for-acceptance"
-                post_comment "$number" "**Pipeline**: PR #${pr} reviewed, validiert und gemergt.
+                post_comment "$number" "**Pipeline**: PR #${pr} reviewed, validiert, gemergt ${deploy_note}.
 
 **Wartet auf deine Abnahme.** Schließe das Issue, wenn alles passt — oder kommentiere eine Klarstellung für einen Fix-forward."
                 return 0
             fi
-            back_to_planner "$number" "$wt" "$branch" "Merge von PR #${pr} fehlgeschlagen."
+            send_pipeline_failure_to_planner "$number" "$wt" "$branch" "Merge von PR #${pr} fehlgeschlagen."
             return 0
         fi
 
@@ -465,7 +569,7 @@ main() {
     echo "   Repo:      $(get_repo)"
     echo "   State:     ${STATE_FILE}"
     echo "   Worktrees: ${WORKTREE_BASE}"
-    echo "   Backends:  Planner=${PLANNER_BACKEND}(${PLANNER_MODEL:-default}) · Builder=${BUILDER_BACKEND}(${BUILDER_MODEL:-default}) · Reviewer=${REVIEWER_BACKEND}(${REVIEWER_MODEL:-default}) · Validator=${VALIDATOR_BACKEND}(${VALIDATOR_MODEL:-default})"
+    echo "   Backends:  Planner=${PLANNER_BACKEND}($(display_model "$PLANNER_MODEL")) · Builder=${BUILDER_BACKEND}($(display_model "$BUILDER_MODEL")) · Reviewer=${REVIEWER_BACKEND}($(display_model "$REVIEWER_MODEL")) · Validator=${VALIDATOR_BACKEND}($(display_model "$VALIDATOR_MODEL"))"
     echo "   Interval:  ${POLL_INTERVAL}s · Strg+C zum Beenden."
     echo ""
 

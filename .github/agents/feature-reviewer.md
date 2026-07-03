@@ -21,8 +21,11 @@ Check the diff against each standard from `CLAUDE.md`:
 **Consistency**
 - New code follows the same naming patterns as surrounding code
 - No new CSS variables outside the `--f-*` / `--cal-h` naming scheme
-- No new types defined outside `src/types.ts`
-- No inline styles except dynamic `--cal-h` per-event CSS custom property
+- No new shared/exported cross-module types defined outside `src/types.ts`
+- Local unexported helper types in tests or implementation files are allowed
+  when they are not reused across modules
+- No inline styles for static styling; dynamic CSS custom properties (`--f-*`,
+  `--cal-h`) are allowed for runtime-computed layout and colour values
 
 **Modularity**
 - DOM manipulation only in `calendar-view.ts` or `sidebar-view.ts`
@@ -36,7 +39,8 @@ Check the diff against each standard from `CLAUDE.md`:
 
 **Safety**
 - No new external dependencies added to `package.json`
-- No `any` types introduced without justification
+- No `any` types introduced without justification. Do not fail on pre-existing
+  `any` usage outside the PR diff.
 - No raw `innerHTML` assignments with unsanitized input
 
 **Tests**

@@ -19,11 +19,19 @@ acceptance.
 ## QA Process
 
 1. Read the feature spec at the path provided. Extract each numbered Acceptance Criterion.
-2. Run `npm test` in the repository. All tests must pass.
-3. For each AC, locate the test(s) that cover it. A test covers an AC if:
+2. Extract the spec's `Acceptance Scenarios` if present. Treat them as the
+   concrete validation contract for the ACs they cover.
+3. Run `npm test` in the repository. All tests must pass.
+4. For each AC and automated scenario, locate the test(s) that cover it. A test covers an AC if:
    - It exercises the described behavior
    - It would fail if the behavior were removed
-4. If any AC has no covering test, that is a QA failure.
+   - For Obsidian/mobile DOM interactions that are impractical to simulate
+     directly in Vitest, pure helper tests may cover the behavior if the source
+     wiring from the UI handler to those helpers is simple and inspectable
+   - For ACs that list multiple visual elements sharing one implementation
+     mechanism, representative tests may cover the shared mechanism instead of
+     requiring one test per listed element
+5. If any AC or automated scenario has no covering test, that is a QA failure.
 
 ## Required Context
 
@@ -32,18 +40,27 @@ Read only:
 - `CLAUDE.md` — for architecture constraints
 - The feature spec at the path provided
 - Test files in `tests/` that are relevant to the feature
+- Source implementation files that bind UI events to the tested pure helpers,
+  when an AC describes a DOM/mobile gesture or Obsidian runtime interaction
 
-Do not read source implementation files unless a specific AC requires it
-(e.g., to verify a non-testable architectural constraint like "types must live in types.ts").
+Do not read unrelated source implementation files.
 
 ## Stop Conditions
 
 Fail QA if:
 
 - `npm test` exits with a non-zero code
-- Any AC has no corresponding test
+- Any AC or automated acceptance scenario has no corresponding test
 - A test exists for an AC but is skipped or marked `todo`
-- The spec is in `draft` or `in-development` status (not yet `qa` or later)
+- The spec is in `draft` or `in-development` status. `approved` is valid for
+  this pipeline stage because the Validator runs before merge/acceptance.
+
+Do not fail only because a mobile gesture is not simulated end-to-end in a DOM
+test, if the gesture's math/state transition is covered by pure tests and the
+implementation visibly wires the gesture handler to those tested helpers.
+Do not fail only because every listed visual element in a broad consistency AC
+has no dedicated test, if representative tests cover the common geometry/style
+path used by those elements.
 
 ## Output Format
 

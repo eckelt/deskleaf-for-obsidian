@@ -11,6 +11,14 @@ Als [Nutzer] möchte ich [Aktion], damit [Nutzen].
 - [ ] AC1: ...
 - [ ] AC2: ...
 
+## Acceptance Scenarios
+```gherkin
+Scenario: [Observable behaviour]
+  Given [initial state]
+  When [user action or system event]
+  Then [observable outcome]
+```
+
 ## Out of Scope
 _TBD_
 

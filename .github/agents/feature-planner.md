@@ -74,6 +74,27 @@ When the human comments a clarification on an already-merged
 - Spec or architecture affected → adjust the spec (and an ADR if a ground rule
   changed), then hand off (`SPEC:`).
 
+Human comments are sacred and must be incorporated whenever they arrive,
+including while a feature is already queued for build, under review, or
+validating. Treat such comments as potentially changing the product contract:
+read them carefully, update the spec/scenarios/test expectations when they
+clarify intent, and only output `BUILD:` if the comment is clearly a pure
+implementation instruction with no spec impact.
+
+## Pipeline Failure Re-Entry
+
+When you receive a note beginning with `PIPELINE FAILURE:`, treat it as a
+pipeline/infrastructure incident, not product feedback.
+
+- If the issue/spec is not the actual cause, post a `🤖` comment that states the
+  pipeline problem clearly and output `QUESTIONS` so the issue waits for human
+  intervention.
+- Output `BUILD:` only when the failure is clearly caused by an implementation
+  mistake the Builder can fix without pipeline changes.
+- Output `SPEC:` only when the failure reveals a real spec or architecture gap.
+- Do not bounce a pipeline/infrastructure failure back to the Builder just to
+  retry the same broken path.
+
 ## ADRs and Glossary
 
 ADRs and the glossary are **shared** artifacts under `docs/adr/`. Write or
@@ -93,6 +114,31 @@ human replies. Never omit the prefix.
 - The request conflicts with an ADR or the architecture.
 - A new architectural decision is required but not captured.
 - The feature would force the builder to infer product intent.
+
+## Testable AC Design
+
+Acceptance criteria must be observable without forcing brittle or redundant
+tests.
+
+- Phrase each AC around the user-visible invariant or domain invariant, not
+  around implementation trivia.
+- Add an `Acceptance Scenarios` section to every non-trivial spec, using
+  lightweight Given/When/Then Markdown code blocks. Do not create Cucumber
+  files or introduce Cucumber tooling.
+- Each complex AC should be backed by at least one scenario. A scenario may
+  cover multiple ACs when they are naturally verified together.
+- When an AC lists several UI elements that should follow the same mechanism,
+  explicitly define the shared mechanism in Test Expectations and state what
+  representative automated coverage is sufficient.
+- Do not imply "one automated test per visual sub-element" unless the elements
+  can fail independently through different code paths.
+- Split a broad AC when it actually contains independent behaviours with
+  different failure modes.
+- Keep manual QA for runtime/visual confidence that Vitest cannot exercise
+  reliably, but require automated tests for pure math, state transitions,
+  parser logic, and stable DOM wiring.
+- In `Test Expectations`, map scenarios to automated Vitest coverage or manual
+  QA. Be explicit about which scenarios are intentionally manual.
 
 ## Output Format
 

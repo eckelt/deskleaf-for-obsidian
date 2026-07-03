@@ -28,13 +28,16 @@ Turns a raw issue into an implementation-ready spec.
   `awaiting-author` until the human replies.
 - Splits an oversized feature into **N independent child sub-issues**; the
   parent becomes an epic and sleeps.
+- Writes lightweight Given/When/Then acceptance scenarios in the spec for
+  non-trivial behaviours. These are Markdown scenarios, not Cucumber files.
 - Owns the spec. Does not write production code.
 
 ### Feature Builder
 Implements an approved spec with TDD and Clean Code.
 
 - Runs inside a dedicated git worktree on a short-lived feature branch.
-- Writes a failing test per acceptance criterion first, then makes it pass.
+- Uses acceptance scenarios as the test plan; writes failing Vitest coverage
+  for automated scenarios first, then makes it pass.
 - May add an ADR alongside the code when a ground-rule decision is forced.
 - Runs `npm test` and `npm run build`, then opens the PR.
 
@@ -44,8 +47,8 @@ Judges the PR diff for consistency, readability, and maintainability against
 
 ### Validator
 Confirms the spec is met: `npm test` green **and** every acceptance criterion
-covered by a test. Never edits code. Visual/manual QA in the running Obsidian
-app is the human's job at acceptance.
+and automated acceptance scenario covered by a test. Never edits code.
+Visual/manual QA in the running Obsidian app is the human's job at acceptance.
 
 ## Pipeline Stages
 
@@ -53,7 +56,7 @@ Issue stages (tracked in `scripts/.issue-watch-state.json`, mirrored to labels):
 
 ```text
 new → planning → awaiting-author → spec-ready → ready-for-acceptance
-                                              ↘ epic (split) / skipped
+                       ↘ epic (split) / skipped
 ```
 
 | Stage                  | Label                          | Meaning                                        |
@@ -84,7 +87,14 @@ ignores missing labels silently.
 4. Validator checks AC coverage. A failure routes back to the Builder;
    repeated failure on the same AC escalates to the Planner (the spec is likely
    unclear).
-5. On all-green the daemon **auto-merges** (`--squash`), cleans up the worktree,
+5. Pipeline/infrastructure failures are written to the issue and routed to the
+   Planner for classification. The Planner usually asks for human intervention
+   and moves the issue to `awaiting-author`; it only reroutes to the Builder if
+   the cause is clearly implementation-side.
+6. As a token-safety circuit breaker, an issue may return from the build lane to
+   the Planner at most twice. The next return moves it to `awaiting-author` for
+   human intervention.
+7. On all-green the daemon **auto-merges** (`--squash`), cleans up the worktree,
    and labels the issue `ready-for-acceptance`.
 
 ## Signalling — the `🤖` convention
@@ -92,6 +102,12 @@ ignores missing labels silently.
 Because the daemon and the human comment under the same GitHub identity, every
 bot comment is prefixed with `🤖`. The loop triggers **only on comments that do
 not start with `🤖`**, so it never reacts to its own output.
+
+Human comments have priority in every active stage. If a human comments while
+an issue is queued for build, under review, validating, or waiting for
+acceptance, the daemon removes it from the build/acceptance lane and routes it
+back to the Planner with the comment as required context. Human clarification is
+never ignored just because implementation has started.
 
 ## Human acceptance & fix-forward
 
@@ -108,8 +124,8 @@ Acceptance happens **after** merge:
 bash scripts/issue-watch.sh
 ```
 
-The daemon calls `claude -p` per stage. Tool permissions for the unattended
-agents come from the checked-in `.claude/settings.json` allowlist (gh, git,
-npm, file edits), which the daemon also copies into each worktree. If an agent
-stalls on a denied command, add it there. The blunt fallback is
-`--dangerously-skip-permissions` (see the `CLAUDE_FLAGS` comment in the script).
+The daemon calls the configured backend per stage. Defaults are Codex for all
+stages, with per-stage `*_BACKEND` and `*_MODEL` environment overrides.
+Codex permissions are configured in `scripts/issue-watch.sh`; Claude permissions
+come from the checked-in `.claude/settings.json` allowlist, which the daemon
+also copies into each worktree.
