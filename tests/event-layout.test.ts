@@ -1711,6 +1711,119 @@ describe("event edit interactions", () => {
     }
   });
 
+  it("keeps remote event facts when an edit save fails", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback): number => {
+      callback(0);
+      return 1;
+    });
+    vi.stubGlobal("window", {
+      clearTimeout,
+      innerHeight: 800,
+      innerWidth: 1200,
+      setTimeout,
+    });
+    const testDocument = new TestDocument();
+    vi.stubGlobal("document", testDocument);
+    const wasMobile = Platform.isMobile;
+    const wasDesktop = Platform.isDesktop;
+
+    try {
+      Platform.isMobile = false;
+      Platform.isDesktop = true;
+      const event: CalendarEvent = {
+        id: "event-1",
+        title: "Remote planning",
+        start: "2026-05-04T10:15:00Z",
+        end: "2026-05-04T11:45:00Z",
+        location: "Remote room",
+        attendees: ["Remote Attendee"],
+        body: "Remote description",
+        calendar: "Work",
+        isRecurring: false,
+        isCancelled: false,
+        isOrganizer: true,
+        organizer: "Remote Organizer",
+      };
+      const view = createCalendarViewHarnessWithEvents([event]);
+      const plugin = Reflect.get(view, "plugin");
+      const calendarReader = Reflect.get(plugin, "calendarReader");
+      const noteManager = Reflect.get(plugin, "noteManager");
+      const updateEvent = vi.fn(async (): Promise<void> => {
+        throw new Error("backend rejected edit");
+      });
+      const syncEventNote = vi.fn(async (): Promise<void> => {});
+      const renderFromReader = vi.fn();
+      Reflect.set(calendarReader, "updateEvent", updateEvent);
+      Reflect.set(noteManager, "syncEventNote", syncEventNote);
+      Reflect.set(view, "render", renderFromReader);
+      Reflect.set(Reflect.get(plugin, "settings"), "caldav", {
+        discoveredCalendars: [
+          { href: "/work/", displayName: "Work" },
+          { href: "/private/", displayName: "Private" },
+        ],
+        selectedCalendars: [],
+      });
+
+      callViewMethod(view, "showEventEditPopover", event, "2026-05-04", makeMouseEvent("click"), false);
+      vi.runOnlyPendingTimers();
+
+      const popover = testDocument.body.querySelector(".dl-edit-dialog");
+      if (!popover) throw new Error("edit popover was not rendered");
+      const textInputs = popover.querySelectorAll(".dl-create-input");
+      const timeInputs = popover.querySelectorAll(".dl-create-time-input");
+      const descriptionInput = popover.querySelector("textarea");
+      if (!descriptionInput) throw new Error("description input was not rendered");
+
+      textInputs[0].value = "Local edit title";
+      timeInputs[0].value = "09:00";
+      timeInputs[1].value = "10:00";
+      textInputs[1].value = "Local edit room";
+      descriptionInput.value = "Local edit description";
+      const privateCalendar = popover
+        .querySelectorAll(".dl-create-cal-chip")
+        .find((chip) => renderText(chip) === "Private");
+      if (!privateCalendar) throw new Error("private calendar chip was not rendered");
+      privateCalendar.dispatchEvent(new Event("click", { cancelable: true }));
+
+      const saveButton = popover.querySelector(".dl-edit-save-btn");
+      if (!saveButton) throw new Error("save button was not rendered");
+      saveButton.dispatchEvent(new Event("click", { cancelable: true }));
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(updateEvent).toHaveBeenCalledWith("event-1", {
+        title: "Local edit title",
+        start: "2026-05-04T09:00:00+00:00",
+        end: "2026-05-04T10:00:00+00:00",
+        location: "Local edit room",
+        notes: "Local edit description",
+        calendar: "Private",
+      });
+      expect(syncEventNote).not.toHaveBeenCalled();
+      expect(renderFromReader).toHaveBeenCalledOnce();
+      expect(event).toEqual({
+        id: "event-1",
+        title: "Remote planning",
+        start: "2026-05-04T10:15:00Z",
+        end: "2026-05-04T11:45:00Z",
+        location: "Remote room",
+        attendees: ["Remote Attendee"],
+        body: "Remote description",
+        calendar: "Work",
+        isRecurring: false,
+        isCancelled: false,
+        isOrganizer: true,
+        organizer: "Remote Organizer",
+      });
+    } finally {
+      Platform.isMobile = wasMobile;
+      Platform.isDesktop = wasDesktop;
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("closes the edit popover on outside click without backend update or note sync", () => {
     const { surface, testDocument, updateEvent, syncEventNote, restorePlatform } =
       openWritableEditFormForCloseTest({ mobile: false });

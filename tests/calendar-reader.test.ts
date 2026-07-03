@@ -74,6 +74,7 @@ describe("CalendarReader binary import", () => {
         start: "2026-07-03T08:00:00Z",
         end: "2026-07-03T09:00:00Z",
         location: "Room A",
+        attendees: ["Remote Attendee"],
         body: [
           "Agenda",
           "-::~:~::~:~:~:~:~:~:~:~:~::~:~::-",
@@ -84,6 +85,11 @@ describe("CalendarReader binary import", () => {
         ].join("\n"),
         meetingPlatform: "meet",
         calendar: "Work",
+        isAllDay: false,
+        isRecurring: true,
+        isCancelled: true,
+        isOrganizer: false,
+        organizer: "Remote Organizer",
       }]));
     });
 
@@ -98,9 +104,15 @@ describe("CalendarReader binary import", () => {
       start: "2026-07-03T08:00:00Z",
       end: "2026-07-03T09:00:00Z",
       location: "Room A",
+      attendees: ["Remote Attendee"],
       body: "Agenda\nFollow-up",
       meetingPlatform: "meet",
       calendar: "Work",
+      isAllDay: false,
+      isRecurring: true,
+      isCancelled: true,
+      isOrganizer: false,
+      organizer: "Remote Organizer",
     })]);
   });
 });
