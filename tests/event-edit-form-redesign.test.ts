@@ -719,13 +719,19 @@ describe("event edit form redesign", () => {
       isOrganizer: false,
       rsvp: { attendeeEmail: "user@example.test", status: "accepted" },
     }), true);
+    const activeRsvpButtons = () => Array.from(
+      editor.querySelectorAll<HTMLButtonElement>(".dl-edit-rsvp-btn--active"),
+      (button) => button.textContent,
+    );
 
+    expect(activeRsvpButtons()).toEqual(["Zusagen"]);
     editor.querySelectorAll<HTMLButtonElement>(".dl-edit-rsvp-actions button").forEach((button) => {
       if (button.textContent === "Absagen") button.click();
     });
     await vi.runAllTimersAsync();
 
     expect(document.querySelector(".dl-edit-surface")).not.toBeNull();
+    expect(activeRsvpButtons()).toEqual(["Zusagen"]);
     expect(editor.querySelector(".dl-edit-rsvp-error")?.textContent).toContain("CalDAV rejected RSVP");
     expect(plugin.calendarReader.updateEvent).not.toHaveBeenCalled();
     expect(plugin.noteManager.syncEventNote).not.toHaveBeenCalled();
