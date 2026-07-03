@@ -15,6 +15,14 @@ export interface CalendarEvent {
   meetingPlatform?: string;
   numAttendees?: number;
   organizer?: string | null;
+  rsvp?: EventRsvp;
+}
+
+export type RsvpResponse = "accepted" | "tentative" | "declined";
+
+export interface EventRsvp {
+  attendeeEmail: string;
+  status: RsvpResponse | null;
 }
 
 export interface EventUpdate {

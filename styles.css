@@ -1125,6 +1125,26 @@
     padding-bottom: max(10px, env(safe-area-inset-bottom));
 }
 
+.dl-edit-inline-actions,
+.dl-edit-rsvp-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-width: 0;
+}
+
+.dl-edit-rsvp-btn--active {
+    border-color: var(--interactive-accent);
+    color: var(--text-accent);
+}
+
+.dl-edit-rsvp-error {
+    min-height: 1.2em;
+    color: var(--text-error);
+    font-size: 0.78em;
+    line-height: 1.35;
+}
+
 .dl-color-swatches {
     display: flex;
     gap: 4px;

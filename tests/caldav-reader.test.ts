@@ -96,4 +96,28 @@ describe("CalDAVReader.updateEvent", () => {
     expect(client.putEvent).not.toHaveBeenCalled();
     expect(client.moveEvent).not.toHaveBeenCalled();
   });
+
+  it("writes RSVP through the attendee PARTSTAT path and reloads without updateEvent", async () => {
+    const { reader, client } = makeReader();
+    client.getEvent.mockResolvedValueOnce([
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "BEGIN:VEVENT",
+      "UID:event-1",
+      "DTSTART:20260616T080000Z",
+      "DTEND:20260616T090000Z",
+      "SUMMARY:RSVP event",
+      "ATTENDEE;CN=User;PARTSTAT=NEEDS-ACTION:mailto:user",
+      "END:VEVENT",
+      "END:VCALENDAR",
+    ].join("\r\n") + "\r\n");
+
+    await reader.updateRsvp("event-1", "accepted");
+
+    expect(client.getEvent).toHaveBeenCalledWith("/calendars/work/event-1.ics");
+    expect(client.putEvent).toHaveBeenCalledOnce();
+    expect(client.putEvent.mock.calls[0][0]).toBe("/calendars/work/event-1.ics");
+    expect(client.putEvent.mock.calls[0][1]).toContain("ATTENDEE;CN=User;PARTSTAT=ACCEPTED:mailto:user");
+    expect(Reflect.get(reader, "fetchAll")).toHaveBeenCalledOnce();
+  });
 });
