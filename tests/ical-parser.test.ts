@@ -151,6 +151,29 @@ describe("updateVEvent", () => {
 });
 
 describe("parseICalendar", () => {
+  it("uses VEVENT DURATION as the remote end time when DTEND is absent", () => {
+    const ical = [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "BEGIN:VEVENT",
+      "UID:6j5hq016f5i26n344o87o0rh0m@google.com",
+      "DTSTART;TZID=Europe/Berlin:20260703T100000",
+      "DURATION:PT45M",
+      "SUMMARY:Andreas & Nils & Stefan",
+      "LOCATION:https://meet.google.com/zoe-suij-mcp",
+      "END:VEVENT",
+      "END:VCALENDAR",
+    ].join("\r\n") + "\r\n";
+
+    const [event] = parseICalendar(ical, "Nils");
+
+    expect(event.title).toBe("Andreas & Nils & Stefan");
+    expect(event.start).toBe("2026-07-03T08:00:00Z");
+    expect(event.end).toBe("2026-07-03T08:45:00Z");
+    expect(event.location).toBe("https://meet.google.com/zoe-suij-mcp");
+    expect(event.meetingPlatform).toBe("meet");
+  });
+
   it("cleans Google Meet provider text while preserving remote event facts and platform detection", () => {
     const ical = [
       "BEGIN:VCALENDAR",
