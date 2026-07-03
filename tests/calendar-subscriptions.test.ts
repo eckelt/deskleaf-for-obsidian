@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { parseICalendar } from "../src/ical-parser";
 import { CAL_COLOR_PALETTE } from "../src/types";
 import type { CalendarEvent, ICalFeedSubscription, DeskleafSettings } from "../src/types";
-import { ICalFeedManager } from "../src/ical-feed-manager";
+import { ICalFeedManager, isFeedEvent } from "../src/ical-feed-manager";
 
 // ── Shared fixtures ───────────────────────────────────────────────
 
@@ -207,7 +207,6 @@ describe("AC4 — read-only enforcement for feed events", () => {
 
   // AC: Abonnierte Feeds sind read-only — Drag-to-move, Drag-to-resize und Drag-to-create erzeugen für diese Events keine Schreiboperation; der Nutzer sieht keinen Drag-Handle und keinen Resize-Griff an diesen Cards.
   it("isFeedEvent returns true for events whose id starts with the ical: prefix", () => {
-    const { isFeedEvent } = require("../src/ical-feed-manager");
     const feedEvent: CalendarEvent = {
       id: "ical:feed-001:some-uid@example.com",
       title: "Feed Event",
@@ -220,7 +219,6 @@ describe("AC4 — read-only enforcement for feed events", () => {
 
   // AC: Abonnierte Feeds sind read-only — Drag-to-move, Drag-to-resize und Drag-to-create erzeugen für diese Events keine Schreiboperation; der Nutzer sieht keinen Drag-Handle und keinen Resize-Griff an diesen Cards.
   it("isFeedEvent returns false for regular (non-feed) events", () => {
-    const { isFeedEvent } = require("../src/ical-feed-manager");
     const regularEvent: CalendarEvent = {
       id: "local-uid-12345",
       title: "Regular Event",

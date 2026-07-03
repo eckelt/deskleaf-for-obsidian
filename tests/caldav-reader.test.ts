@@ -121,3 +121,80 @@ describe("CalDAVReader.updateEvent", () => {
     expect(Reflect.get(reader, "fetchAll")).toHaveBeenCalledOnce();
   });
 });
+
+describe("CalDAVReader cache precedence", () => {
+  it("uses cache only until a successful backend reload replaces stale event facts", async () => {
+    const reader = new CalDAVReader("https://example.test", "user", "pass");
+    const remoteIcal = [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "BEGIN:VEVENT",
+      "UID:event-1",
+      "DTSTART;VALUE=DATE:20260616",
+      "DTEND;VALUE=DATE:20260618",
+      "SUMMARY:Remote title",
+      "LOCATION:Remote room",
+      "DESCRIPTION:Remote description",
+      "RRULE:FREQ=WEEKLY",
+      "STATUS:CANCELLED",
+      "ORGANIZER;CN=Remote Organizer:mailto:organizer@example.test",
+      "ATTENDEE;CN=Remote Attendee;PARTSTAT=ACCEPTED:mailto:attendee@example.test",
+      "END:VEVENT",
+      "END:VCALENDAR",
+    ].join("\r\n") + "\r\n";
+    const client = {
+      discoverCalendars: vi.fn(async () => [{ href: "/calendars/work/", displayName: "Work" }]),
+      fetchEvents: vi.fn(async () => [{ href: "/calendars/work/event-1.ics", ical: remoteIcal }]),
+    };
+    const staleCache = [{
+      id: "event-1",
+      title: "Cached title",
+      start: "2026-06-16T08:00:00Z",
+      end: "2026-06-16T08:30:00Z",
+      isAllDay: false,
+      isRecurring: false,
+      calendar: "Cached calendar",
+      location: "Cached room",
+      attendees: ["Cached Attendee"],
+      organizer: "Cached Organizer",
+      isCancelled: false,
+      isOrganizer: false,
+    }];
+    const saved = vi.fn(async () => undefined);
+
+    Reflect.set(reader, "client", client);
+    reader.setCacheCallbacks(
+      saved,
+      async () => ({ events: staleCache, date: "2026-06-15T12:00:00Z" }),
+    );
+
+    await reader.load();
+
+    expect(reader.getEvents()).toEqual([expect.objectContaining({
+      id: "event-1",
+      title: "Remote title",
+      start: "2026-06-16",
+      end: "2026-06-17",
+      isAllDay: true,
+      isRecurring: true,
+      calendar: "Work",
+      location: "Remote room",
+      attendees: ["Remote Attendee"],
+      organizer: "Remote Organizer",
+      isCancelled: true,
+    })]);
+    expect(reader.getEvents()[0].isOrganizer).toBeUndefined();
+    expect(saved).toHaveBeenCalledWith(
+      [expect.objectContaining({
+        id: "event-1",
+        title: "Remote title",
+        start: "2026-06-16",
+        end: "2026-06-17",
+        attendees: ["Remote Attendee"],
+        organizer: "Remote Organizer",
+        isCancelled: true,
+      })],
+      expect.any(String),
+    );
+  });
+});

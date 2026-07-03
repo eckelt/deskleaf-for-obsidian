@@ -125,4 +125,36 @@ describe("cleanBody", () => {
   it("trims leading and trailing whitespace from result", () => {
     expect(cleanBody("  \n  Notes  \n  ")).toBe("Notes");
   });
+
+  it("removes a generated Google Meet block with dial-in and support lines", () => {
+    const body = [
+      "Agenda",
+      "- Review milestones",
+      "",
+      "-::~:~::~:~:~:~:~:~:~:~:~::~:~::-",
+      "Join with Google Meet: https://meet.google.com/abc-defg-hij",
+      "Or dial: (US) +1 234-567-8901 PIN: 123 456 789#",
+      "More phone numbers: https://tel.meet/abc-defg-hij",
+      "Learn more about Meet at https://support.google.com/a/users/answer/9282720",
+      "Please do not edit this section.",
+      "-::~:~::~:~:~:~:~:~:~:~:~::~:~::-",
+      "",
+      "Bring current numbers",
+    ].join("\n");
+
+    expect(cleanBody(body)).toBe("Agenda\n- Review milestones\n\n\nBring current numbers");
+  });
+
+  it("keeps user-written text around a generated provider block", () => {
+    const body = [
+      "Before",
+      "-::~:~::~:~:~:~:~:~:~:~:~::~:~::-",
+      "Join with Google Meet: https://meet.google.com/abc-defg-hij",
+      "Please do not edit this section.",
+      "-::~:~::~:~:~:~:~:~:~:~:~::~:~::-",
+      "After",
+    ].join("\n");
+
+    expect(cleanBody(body)).toBe("Before\nAfter");
+  });
 });

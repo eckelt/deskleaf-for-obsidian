@@ -481,6 +481,13 @@ function makeMouseEvent(type: string): Event {
   return event;
 }
 
+function makePointerMouseEvent(type: string, clientY: number): Event {
+  const event = makeMouseEvent(type);
+  Object.defineProperty(event, "clientX", { value: 120 });
+  Object.defineProperty(event, "clientY", { value: clientY });
+  return event;
+}
+
 function makeKeyboardEvent(type: string, key: string): Event {
   const event = new Event(type, { cancelable: true });
   Object.defineProperty(event, "key", { value: key });
@@ -1704,6 +1711,119 @@ describe("event edit interactions", () => {
     }
   });
 
+  it("keeps remote event facts when an edit save fails", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback): number => {
+      callback(0);
+      return 1;
+    });
+    vi.stubGlobal("window", {
+      clearTimeout,
+      innerHeight: 800,
+      innerWidth: 1200,
+      setTimeout,
+    });
+    const testDocument = new TestDocument();
+    vi.stubGlobal("document", testDocument);
+    const wasMobile = Platform.isMobile;
+    const wasDesktop = Platform.isDesktop;
+
+    try {
+      Platform.isMobile = false;
+      Platform.isDesktop = true;
+      const event: CalendarEvent = {
+        id: "event-1",
+        title: "Remote planning",
+        start: "2026-05-04T10:15:00Z",
+        end: "2026-05-04T11:45:00Z",
+        location: "Remote room",
+        attendees: ["Remote Attendee"],
+        body: "Remote description",
+        calendar: "Work",
+        isRecurring: false,
+        isCancelled: false,
+        isOrganizer: true,
+        organizer: "Remote Organizer",
+      };
+      const view = createCalendarViewHarnessWithEvents([event]);
+      const plugin = Reflect.get(view, "plugin");
+      const calendarReader = Reflect.get(plugin, "calendarReader");
+      const noteManager = Reflect.get(plugin, "noteManager");
+      const updateEvent = vi.fn(async (): Promise<void> => {
+        throw new Error("backend rejected edit");
+      });
+      const syncEventNote = vi.fn(async (): Promise<void> => {});
+      const renderFromReader = vi.fn();
+      Reflect.set(calendarReader, "updateEvent", updateEvent);
+      Reflect.set(noteManager, "syncEventNote", syncEventNote);
+      Reflect.set(view, "render", renderFromReader);
+      Reflect.set(Reflect.get(plugin, "settings"), "caldav", {
+        discoveredCalendars: [
+          { href: "/work/", displayName: "Work" },
+          { href: "/private/", displayName: "Private" },
+        ],
+        selectedCalendars: [],
+      });
+
+      callViewMethod(view, "showEventEditPopover", event, "2026-05-04", makeMouseEvent("click"), false);
+      vi.runOnlyPendingTimers();
+
+      const popover = testDocument.body.querySelector(".dl-edit-dialog");
+      if (!popover) throw new Error("edit popover was not rendered");
+      const textInputs = popover.querySelectorAll(".dl-create-input");
+      const timeInputs = popover.querySelectorAll(".dl-create-time-input");
+      const descriptionInput = popover.querySelector("textarea");
+      if (!descriptionInput) throw new Error("description input was not rendered");
+
+      textInputs[0].value = "Local edit title";
+      timeInputs[0].value = "09:00";
+      timeInputs[1].value = "10:00";
+      textInputs[1].value = "Local edit room";
+      descriptionInput.value = "Local edit description";
+      const privateCalendar = popover
+        .querySelectorAll(".dl-create-cal-chip")
+        .find((chip) => renderText(chip) === "Private");
+      if (!privateCalendar) throw new Error("private calendar chip was not rendered");
+      privateCalendar.dispatchEvent(new Event("click", { cancelable: true }));
+
+      const saveButton = popover.querySelector(".dl-edit-save-btn");
+      if (!saveButton) throw new Error("save button was not rendered");
+      saveButton.dispatchEvent(new Event("click", { cancelable: true }));
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(updateEvent).toHaveBeenCalledWith("event-1", {
+        title: "Local edit title",
+        start: "2026-05-04T09:00:00+00:00",
+        end: "2026-05-04T10:00:00+00:00",
+        location: "Local edit room",
+        notes: "Local edit description",
+        calendar: "Private",
+      });
+      expect(syncEventNote).not.toHaveBeenCalled();
+      expect(renderFromReader).toHaveBeenCalledOnce();
+      expect(event).toEqual({
+        id: "event-1",
+        title: "Remote planning",
+        start: "2026-05-04T10:15:00Z",
+        end: "2026-05-04T11:45:00Z",
+        location: "Remote room",
+        attendees: ["Remote Attendee"],
+        body: "Remote description",
+        calendar: "Work",
+        isRecurring: false,
+        isCancelled: false,
+        isOrganizer: true,
+        organizer: "Remote Organizer",
+      });
+    } finally {
+      Platform.isMobile = wasMobile;
+      Platform.isDesktop = wasDesktop;
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("closes the edit popover on outside click without backend update or note sync", () => {
     const { surface, testDocument, updateEvent, syncEventNote, restorePlatform } =
       openWritableEditFormForCloseTest({ mobile: false });
@@ -2081,6 +2201,60 @@ describe("event edit interactions", () => {
       Platform.isMobile = wasMobile;
       Platform.isDesktop = wasDesktop;
       vi.useRealTimers();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("re-renders confirmed reader state when a desktop resize write fails", async () => {
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback): number => {
+      callback(0);
+      return 1;
+    });
+    vi.stubGlobal("window", {
+      clearTimeout,
+      innerHeight: 800,
+      innerWidth: 1200,
+      setTimeout,
+    });
+    const testDocument = new TestDocument();
+    vi.stubGlobal("document", testDocument);
+    const wasMobile = Platform.isMobile;
+    const wasDesktop = Platform.isDesktop;
+
+    try {
+      Platform.isMobile = false;
+      Platform.isDesktop = true;
+      const event = makeEvent("event-1", "2026-05-04T10:00:00Z", "2026-05-04T11:00:00Z");
+      const view = createCalendarViewHarnessWithEvents([event]);
+      const calendarReader = Reflect.get(Reflect.get(view, "plugin"), "calendarReader");
+      const moveEvent = vi.fn(async (): Promise<void> => {
+        throw new Error("backend rejected resize");
+      });
+      Reflect.set(calendarReader, "moveEvent", moveEvent);
+
+      callViewMethod(view, "render");
+      const renderFromReader = vi.fn();
+      Reflect.set(view, "render", renderFromReader);
+      const card = renderedGrid(view).querySelector(".dl-event-card");
+      if (!card) throw new Error("event card was not rendered");
+      const handle = card.querySelector(".dl-resize-handle--bottom");
+      if (!handle) throw new Error("resize handle was not rendered");
+
+      handle.dispatchEvent(makePointerMouseEvent("mousedown", 704));
+      testDocument.dispatchEvent(makePointerMouseEvent("mousemove", 672), handle);
+      testDocument.dispatchEvent(makePointerMouseEvent("mouseup", 672), handle);
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(moveEvent).toHaveBeenCalledWith(
+        "event-1",
+        "2026-05-04T10:00:00+00:00",
+        "2026-05-04T10:30:00+00:00",
+      );
+      expect(renderFromReader).toHaveBeenCalledOnce();
+    } finally {
+      Platform.isMobile = wasMobile;
+      Platform.isDesktop = wasDesktop;
       vi.unstubAllGlobals();
     }
   });
