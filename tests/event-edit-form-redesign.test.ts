@@ -697,6 +697,11 @@ describe("event edit form redesign", () => {
     await vi.runAllTimersAsync();
 
     expect(plugin.calendarReader.updateRsvp).toHaveBeenCalledWith("event-1", "tentative");
+    expect(document.querySelector(".dl-edit-surface")).not.toBeNull();
+    expect(Array.from(
+      editor.querySelectorAll<HTMLButtonElement>(".dl-edit-rsvp-btn--active"),
+      (button) => button.textContent,
+    )).toEqual(["Mit Vorbehalt"]);
     expect(plugin.calendarReader.updateEvent).not.toHaveBeenCalled();
     expect(plugin.noteManager.syncEventNote).not.toHaveBeenCalled();
 
