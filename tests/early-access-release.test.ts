@@ -144,10 +144,15 @@ describe("early access installer", () => {
   it("fails clearly when no vault destination is available", async () => {
     const bundleRoot = await createBundleRoot();
     const homeRoot = await mkdtemp(join(tmpdir(), "deskleaf-home-"));
+    const invalidVaultRoot = await mkdtemp(join(tmpdir(), "deskleaf-invalid-vault-"));
 
-    await expect(runBashWithInput(join(process.cwd(), "install.sh"), bundleRoot, { ...process.env, HOME: homeRoot }, "\n")).rejects.toMatchObject({
+    await expect(
+      runBashWithInput(join(process.cwd(), "install.sh"), bundleRoot, { ...process.env, HOME: homeRoot }, `${invalidVaultRoot}\n`),
+    ).rejects.toMatchObject({
       stderr: expect.stringContaining("Obsidian vault directory is required"),
     });
+    await expect(stat(join(invalidVaultRoot, ".obsidian", "plugins", "obs-focal"))).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(stat(join(invalidVaultRoot, ".obsidian", "plugins", "obs-focal", "main.js"))).rejects.toMatchObject({ code: "ENOENT" });
   });
 
   it("derives the plugin folder from manifest.json without private vault paths", async () => {
