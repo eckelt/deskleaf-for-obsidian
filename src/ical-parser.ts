@@ -1,5 +1,5 @@
 import type { CalendarEvent, EventUpdate, EventRsvp, RsvpResponse } from "./types";
-import { cleanBody } from "./note-utils.ts";
+import { cleanBody } from "./note-utils";
 
 // ── Line unfolding & property parsing ────────────────────────────
 
