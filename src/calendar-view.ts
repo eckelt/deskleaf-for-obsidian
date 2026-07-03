@@ -2243,7 +2243,11 @@ export class DeskleafCalendarView extends ItemView {
           rsvpError.textContent = "";
           try {
             await rsvpReader.updateRsvp(event.id, response);
-            close();
+            rsvpActions.querySelectorAll(".dl-edit-rsvp-btn--active").forEach((activeButton) => {
+              activeButton.removeClass("dl-edit-rsvp-btn--active");
+            });
+            button.addClass("dl-edit-rsvp-btn--active");
+            if (event.rsvp) event.rsvp.status = response;
           } catch (err) {
             const message = err instanceof Error ? err.message : String(err);
             rsvpError.textContent = `RSVP konnte nicht gespeichert werden: ${message}`;
