@@ -123,6 +123,59 @@ describe("CalDAVReader.updateEvent", () => {
 });
 
 describe("CalDAVReader cache precedence", () => {
+  it("replaces a stale zero-duration cache entry with the remote DURATION end time", async () => {
+    const reader = new CalDAVReader("https://example.test", "user", "pass");
+    const remoteIcal = [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "BEGIN:VEVENT",
+      "UID:6j5hq016f5i26n344o87o0rh0m@google.com",
+      "DTSTART;TZID=Europe/Berlin:20260703T100000",
+      "DURATION:PT45M",
+      "SUMMARY:Andreas & Nils & Stefan",
+      "LOCATION:https://meet.google.com/zoe-suij-mcp",
+      "END:VEVENT",
+      "END:VCALENDAR",
+    ].join("\r\n") + "\r\n";
+    const client = {
+      discoverCalendars: vi.fn(async () => [{ href: "/calendars/nils/", displayName: "Nils" }]),
+      fetchEvents: vi.fn(async () => [{ href: "/calendars/nils/event-1.ics", ical: remoteIcal }]),
+    };
+    const staleCache = [{
+      id: "6j5hq016f5i26n344o87o0rh0m@google.com",
+      title: "Andreas & Nils & Stefan",
+      start: "2026-07-03T08:00:00Z",
+      end: "2026-07-03T08:00:00Z",
+      isAllDay: false,
+      calendar: "Nils",
+    }];
+    const saved = vi.fn(async () => undefined);
+
+    Reflect.set(reader, "client", client);
+    reader.setCacheCallbacks(
+      saved,
+      async () => ({ events: staleCache, date: "2026-07-03T07:00:00Z" }),
+    );
+
+    await reader.load();
+
+    expect(reader.getEvents()).toEqual([expect.objectContaining({
+      id: "6j5hq016f5i26n344o87o0rh0m@google.com",
+      title: "Andreas & Nils & Stefan",
+      start: "2026-07-03T08:00:00Z",
+      end: "2026-07-03T08:45:00Z",
+      calendar: "Nils",
+      meetingPlatform: "meet",
+    })]);
+    expect(saved).toHaveBeenCalledWith(
+      [expect.objectContaining({
+        id: "6j5hq016f5i26n344o87o0rh0m@google.com",
+        end: "2026-07-03T08:45:00Z",
+      })],
+      expect.any(String),
+    );
+  });
+
   it("uses cache only until a successful backend reload replaces stale event facts", async () => {
     const reader = new CalDAVReader("https://example.test", "user", "pass");
     const remoteIcal = [
