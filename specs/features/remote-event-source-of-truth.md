@@ -1,7 +1,7 @@
 # Feature: Remote Event Source of Truth
 
 ## Status
-`approved`
+`qa`
 <!-- draft -> ux-reviewed -> design-reviewed -> approved -> in-development -> qa -> done -->
 
 ## Source
@@ -13,7 +13,7 @@ Als Nutzer moechte ich mich darauf verlassen koennen, dass Deskleaf Kalendererei
 
 ## Acceptance Criteria
 - [ ] AC1: Nach jedem erfolgreichen Reload aus dem aktiven Backend ersetzt Deskleaf vorhandene Kalenderdaten fuer Events vollstaendig durch die Remote-Daten des Backends.
-- [ ] AC2: Titel, Startzeit, Endzeit, All-day-Status, Wiederholungsstatus, Kalender, Ort, Teilnehmer, Organizer, Absage-Status und Schreibbarkeits-/Organizer-Flags werden nicht aus lokalen Notizen, Edit-Form-Zustand, Drag-/Resize-Zwischenzustand oder Cache-Daten ueberschrieben, wenn Remote-Daten verfuegbar sind.
+- [ ] AC2: Nach einem erfolgreichen Backend-Reload stammen alle nicht-Beschreibungsfelder eines `CalendarEvent` aus dem aktuellen Backend-Ergebnis: `id`, `title`, `start`, `end`, `isAllDay`, `isRecurring`, `calendar`, `location`, `attendees`, `numAttendees`, `organizer`, `isCancelled`, `isOrganizer` und `meetingPlatform`. Lokale Notizen, Edit-Form-Zustand, Drag-/Resize-Zwischenzustand und `calendarCache` duerfen diese Felder im Reader-State oder im danach gerenderten Kalender nicht ersetzen. `body` ist absichtlich aus AC2 ausgenommen und wird durch AC5-AC9 geregelt.
 - [ ] AC3: Wenn ein Drag-, Resize- oder Edit-Speichervorgang fehlschlaegt oder vom Backend nicht bestaetigt wird, bleibt beziehungsweise wird die Kalenderansicht wieder auf den letzten erfolgreich geladenen Remote-Zustand gesetzt; ein nur lokal gekuerztes oder verschobenes Event darf nicht als gespeichert sichtbar bleiben.
 - [ ] AC4: Der persistierte `calendarCache` ist nur ein Offline-/Fehler-Fallback. Sobald ein Backend-Reload erfolgreich ist, darf kein Feld aus dem Cache gegenueber dem Remote-Ergebnis gewinnen.
 - [ ] AC5: Die einzige erlaubte inhaltliche Normalisierung beim Lesen ist die Beschreibung: generierte Online-Meeting-Bloecke werden aus `CalendarEvent.body` entfernt, waehrend alle anderen Event-Felder remote-getreu bleiben.
@@ -30,6 +30,16 @@ Scenario: Remote reload restores the real event duration
   When Deskleaf completes a successful backend reload
   Then the calendar shows the event from 10:00 to 11:00
   And no local cache, note metadata or edit-state value shortens the event
+```
+
+```gherkin
+Scenario: Remote event facts replace stale local facts after reload
+  Given local cache or UI state contains stale values for an event title, time, location, attendees or calendar
+  And the active backend returns the same event with different current values for those fields
+  When Deskleaf completes a successful backend reload
+  Then the reader state uses the backend values for every non-description `CalendarEvent` field named in AC2
+  And the rendered calendar reflects those backend values
+  And only `body` may differ because generated meeting-provider text is removed by the description-cleaning rules
 ```
 
 ```gherkin
@@ -108,7 +118,8 @@ _None_
 - Automated tests must cover Google Meet block removal with the exact `-::~...::-` delimiter pattern from issue #20, including dial-in and support lines.
 - Automated tests must cover preserving user-written description text before and after removed provider blocks.
 - Automated tests must cover that meeting-platform detection still returns `meet` when the only Meet URL was in the removed provider block.
-- Automated tests must cover that non-description fields parsed from CalDAV remain equal to the backend iCalendar values while the description is cleaned.
+- Automated tests must cover that non-description fields parsed from CalDAV remain equal to the backend iCalendar values while the description is cleaned. This is the representative AC2 parser coverage and must include at least: `id`, `title`, `start`, `end`, `isAllDay`, `isRecurring`, `calendar`, `location`, `attendees`, `numAttendees`, `organizer`, `isCancelled` and `meetingPlatform`.
+- Automated tests must cover AC2 cache/source precedence with a stale cached event and a successful backend reload. It is sufficient to assert representative independently visible fields from different UI surfaces: timing (`start`/`end`), text (`title` or `location`) and collection metadata (`attendees` or `calendar`). The test does not need one assertion per AC2 field when the fields are copied through the same backend-result replacement path.
 - Automated tests must cover cache precedence: a successful backend reload replaces stale cached event timing.
 - Automated tests must cover at least one failed write path for drag/resize or edit save where `moveEvent(...)`/`updateEvent(...)` rejects and the rendered event does not remain at the attempted local time.
 - Existing folded-description update tests remain relevant and must stay green; do not weaken them to implement this feature.
@@ -151,4 +162,4 @@ Fehlgeschlagene Writes sollen keine lokale Wahrheit erzeugen. Wenn ein Write sch
 ---
 
 ## QA Report
-_Pending_
+- 2026-07-03: Builder verification passed with `npm test` and `npm run build`.
