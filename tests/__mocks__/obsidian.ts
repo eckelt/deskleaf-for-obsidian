@@ -3,6 +3,45 @@
 // they do not have to be functional because no test exercises Obsidian UI code paths.
 
 export class App {}
+export class Plugin {
+  app!: App;
+  manifest!: { dir: string };
+}
+
+type TextControl = {
+  inputEl: { type: string };
+  setPlaceholder: (value: string) => TextControl;
+  setValue: (value: string) => TextControl;
+  onChange: (cb: (value: string) => Promise<void>) => TextControl;
+};
+
+type ButtonControl = {
+  setButtonText: (value: string) => ButtonControl;
+  setDisabled: (value: boolean) => ButtonControl;
+  onClick: (cb: () => Promise<void>) => ButtonControl;
+};
+
+type ToggleControl = {
+  setValue: (value: boolean) => ToggleControl;
+  onChange: (cb: (value: boolean) => Promise<void>) => ToggleControl;
+};
+
+export class PluginSettingTab {
+  containerEl = {
+    empty: () => {},
+    createEl: () => ({}),
+    createDiv: () => ({}),
+  };
+  constructor(public app: App, public plugin: Plugin) {}
+}
+export class Setting {
+  constructor(_containerEl: unknown) {}
+  setName(_name: string) { return this; }
+  setDesc(_desc: string) { return this; }
+  addText(_cb: (text: TextControl) => void) { return this; }
+  addButton(_cb: (button: ButtonControl) => void) { return this; }
+  addToggle(_cb: (toggle: ToggleControl) => void) { return this; }
+}
 export class ItemView {
   app: App = new App();
   containerEl = { children: [] as any[], empty: () => {}, createEl: () => ({}) };
@@ -29,5 +68,10 @@ export class MenuItem {
 }
 export const Platform = { isMobile: false, isDesktop: true };
 export class MarkdownView {}
+export class Modal {
+  contentEl = { empty: () => {}, addClass: (_cls: string) => {}, createEl: () => ({ addEventListener: () => {}, focus: () => {}, value: "" }), createDiv: () => ({}) };
+  constructor(public app: App) {}
+}
+export function addIcon(_id: string, _svg: string) {}
 export function setIcon(_el: HTMLElement, _icon: string) {}
 export function normalizePath(p: string) { return p; }
