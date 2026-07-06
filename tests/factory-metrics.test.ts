@@ -127,6 +127,118 @@ describe("factory metrics", () => {
       notable: true,
     });
   });
+
+  it("marks an issue notable when more than three pull requests were merged for it", async () => {
+    const { createFactoryMetrics } = await loadFactoryMetrics();
+
+    const metrics = createFactoryMetrics({
+      lastAuditAt: "2026-07-01T00:00:00Z",
+      pullRequests: [
+        {
+          number: 14,
+          mergedAt: "2026-07-02T00:00:00Z",
+          headRefName: "feature/issue-31",
+          title: "first build",
+          body: "",
+        },
+        {
+          number: 15,
+          mergedAt: "2026-07-03T00:00:00Z",
+          headRefName: "feature/issue-31",
+          title: "second build",
+          body: "",
+        },
+        {
+          number: 16,
+          mergedAt: "2026-07-04T00:00:00Z",
+          headRefName: "feature/issue-31",
+          title: "third build",
+          body: "",
+        },
+        {
+          number: 17,
+          mergedAt: "2026-07-05T00:00:00Z",
+          headRefName: "feature/issue-31",
+          title: "fourth build",
+          body: "",
+        },
+      ],
+      issueComments: new Map(),
+    });
+
+    expect(metrics.issues[0]).toMatchObject({
+      issueNumber: 31,
+      prCount: 4,
+      plannerReturns: 0,
+      wrongSpecSignals: 0,
+      loopCount: 0,
+      notable: true,
+    });
+  });
+
+  it("marks an issue notable when more than one planner return occurred", async () => {
+    const { createFactoryMetrics } = await loadFactoryMetrics();
+
+    const metrics = createFactoryMetrics({
+      lastAuditAt: "2026-07-01T00:00:00Z",
+      pullRequests: [
+        {
+          number: 18,
+          mergedAt: "2026-07-02T00:00:00Z",
+          headRefName: "feature/issue-32",
+          title: "planner returns",
+          body: "",
+        },
+      ],
+      issueComments: new Map([
+        [
+          32,
+          [
+            "🤖 **Pipeline**: Zurück zum Planner. Grund: Validator scheitert wiederholt an AC-2.",
+            "🤖 **Pipeline**: Spec vermutlich unklar, zurück zum Planner.",
+          ],
+        ],
+      ]),
+    });
+
+    expect(metrics.issues[0]).toMatchObject({
+      issueNumber: 32,
+      prCount: 1,
+      plannerReturns: 2,
+      humanRejections: 0,
+      wrongSpecSignals: 0,
+      loopCount: 2,
+      notable: true,
+    });
+  });
+
+  it("marks an issue notable when the only signal is a wrong-spec comment", async () => {
+    const { createFactoryMetrics } = await loadFactoryMetrics();
+
+    const metrics = createFactoryMetrics({
+      lastAuditAt: "2026-07-01T00:00:00Z",
+      pullRequests: [
+        {
+          number: 19,
+          mergedAt: "2026-07-02T00:00:00Z",
+          headRefName: "feature/issue-33",
+          title: "wrong spec signal",
+          body: "",
+        },
+      ],
+      issueComments: new Map([[33, ["Wrong spec: the implementation belongs to another issue."]]]),
+    });
+
+    expect(metrics.issues[0]).toMatchObject({
+      issueNumber: 33,
+      prCount: 1,
+      plannerReturns: 0,
+      humanRejections: 0,
+      wrongSpecSignals: 1,
+      loopCount: 0,
+      notable: true,
+    });
+  });
 });
 
 describe("guarded factory review command", () => {
