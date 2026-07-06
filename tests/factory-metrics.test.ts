@@ -391,6 +391,8 @@ describe("factory review documentation", () => {
     expect(scopeControl).toContain("You do not write production code or tests");
     expect(scopeControl).toContain("Hand UX contract material back to the Planner");
     expect(outputFormat).toContain("Respond with UX contract material the Planner can use");
+    expect(workflow).toContain("Optional planning support for visually or interaction-heavy features");
+    expect(workflow).toContain("Helps the Planner explore screenshots, interaction flows, states, and manual");
     expect(workflow).toContain("Produces UX contract material for the Planner");
   });
 });
