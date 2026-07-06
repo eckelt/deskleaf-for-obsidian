@@ -8,6 +8,8 @@
     "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
     "test": "TZ=UTC vitest run",
     "check:issue": "node scripts/check-issue-comments.mjs",
+    "factory:metrics": "node scripts/factory-metrics.mjs",
+    "factory:review": "bash scripts/factory-review.sh",
     "version": "node version-bump.mjs && git add manifest.json versions.json"
   },
   "keywords": [],

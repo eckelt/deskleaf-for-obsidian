@@ -2,6 +2,10 @@
 
 Deskleaf uses GitHub issues, feature specs, and role-specific agents to evolve the Obsidian plugin consistently over time.
 
+Factory Review is the guarded audit loop for the Agent Factory. It generates
+Factory Metrics from merged PRs and issue comments, then invokes the Factory
+Reviewer only when at least one PR has merged since the previous audit.
+
 ## Language
 
 **Agent Factory**:
@@ -23,6 +27,18 @@ _Avoid_: Product manager, analyst
 **Feature Builder**:
 The agent role that implements an approved feature spec using the existing architecture, ADRs, design system, and tests.
 _Avoid_: Developer bot, implementer
+
+**Factory Metrics**:
+Per-issue measurements for merged PR count, Validator failures, Reviewer failures, Planner returns, human fix-forward signals, wrong-spec signals, loop count, and whether the issue is notable.
+_Avoid_: Vibes, anecdotal review
+
+**Factory Reviewer**:
+The meta-review agent that reads Factory Metrics after real build loops and proposes measurable pipeline improvements without owning specs or code.
+_Avoid_: QA replacement, product reviewer
+
+**UX Designer**:
+An optional planning-support agent that explores screenshots, interaction flows, and manual acceptance expectations for the Planner.
+_Avoid_: Spec owner, implementation reviewer
 
 **Handoff**:
 The explicit transition from one agent role to another after the current role's stop conditions are satisfied.

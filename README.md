@@ -37,6 +37,16 @@ npm test
 npm run build
 ```
 
+Factory review automation:
+
+```bash
+npm run factory:metrics
+npm run factory:review
+```
+
+`factory:review` is guarded: if no PR was merged since the last audit, it
+updates the local audit timestamp and exits without invoking the reviewer agent.
+
 Deploy the current local build into the configured Obsidian vault:
 
 ```bash
