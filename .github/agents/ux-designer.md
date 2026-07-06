@@ -28,7 +28,7 @@ planning model.
 - You do not approve implementation.
 - Hand UX contract material back to the Planner for inclusion in the spec.
 
-## Output
+## Output Format
 
 Respond with UX contract material the Planner can use:
 

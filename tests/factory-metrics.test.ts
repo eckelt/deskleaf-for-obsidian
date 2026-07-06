@@ -354,6 +354,15 @@ describe("guarded factory review command", () => {
 });
 
 describe("factory review documentation", () => {
+  function expectSection(document: string, heading: string): string {
+    const sectionPattern = new RegExp(`(?:^|\\n)## ${heading}\\n\\n([\\s\\S]*?)(?=\\n## |$)`);
+    const match = sectionPattern.exec(document);
+
+    expect(match, `Expected section "## ${heading}"`).not.toBeNull();
+
+    return match?.[1] ?? "";
+  }
+
   it("documents measurable Factory Reviewer rules and the guarded audit workflow", async () => {
     const factoryReviewer = await readFile(".github/agents/factory-reviewer.md", "utf8");
     const workflow = await readFile("docs/agent-workflow.md", "utf8");
@@ -369,11 +378,19 @@ describe("factory review documentation", () => {
   it("keeps the UX Designer as planning support without spec or code ownership", async () => {
     const uxDesigner = await readFile(".github/agents/ux-designer.md", "utf8");
     const workflow = await readFile("docs/agent-workflow.md", "utf8");
+    const modelChoice = expectSection(uxDesigner, "Model Choice");
+    const inputs = expectSection(uxDesigner, "Inputs");
+    const scopeControl = expectSection(uxDesigner, "Scope Control");
+    const outputFormat = expectSection(uxDesigner, "Output Format");
 
-    expect(uxDesigner).toContain("Use a strong visual-reasoning model");
-    expect(uxDesigner).toContain("You do not own or edit the feature spec");
-    expect(uxDesigner).toContain("You do not write production code or tests");
-    expect(uxDesigner).toContain("Hand UX contract material back to the Planner");
+    expect(modelChoice).toContain("Use a strong visual-reasoning model");
+    expect(inputs).toContain("The GitHub issue and human clarification");
+    expect(inputs).toContain("Relevant screenshots, screen recordings, or current UI files");
+    expect(inputs).toContain("The design system and existing workflow documentation");
+    expect(scopeControl).toContain("You do not own or edit the feature spec");
+    expect(scopeControl).toContain("You do not write production code or tests");
+    expect(scopeControl).toContain("Hand UX contract material back to the Planner");
+    expect(outputFormat).toContain("Respond with UX contract material the Planner can use");
     expect(workflow).toContain("Produces UX contract material for the Planner");
   });
 });
