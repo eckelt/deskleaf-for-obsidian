@@ -242,6 +242,40 @@ describe("factory metrics", () => {
 });
 
 describe("guarded factory review command", () => {
+  it("can be started through both manual and daily package scripts", async () => {
+    const commands = [
+      { label: "manual", args: ["run", "factory:review", "--silent"] },
+      { label: "daily", args: ["run", "factory:review:daily", "--silent"] },
+    ];
+
+    for (const command of commands) {
+      const root = await mkdtemp(join(tmpdir(), `deskleaf-factory-review-${command.label}-`));
+      const stateFile = join(root, "factory-review-state.json");
+      const agentMarker = join(root, "agent-was-called");
+
+      await writeFile(stateFile, JSON.stringify({ lastAuditAt: "2026-07-02T00:00:00Z" }));
+
+      const { stdout } = await execFileAsync("npm", command.args, {
+        env: {
+          ...process.env,
+          FACTORY_REVIEW_STATE: stateFile,
+          FACTORY_REVIEW_NOW: "2026-07-03T00:00:00Z",
+          FACTORY_REVIEW_METRICS_FILE: join(root, "metrics.json"),
+          FACTORY_REVIEW_AGENT_CMD: `touch ${agentMarker}`,
+          FACTORY_REVIEW_OFFLINE_PULL_REQUESTS: JSON.stringify([]),
+        },
+      });
+
+      await expect(stat(agentMarker)).rejects.toMatchObject({ code: "ENOENT" });
+      expect(stdout).toContain("No pull requests merged since last Factory Review audit");
+
+      const state = JSON.parse(await readFile(stateFile, "utf8")) as {
+        lastAuditAt: string;
+      };
+      expect(state.lastAuditAt).toBe("2026-07-03T00:00:00Z");
+    }
+  });
+
   it("skips without invoking the agent and updates state when no PR was merged after the last audit", async () => {
     const root = await mkdtemp(join(tmpdir(), "deskleaf-factory-review-"));
     const stateFile = join(root, "factory-review-state.json");

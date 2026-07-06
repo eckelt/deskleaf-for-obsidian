@@ -42,10 +42,13 @@ Factory review automation:
 ```bash
 npm run factory:metrics
 npm run factory:review
+npm run factory:review:daily
 ```
 
-`factory:review` is guarded: if no PR was merged since the last audit, it
-updates the local audit timestamp and exits without invoking the reviewer agent.
+`factory:review` is the manual entry point; `factory:review:daily` is the
+scheduler entry point. Both are guarded: if no PR was merged since the last
+audit, the command updates the local audit timestamp and exits without invoking
+the reviewer agent.
 
 Deploy the current local build into the configured Obsidian vault:
 

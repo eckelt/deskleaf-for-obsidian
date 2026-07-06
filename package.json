@@ -10,6 +10,7 @@
     "check:issue": "node scripts/check-issue-comments.mjs",
     "factory:metrics": "node scripts/factory-metrics.mjs",
     "factory:review": "bash scripts/factory-review.sh",
+    "factory:review:daily": "bash scripts/factory-review.sh",
     "version": "node version-bump.mjs && git add manifest.json versions.json"
   },
   "keywords": [],

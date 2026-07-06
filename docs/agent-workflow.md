@@ -166,8 +166,14 @@ Run the guarded review:
 npm run factory:review
 ```
 
+Run the same guard from a daily scheduler:
+
+```bash
+npm run factory:review:daily
+```
+
 The guarded command writes `scripts/.factory-review-state.json` and
-`scripts/.factory-metrics.json` locally. A daily scheduler may call the same
-command. If no merged PR is newer than the last audit timestamp, the command
+`scripts/.factory-metrics.json` locally. Both entry points use the same guard.
+If no merged PR is newer than the last audit timestamp, the command
 prints a skip message, records the new timestamp, and does not invoke the
 Factory Reviewer backend.
