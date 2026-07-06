@@ -121,9 +121,12 @@ ignores missing labels silently.
 
 ## Signalling — the `🤖` convention
 
-Because the daemon and the human comment under the same GitHub identity, every
-bot comment is prefixed with `🤖`. The loop triggers **only on comments that do
-not start with `🤖`**, so it never reacts to its own output.
+In the cloud pipeline (ADR 2) bot comments come from `github-actions[bot]`, a
+real bot identity, and the comment trigger filters on it — the `🤖` prefix is
+kept only as a visual marker. In the local fallback daemon the convention is
+load-bearing: daemon and human comment under the same identity, so every bot
+comment is prefixed with `🤖` and the loop triggers **only on comments that do
+not start with `🤖`**.
 
 Human comments have priority in every active stage. If a human comments while
 an issue is queued for build, under review, validating, or waiting for
@@ -142,6 +145,35 @@ Acceptance happens **after** merge:
 
 ## Running it
 
+### Cloud pipeline (default) — ADR 2
+
+The pipeline runs machine-independently on GitHub Actions:
+
+- `.github/workflows/issue-pipeline.yml` — planner lane, fires on new issues
+  and human comments.
+- `.github/workflows/build-lane.yml` — build lane, dispatched per spec-ready
+  issue, globally serialised.
+
+Nothing to start: opening an issue (also from the phone) triggers planning; a
+merge triggers `release.yml`, whose versioned pre-release is installable via
+BRAT (README → Installation). Per-issue pipeline state lives in a bot comment
+on the issue.
+
+One-time setup — repository secrets:
+
+| Secret | Purpose |
+| --- | --- |
+| `OPENAI_API_KEY` | Codex stages (builder, validator by default) |
+| `CLAUDE_CODE_OAUTH_TOKEN` *or* `ANTHROPIC_API_KEY` | Claude stages (planner, reviewer by default). Create the OAuth token with `claude setup-token`. |
+| `PIPELINE_PAT` | Fine-grained PAT (this repo; contents + pull-requests read/write). Used **only** for the merge so the push triggers `release.yml`. |
+
+Backends/models per stage via repository **variables**: `PLANNER_BACKEND`,
+`PLANNER_MODEL`, `BUILDER_BACKEND`, `BUILDER_MODEL`, `VALIDATOR_BACKEND`,
+`VALIDATOR_MODEL`, `REVIEWER_BACKEND`, `REVIEWER_MODEL`
+(backend `claude` or `codex`; empty model = backend default).
+
+### Local fallback daemon
+
 ```bash
 bash scripts/issue-watch.sh
 ```
@@ -151,6 +183,15 @@ stages, with per-stage `*_BACKEND` and `*_MODEL` environment overrides.
 Codex permissions are configured in `scripts/issue-watch.sh`; Claude permissions
 come from the checked-in `.claude/settings.json` allowlist, which the daemon
 also copies into each worktree.
+
+**Never run both.** The daemon's `.issue-watch-state.json` and the cloud state
+comments are not synchronised. Before starting the daemon, disable the cloud
+workflows — and re-enable them afterwards:
+
+```bash
+gh workflow disable "Issue Pipeline" && gh workflow disable "Build Lane"
+gh workflow enable  "Issue Pipeline" && gh workflow enable  "Build Lane"
+```
 
 ## Factory Review
 

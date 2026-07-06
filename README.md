@@ -6,6 +6,27 @@ Mit Deskleaf bereite ich mich auf Termine vor, halte daraus entstandene Aufgaben
 
 Deskleaf is not listed in the Obsidian Community Plugin directory yet.
 
+### Via BRAT (recommended, works on mobile)
+
+Every merge to `main` publishes a versioned pre-release that
+[BRAT](https://github.com/TfTHacker/obsidian42-brat) can install and update on
+any device — including iOS/Android, no Mac required:
+
+1. Install the community plugin **BRAT** and enable it.
+2. This repo is private, so create a fine-grained GitHub PAT (repository access:
+   this repo only, permission: *Contents — read-only*) and paste it in BRAT →
+   Settings → *GitHub personal access token*.
+3. BRAT → *Add beta plugin*, repo `eckelt/deskleaf-for-obsidian`, enable
+   *pre-release versions*.
+4. New build merged? **BRAT → Check for updates** pulls it.
+
+Note: BRAT installs `main.js`, `styles.css`, and `manifest.json`. The macOS
+EventKit binary (`deskleaf-calendar-sync`) is not delivered this way — on a Mac
+using the EventKit backend, download it once from the release (or use the zip
+install below). CalDAV setups need no binary at all.
+
+### Manual install
+
 Install the latest build manually:
 
 1. Open the latest GitHub release.

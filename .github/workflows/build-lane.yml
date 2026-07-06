@@ -1,0 +1,66 @@
+name: Build Lane
+
+# Build lane of the cloud pipeline (ADR 0002): builder → validator → reviewer →
+# auto-merge for exactly one issue per run. Dispatched by the Issue Pipeline
+# when a spec is ready; each run re-dispatches the next ready issue at the end
+# (GitHub keeps only one pending run per concurrency group, so the queue alone
+# would drop work).
+
+on:
+  workflow_dispatch:
+    inputs:
+      issue:
+        description: Issue number to build (stage must be spec-ready)
+        required: true
+        type: string
+
+concurrency:
+  group: build-lane
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  build:
+    name: "Build issue #${{ inputs.issue }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      actions: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Install agent CLIs
+        run: npm install -g @anthropic-ai/claude-code @openai/codex
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+      - name: Run build lane
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # PAT for the merge: pushes to main made with GITHUB_TOKEN would not
+          # trigger release.yml, and the whole point is a BRAT release per merge.
+          MERGE_TOKEN: ${{ secrets.PIPELINE_PAT }}
+          REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ inputs.issue }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          BUILDER_BACKEND: ${{ vars.BUILDER_BACKEND || 'codex' }}
+          BUILDER_MODEL: ${{ vars.BUILDER_MODEL || '' }}
+          VALIDATOR_BACKEND: ${{ vars.VALIDATOR_BACKEND || 'codex' }}
+          VALIDATOR_MODEL: ${{ vars.VALIDATOR_MODEL || '' }}
+          REVIEWER_BACKEND: ${{ vars.REVIEWER_BACKEND || 'claude' }}
+          REVIEWER_MODEL: ${{ vars.REVIEWER_MODEL || '' }}
+        run: bash scripts/pipeline/build-lane.sh

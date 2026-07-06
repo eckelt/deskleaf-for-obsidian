@@ -1,0 +1,69 @@
+name: Issue Pipeline
+
+# Planner lane of the cloud pipeline (ADR 0002). Event-driven replacement for
+# the polling loop in scripts/issue-watch.sh: fires when an issue is opened or
+# reopened, when a human comments, or when another lane re-dispatches an issue.
+# Bot comments never re-trigger this workflow: comments posted with the
+# workflow token are typed "Bot" AND GITHUB_TOKEN events don't start workflows.
+
+on:
+  issues:
+    types: [opened, reopened]
+  issue_comment:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      issue:
+        description: Issue number to (re)plan
+        required: true
+        type: string
+
+concurrency:
+  group: plan-issue-${{ github.event.issue.number || inputs.issue }}
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  plan:
+    name: Plan issue
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'issues' ||
+      (github.event_name == 'issue_comment' &&
+        !github.event.issue.pull_request &&
+        github.event.comment.user.type != 'Bot')
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      actions: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - name: Install agent CLIs
+        run: npm install -g @anthropic-ai/claude-code @openai/codex
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+      - name: Run planner
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ github.event.issue.number || inputs.issue }}
+          EVENT_TYPE: ${{ github.event_name }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PLANNER_BACKEND: ${{ vars.PLANNER_BACKEND || 'claude' }}
+          PLANNER_MODEL: ${{ vars.PLANNER_MODEL || '' }}
+        run: bash scripts/pipeline/planner.sh
