@@ -37,6 +37,12 @@ is the shared contract between the daemon, the agent prompts, and the human.
   maintainability. **Never edits code.**
 - **Validator.** Confirms the spec is met: `npm test` green **and** every
   acceptance criterion (AC) is covered by a test. **Never edits code.**
+- **Factory Reviewer.** Audits completed build loops using Factory Metrics after
+  real PRs have merged. It is a meta-reviewer: it proposes measurable pipeline
+  or prompt improvements and **never edits specs or code**.
+- **UX Designer (optional).** Supports the Planner for screenshot,
+  interaction-flow, and manual QA exploration. It produces UX contract material
+  for the Planner and **does not own specs or code**.
 
 ### Artifact ownership
 
@@ -137,6 +143,17 @@ script:
 7. Model **post-merge acceptance** and **fix-forward re-entry** as explicit
    stages.
 8. Run a **two-lane scheduler**: planning parallel, build sequential.
+9. Add a guarded Factory Review audit. It may run daily or manually, but first
+   checks whether at least one PR was merged since the previous audit. If not,
+   it updates the audit timestamp and exits without an LLM/agent call. If yes,
+   it generates Factory Metrics and passes them to the Factory Reviewer.
+10. Factory Metrics track each affected issue's PR count, Validator failures,
+    Reviewer failures, Planner returns, human rejection/fix-forward signals,
+    wrong-spec signals, total loop count, and `notable` flag. Issues are notable
+    when the loop count is greater than 3, more than 3 PRs were merged, more
+    than one Planner return occurred, or a wrong-spec signal was found. More
+    than three total rejection loops are treated as notable human acceptance
+    load.
 
 Risks accepted: the `🤖` convention is breakable; sequential builds limit
 throughput (deliberately, for now); auto-merge means unreviewed-by-human code

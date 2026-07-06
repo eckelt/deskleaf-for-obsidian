@@ -50,6 +50,28 @@ Confirms the spec is met: `npm test` green **and** every acceptance criterion
 and automated acceptance scenario covered by a test. Never edits code.
 Visual/manual QA in the running Obsidian app is the human's job at acceptance.
 
+### Factory Reviewer
+Reviews real completed pipeline runs after builds have merged.
+
+- Runs through `scripts/factory-review.sh`, either manually or from a daily
+  scheduler.
+- First checks whether any PR was merged since the last Factory Review audit.
+  If not, it updates the audit timestamp and exits without invoking an agent.
+- Uses Factory Metrics from `scripts/factory-metrics.mjs`, including PR counts,
+  Validator failures, Reviewer failures, Planner returns, human fix-forward
+  signals, wrong-spec signals, loop counts, and a `notable` flag per issue.
+- Proposes measurable pipeline or prompt improvements only. It does not edit
+  specs, code, tests, or ADRs directly.
+
+### UX Designer
+Optional planning support for visually or interaction-heavy features.
+
+- Helps the Planner explore screenshots, interaction flows, states, and manual
+  acceptance expectations before a spec is finalized.
+- Produces UX contract material for the Planner.
+- Does not own specs, write code, approve implementation, or replace human
+  acceptance.
+
 ## Pipeline Stages
 
 Issue stages (tracked in `scripts/.issue-watch-state.json`, mirrored to labels):
@@ -129,3 +151,29 @@ stages, with per-stage `*_BACKEND` and `*_MODEL` environment overrides.
 Codex permissions are configured in `scripts/issue-watch.sh`; Claude permissions
 come from the checked-in `.claude/settings.json` allowlist, which the daemon
 also copies into each worktree.
+
+## Factory Review
+
+Run metrics only:
+
+```bash
+npm run factory:metrics
+```
+
+Run the guarded review:
+
+```bash
+npm run factory:review
+```
+
+Run the same guard from a daily scheduler:
+
+```bash
+npm run factory:review:daily
+```
+
+The guarded command writes `scripts/.factory-review-state.json` and
+`scripts/.factory-metrics.json` locally. Both entry points use the same guard.
+If no merged PR is newer than the last audit timestamp, the command
+prints a skip message, records the new timestamp, and does not invoke the
+Factory Reviewer backend.
