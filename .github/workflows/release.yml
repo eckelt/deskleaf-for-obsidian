@@ -57,8 +57,35 @@ jobs:
         with:
           name: deskleaf-calendar-sync
       - run: chmod +x deskleaf-calendar-sync
+      # BRAT needs a strictly increasing version in manifest.json that matches
+      # the release tag. Patch level = run number, so every merge to main
+      # becomes an installable pre-release; stable releases stay manual.
+      - name: Stamp build version
+        id: version
+        run: |
+          base=$(jq -r '.version' manifest.json | cut -d. -f1,2)
+          version="${base}.${{ github.run_number }}"
+          jq --arg v "$version" '.version = $v' manifest.json > manifest.json.tmp
+          mv manifest.json.tmp manifest.json
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
       - name: Package plugin
         run: bash scripts/package-release.sh
+      - name: Publish versioned release (BRAT)
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          name: Deskleaf ${{ steps.version.outputs.version }}
+          prerelease: true
+          make_latest: false
+          body: |
+            Automatically built from `main` — commit ${{ github.sha }}
+            Installable via BRAT (see README → Installation).
+          files: |
+            main.js
+            styles.css
+            manifest.json
+            deskleaf-calendar-sync
+            deskleaf-for-obsidian.zip
       - uses: softprops/action-gh-release@v3
         with:
           tag_name: latest

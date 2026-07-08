@@ -1,0 +1,194 @@
+#!/usr/bin/env bash
+# Deskleaf Cloud Pipeline — shared library for the GitHub Actions issue pipeline.
+# Contract: docs/adr/0002-cloud-issue-pipeline.md
+# Callers: scripts/pipeline/planner.sh and scripts/pipeline/build-lane.sh,
+# invoked from .github/workflows/issue-pipeline.yml and build-lane.yml.
+set -euo pipefail
+
+: "${REPO:?owner/name of the GitHub repository}"
+: "${ISSUE_NUMBER:?issue number this run operates on}"
+
+BOT="🤖"
+STATE_MARKER="<!-- deskleaf-pipeline-state -->"
+
+LABEL_PLANNING="status:planning"
+LABEL_AWAITING="status:awaiting-author"
+LABEL_READY_BUILD="status:ready-for-build"
+LABEL_ACCEPT="status:ready-for-acceptance"
+LABEL_EPIC="status:epic"
+LABEL_WONTFIX="wontfix"
+
+MAX_BUILD_ATTEMPTS=6        # build→validate→review rounds per issue, then escalate
+AC_ESCALATE_THRESHOLD=2     # same AC failing X times → back to the planner
+MAX_PLANNER_RETURNS=2       # circuit breaker: afterwards the issue waits for a human
+
+# Per-stage backend (claude|codex) and optional model. The workflows inject these
+# from repository variables; empty model = the backend's default.
+PLANNER_BACKEND="${PLANNER_BACKEND:-claude}";     PLANNER_MODEL="${PLANNER_MODEL:-}"
+BUILDER_BACKEND="${BUILDER_BACKEND:-codex}";      BUILDER_MODEL="${BUILDER_MODEL:-}"
+REVIEWER_BACKEND="${REVIEWER_BACKEND:-claude}";   REVIEWER_MODEL="${REVIEWER_MODEL:-}"
+VALIDATOR_BACKEND="${VALIDATOR_BACKEND:-codex}";  VALIDATOR_MODEL="${VALIDATOR_MODEL:-}"
+
+# Codex permissions: write access inside the workspace, network on (gh/push need
+# it), never an interactive prompt. The runner itself is disposable.
+CODEX_PERM_ARGS=(--sandbox workspace-write \
+    -c approval_policy=\"never\" \
+    -c sandbox_workspace_write.network_access=true)
+
+# ── Issue state ────────────────────────────────────────────────────────────────
+# Per-issue pipeline state lives in a bot comment on the issue itself (marker +
+# fenced JSON). This replaces the local .issue-watch-state.json: every workflow
+# run is stateless, so the issue is the only durable store. Concurrency per
+# issue is serialised by the workflow's concurrency group.
+
+STATE_COMMENT_ID=""
+STATE_JSON=""
+
+state_load() {
+    # --paginate emits one JSON array per page; --slurp + flatten folds them
+    # into a single array so the jq filters below see all comments at once.
+    local comments
+    comments=$(gh api "repos/${REPO}/issues/${ISSUE_NUMBER}/comments" --paginate --slurp 2>/dev/null \
+        | jq 'flatten' 2>/dev/null || echo '[]')
+    STATE_COMMENT_ID=$(echo "$comments" | jq -r --arg m "$STATE_MARKER" \
+        '[.[] | select(.body | startswith($m))] | last | .id // empty')
+    if [[ -n "$STATE_COMMENT_ID" ]]; then
+        STATE_JSON=$(echo "$comments" | jq -r --argjson id "$STATE_COMMENT_ID" \
+            '.[] | select(.id == $id) | .body' \
+            | sed -n '/^```json$/,/^```$/p' | sed '1d;$d')
+    fi
+    if [[ -z "$STATE_JSON" ]] || ! jq -e . >/dev/null 2>&1 <<<"$STATE_JSON"; then
+        STATE_JSON='{"stage":"new","specPath":"","prNumber":"","fixForwardNote":"","lastFailedAc":"","acFailStreak":0,"plannerReturnCount":0}'
+    fi
+}
+
+state_save() {
+    local body="${STATE_MARKER}
+${BOT} <sub>Pipeline state — managed by the cloud pipeline, do not edit.</sub>
+
+\`\`\`json
+$(jq . <<<"$STATE_JSON")
+\`\`\`"
+    if [[ -n "$STATE_COMMENT_ID" ]]; then
+        gh api -X PATCH "repos/${REPO}/issues/comments/${STATE_COMMENT_ID}" \
+            -f body="$body" >/dev/null
+    else
+        STATE_COMMENT_ID=$(gh api -X POST "repos/${REPO}/issues/${ISSUE_NUMBER}/comments" \
+            -f body="$body" --jq '.id')
+    fi
+}
+
+state_get() {
+    local field="$1" default="${2:-}"
+    jq -r --arg f "$field" --arg d "$default" '.[$f] // $d' <<<"$STATE_JSON"
+}
+
+state_set() {
+    local field="$1" value="$2"
+    STATE_JSON=$(jq --arg f "$field" --arg v "$value" '.[$f] = $v' <<<"$STATE_JSON")
+    state_save
+}
+
+state_set_num() {
+    local field="$1" value="$2"
+    STATE_JSON=$(jq --arg f "$field" --argjson v "$value" '.[$f] = $v' <<<"$STATE_JSON")
+    state_save
+}
+
+# ── GitHub helpers ─────────────────────────────────────────────────────────────
+
+add_label()    { gh issue edit "$ISSUE_NUMBER" --add-label "$1"    --repo "$REPO" 2>/dev/null || true; }
+remove_label() { gh issue edit "$ISSUE_NUMBER" --remove-label "$1" --repo "$REPO" 2>/dev/null || true; }
+
+# Posts a comment. The workflow token makes it appear as github-actions[bot],
+# which is what keeps the issue_comment trigger from firing on our own output;
+# the 🤖 prefix stays for visual consistency with the local pipeline.
+post_comment() {
+    local body="$1"
+    [[ "$body" == "$BOT"* ]] || body="${BOT} ${body}"
+    gh issue comment "$ISSUE_NUMBER" --body "$body" --repo "$REPO" >/dev/null
+}
+
+# Chains to another workflow. workflow_dispatch is exempt from GitHub's
+# "GITHUB_TOKEN events don't trigger workflows" rule, so this is the one
+# sanctioned way for pipeline stages to hand work to each other.
+dispatch_workflow() {
+    local workflow="$1"; shift
+    gh workflow run "$workflow" --repo "$REPO" "$@" 2>/dev/null \
+        || echo "WARN: dispatch of ${workflow} failed" >&2
+}
+
+# The build lane is a global-mutex concurrency group, and GitHub keeps at most
+# ONE pending run per group (older pending runs get cancelled). So each build
+# run re-dispatches the next ready issue itself instead of relying on the queue.
+dispatch_next_build() {
+    local next
+    next=$(gh issue list --repo "$REPO" --state open --label "$LABEL_READY_BUILD" \
+            --json number --jq '.[].number' 2>/dev/null \
+        | grep -vx "$ISSUE_NUMBER" | sort -n | head -1 || true)
+    [[ -n "$next" ]] && dispatch_workflow build-lane.yml -f issue="$next"
+    return 0
+}
+
+# ── Agent invocation ───────────────────────────────────────────────────────────
+
+# Assembles: agent file + context + instruction. Result in CLAUDE_PROMPT.
+build_prompt() {
+    local agent_file="$1" context="$2" instruction="$3"
+    CLAUDE_PROMPT="$(cat "$agent_file")
+
+---
+
+${context}
+
+---
+
+${instruction}"
+}
+
+is_default_model() {
+    local model="$1"
+    [[ -z "$model" || "$model" == "default" || "$model" == "-" ]]
+}
+
+# Codex CLI wants an explicit login; newer versions also honour OPENAI_API_KEY
+# directly. Try the login once, tolerate it already being done.
+ensure_codex_auth() {
+    [[ -n "${OPENAI_API_KEY:-}" ]] || return 0
+    codex login status >/dev/null 2>&1 && return 0
+    codex login --with-api-key <<<"$OPENAI_API_KEY" >/dev/null 2>&1 || true
+}
+
+# Runs one agent in the chosen backend. Stdout = agent answer; callers grep the
+# single line-protocol line out of it. run_agent <backend> <model> <dir> <prompt>
+run_agent() {
+    local backend="$1" model="$2" dir="$3" prompt="$4"
+    case "$backend" in
+        claude)
+            # Headless CI on a disposable runner: skip the permission system.
+            # Auth comes from ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN.
+            local args=(--dangerously-skip-permissions)
+            is_default_model "$model" || args+=(--model "$model")
+            ( cd "$dir" && claude "${args[@]}" -p "$prompt" ) ;;
+        codex)
+            ensure_codex_auth
+            # -o writes ONLY the final answer (reasoning log goes to stderr).
+            local last; last=$(mktemp)
+            local args=(exec "${CODEX_PERM_ARGS[@]}" --cd "$dir" -o "$last")
+            local git_dir; git_dir=$(git -C "$dir" rev-parse --path-format=absolute --git-dir 2>/dev/null || true)
+            local git_common_dir; git_common_dir=$(git -C "$dir" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)
+            [[ -n "$git_dir" ]] && args+=(--add-dir "$git_dir")
+            [[ -n "$git_common_dir" && "$git_common_dir" != "$git_dir" ]] && args+=(--add-dir "$git_common_dir")
+            is_default_model "$model" || args+=(--model "$model")
+            codex "${args[@]}" "$prompt" 1>&2 || true
+            cat "$last" 2>/dev/null; rm -f "$last" ;;
+        *)
+            echo "FAIL: unknown agent backend '${backend}'" ;;
+    esac
+}
+
+# Posts a failure note with a link to the Actions run when a pipeline script
+# dies unexpectedly — otherwise the issue would just silently stall.
+install_failure_trap() {
+    trap 'post_comment "**Pipeline**: Workflow-Lauf unerwartet abgebrochen. Details: ${GITHUB_SERVER_URL:-https://github.com}/${GITHUB_REPOSITORY:-$REPO}/actions/runs/${GITHUB_RUN_ID:-?}" || true' ERR
+}
