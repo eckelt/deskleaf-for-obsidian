@@ -2,6 +2,8 @@ import { ItemView, WorkspaceLeaf, TFile, normalizePath, MarkdownRenderer, setIco
 import type DeskleafPlugin from "./main";
 import { toDateStr, addDays, parseDate, weekStart, getWeekNumber } from "./date-utils";
 import { openFile } from "./open-file";
+import { classifyTodoStatus, resolveTodoDate, groupTodos, applyTodoToggle } from "./todo-utils";
+import type { TodoStatus, TodoGroupKey } from "./types";
 
 function getSectionIconName(section: "calendar" | "topics" | "todos"): string {
   switch (section) {
@@ -39,10 +41,9 @@ function monthRangeLabel(a: Date, b: Date): string {
 
 interface TopicEntry { file: TFile; title: string; }
 interface TodoItem {
-  text: string; checked: boolean; file: TFile;
+  text: string; status: TodoStatus; file: TFile;
   lineIndex: number; date: string | null; noteTitle: string;
 }
-type TodoGroup = "today" | "week" | "later" | "undated" | "past";
 
 export class DeskleafSidebarView extends ItemView {
   plugin: DeskleafPlugin;
@@ -667,7 +668,7 @@ export class DeskleafSidebarView extends ItemView {
 
   private async renderTodos(container: HTMLElement) {
     const todos = await this.collectTodos();
-    const groups = this.groupTodos(todos);
+    const groups = groupTodos(todos, new Date());
     const openCount = Object.values(groups).reduce((s, g) => s + g.length, 0);
 
     const header = container.createDiv("dl-sidebar-todos-header");
@@ -686,11 +687,11 @@ export class DeskleafSidebarView extends ItemView {
     filterInput.addEventListener("blur", updateFilterVisibility);
     header.createSpan({ cls: "dl-sidebar-count", text: String(openCount) });
 
-    const labels: Record<TodoGroup, string> = {
-      today: "Heute", week: "Diese Woche", later: "Später", undated: "Ohne Datum", past: "Früher",
+    const labels: Record<TodoGroupKey, string> = {
+      important: "Wichtig", today: "Heute", week: "Diese Woche", later: "Später", undated: "Ohne Datum", past: "Früher",
     };
     const sections: HTMLElement[] = [];
-    for (const key of (["today", "week", "later", "undated", "past"] as TodoGroup[])) {
+    for (const key of (["important", "today", "week", "later", "undated", "past"] as TodoGroupKey[])) {
       const items = groups[key];
       if (items.length === 0) continue;
       const section = container.createDiv("dl-board-section");
@@ -720,7 +721,7 @@ export class DeskleafSidebarView extends ItemView {
     const row = container.createDiv("dl-todo-row");
     row.dataset.filter = `${todo.text} ${todo.noteTitle}`.toLowerCase();
     const checkbox = row.createEl("input", { type: "checkbox" } as any) as HTMLInputElement;
-    checkbox.checked = todo.checked;
+    checkbox.checked = todo.status === "closed";
     checkbox.addEventListener("change", async () => {
       await this.toggleTodo(todo, checkbox.checked);
       await this.render();
@@ -740,14 +741,21 @@ export class DeskleafSidebarView extends ItemView {
   private parseTodosFromFile(file: TFile, content: string): TodoItem[] {
     const lines = content.split("\n");
     const cache = this.app.metadataCache.getFileCache(file);
-    const date: string | null = cache?.frontmatter?.date ?? null;
+    const frontmatterDate: string | null = cache?.frontmatter?.date ?? null;
     const noteTitle: string = cache?.frontmatter?.title ?? file.basename;
     const todos: TodoItem[] = [];
     for (let i = 0; i < lines.length; i++) {
-      const openMatch = /^- \[ \] (.+)$/.exec(lines[i]);
-      const doneMatch = /^- \[x\] (.+)$/i.exec(lines[i]);
-      if (openMatch || doneMatch)
-        todos.push({ text: (openMatch ?? doneMatch)![1], checked: !!doneMatch, file, lineIndex: i, date, noteTitle });
+      const match = /^- \[(.)\] (.+)$/.exec(lines[i]);
+      if (!match) continue;
+      const [, statusChar, text] = match;
+      todos.push({
+        text,
+        status: classifyTodoStatus(statusChar),
+        file,
+        lineIndex: i,
+        date: resolveTodoDate(text, frontmatterDate),
+        noteTitle,
+      });
     }
     return todos;
   }
@@ -767,27 +775,10 @@ export class DeskleafSidebarView extends ItemView {
     return todos;
   }
 
-  private groupTodos(todos: TodoItem[]): Record<TodoGroup, TodoItem[]> {
-    const today = toDateStr(new Date());
-    const weekEnd = toDateStr(addDays(new Date(), 7));
-    const groups: Record<TodoGroup, TodoItem[]> = { today: [], week: [], later: [], undated: [], past: [] };
-    for (const todo of todos) {
-      if (todo.checked) continue;
-      if (!todo.date) groups.undated.push(todo);
-      else if (todo.date < today) groups.past.push(todo);
-      else if (todo.date === today) groups.today.push(todo);
-      else if (todo.date <= weekEnd) groups.week.push(todo);
-      else groups.later.push(todo);
-    }
-    return groups;
-  }
-
   private async toggleTodo(todo: TodoItem, checked: boolean) {
     const content = await this.app.vault.read(todo.file);
     const lines = content.split("\n");
-    lines[todo.lineIndex] = checked
-      ? lines[todo.lineIndex].replace(/^- \[ \]/, "- [x]")
-      : lines[todo.lineIndex].replace(/^- \[x\]/i, "- [ ]");
+    lines[todo.lineIndex] = applyTodoToggle(lines[todo.lineIndex], checked);
     await this.app.vault.modify(todo.file, lines.join("\n"));
   }
 }

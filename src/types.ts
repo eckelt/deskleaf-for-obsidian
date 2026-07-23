@@ -63,6 +63,11 @@ export interface EventNoteFrontmatter {
 
 export type NoteType = "meeting" | "interview" | "recurring" | "task" | "focus";
 
+// Tasks-plugin status char classification, shared between sidebar-view.ts
+// (parsing/rendering) and todo-utils.ts (grouping)
+export type TodoStatus = "open" | "closed" | "important";
+export type TodoGroupKey = "important" | "today" | "week" | "later" | "undated" | "past";
+
 // 6 Monokai Pro calendar hues: pink · orange · yellow · green · cyan · purple
 export const CAL_COLOR_PALETTE = [346, 21, 48, 96, 188, 252] as const;
 
