@@ -1204,6 +1204,35 @@
     font-variant-numeric: tabular-nums;
 }
 
+.dl-edit-date-time-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    flex-wrap: wrap;
+}
+
+.dl-edit-date-input {
+    flex: 1 1 9rem;
+    min-width: 8.5rem;
+    padding: 3px 6px;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 6px;
+    background: var(--background-primary);
+    color: var(--text-normal);
+    cursor: pointer;
+    font-size: 0.82em;
+    line-height: 1.4;
+    font-variant-numeric: tabular-nums;
+}
+
+.dl-edit-date-input:hover,
+.dl-edit-date-input:focus {
+    border-color: var(--background-modifier-border);
+    background: var(--background-modifier-hover);
+    outline: none;
+}
+
 .dl-edit-readonly-note {
     font-size: 0.76em;
     line-height: 1.4;
@@ -1242,6 +1271,7 @@
 
 .dl-edit-surface .dl-create-input,
 .dl-edit-surface .dl-create-time-input,
+.dl-edit-surface .dl-edit-date-input,
 .dl-edit-surface .dl-create-desc {
     background: var(--background-modifier-form-field, var(--background-primary));
     border-radius: 6px;
@@ -1251,6 +1281,7 @@
 
 .dl-edit-surface .dl-create-input:focus,
 .dl-edit-surface .dl-create-time-input:focus,
+.dl-edit-surface .dl-edit-date-input:focus,
 .dl-edit-surface .dl-create-desc:focus {
     border-color: var(--interactive-accent);
     box-shadow: 0 0 0 2px hsla(var(--accent-h), var(--accent-s), var(--accent-l), 0.2);
@@ -1605,6 +1636,13 @@
     overflow: visible;
 }
 
+.dl-event-edit-ghost {
+    background: color-mix(in srgb, var(--interactive-accent) 18%, var(--background-primary) 82%);
+    border-color: var(--interactive-accent);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--interactive-accent) 60%, transparent), 0 8px 18px rgba(0, 0, 0, 0.22);
+    color: var(--text-normal);
+}
+
 .dl-edit-handle {
     position: absolute;
     left: 0;
@@ -1632,57 +1670,27 @@
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
 }
 
-.dl-mobile-edit-bar {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    z-index: 1000;
-    background: var(--background-primary);
-    border-top: 1px solid var(--background-modifier-border);
-    padding: 10px 16px max(10px, env(safe-area-inset-bottom)) 16px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.12);
-}
-
-.dl-edit-bar-time {
-    flex: 1;
-    font-size: 0.9em;
-    font-weight: 600;
-    color: var(--text-normal);
+.dl-edit-time-label {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 11;
+    color: var(--interactive-accent);
+    font-size: 0.78em;
+    font-weight: 700;
     font-variant-numeric: tabular-nums;
+    line-height: 1.25;
+    white-space: nowrap;
+    text-shadow: 0 1px 2px var(--background-primary), 0 -1px 2px var(--background-primary);
+    pointer-events: none;
 }
 
-.dl-edit-bar-actions {
-    display: flex;
-    gap: 8px;
+.dl-edit-time-label--start {
+    top: -18px;
 }
 
-.dl-edit-bar-btn {
-    font-size: 0.82em;
-    padding: 6px 14px;
-    border-radius: 6px;
-    cursor: pointer;
-    border: 1px solid var(--background-modifier-border);
-    background: var(--background-secondary);
-    color: var(--text-normal);
-    line-height: 1.4;
-}
-.dl-edit-bar-btn:hover {
-    background: var(--background-modifier-hover);
-}
-
-.dl-edit-bar-btn--danger {
-    background: hsla(0, 70%, 55%, 0.12);
-    border-color: hsla(0, 70%, 55%, 0.4);
-    color: hsl(0, 60%, 50%);
-}
-.theme-dark .dl-edit-bar-btn--danger {
-    background: hsla(0, 60%, 45%, 0.18);
-    border-color: hsla(0, 60%, 55%, 0.4);
-    color: hsl(0, 65%, 65%);
+.dl-edit-time-label--end {
+    bottom: -18px;
 }
 
 .dl-create-cal-row {

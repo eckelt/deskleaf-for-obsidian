@@ -1007,6 +1007,12 @@ export class DeskleafCalendarView extends ItemView {
 
     // capture:true → feuert auch wenn eine Event-Card stopPropagation aufruft
     el.addEventListener("touchstart", (e) => {
+      if ((e.target as HTMLElement).closest(".dl-event-card--editing, .dl-event-card--edit-source")) {
+        interior = false;
+        claimedH = false;
+        setTracks(CENTER);
+        return;
+      }
       const t = e.touches[0];
       startX = t.clientX;
       startY = t.clientY;
@@ -1429,6 +1435,10 @@ export class DeskleafCalendarView extends ItemView {
       const singleTapDelayMs = 320;
       card.addEventListener("touchend", (e) => {
         e.stopPropagation();
+        if (this.mobileEdit?.event.id === event.id) {
+          e.preventDefault();
+          return;
+        }
         if (Date.now() < suppressTapUntil) return;
         const now = Date.now();
         if (now - lastTapAt < singleTapDelayMs) {
@@ -1580,42 +1590,34 @@ export class DeskleafCalendarView extends ItemView {
     const endMin   = new Date(event.end).getHours()   * 60 + new Date(event.end).getMinutes();
     const startDate = toDateStr(new Date(event.start));
     const endDate = toDateStr(new Date(event.end));
+    const originalDayEl = cardEl.closest<HTMLElement>(".dl-day-body");
+    if (!originalDayEl) return;
+
     let curStart = startMin;
     let curEnd   = endMin;
     let curDate  = date;
 
-    cardEl.addClass("dl-event-card--editing");
-    const topHandle    = cardEl.createDiv("dl-edit-handle dl-edit-handle--top");
-    const bottomHandle = cardEl.createDiv("dl-edit-handle dl-edit-handle--bottom");
+    cardEl.addClass("dl-event-card--edit-source");
 
-    const barEl     = document.body.createDiv("dl-mobile-edit-bar");
-    const timeLabel = barEl.createDiv("dl-edit-bar-time");
-    const actionsEl = barEl.createDiv("dl-edit-bar-actions");
+    const previewEl = originalDayEl.createDiv("dl-event-card dl-event-card--editing dl-event-edit-ghost");
+    previewEl.style.setProperty("--cal-h", String(this.calendarHue(event.calendar ?? "")));
+    previewEl.style.left = cardEl.style.left;
+    previewEl.style.width = cardEl.style.width;
+    previewEl.createDiv({ cls: "dl-event-title", text: event.title });
+
+    const topHandle    = previewEl.createDiv("dl-edit-handle dl-edit-handle--top");
+    const bottomHandle = previewEl.createDiv("dl-edit-handle dl-edit-handle--bottom");
+    const startTimeLabel = topHandle.createDiv("dl-edit-time-label dl-edit-time-label--start");
+    const endTimeLabel = bottomHandle.createDiv("dl-edit-time-label dl-edit-time-label--end");
 
     const updateBar = () => {
-      timeLabel.textContent = `${minsToTimeStr(curStart)} – ${minsToTimeStr(curEnd)}`;
+      startTimeLabel.textContent = minsToTimeStr(curStart);
+      endTimeLabel.textContent = curDate === date ? minsToTimeStr(curEnd) : `${curDate} ${minsToTimeStr(curEnd)}`;
     };
-    updateBar();
 
-    // Action buttons
-    const closeBtn  = actionsEl.createEl("button", { cls: "dl-edit-bar-btn", text: "×" });
-    if (!event.isCancelled) {
-      const deleteBtn = actionsEl.createEl("button", {
-        cls: "dl-edit-bar-btn dl-edit-bar-btn--danger",
-        text: event.isOrganizer ? "Löschen" : "Ablehnen",
-      });
-      deleteBtn.addEventListener("click", async () => {
-        cleanup();
-        try { await this.plugin.calendarReader.cancelEvent(event.id); }
-        catch (err: any) { new Notice(`Fehler: ${err?.message ?? err}`); }
-      });
-    }
-    closeBtn.addEventListener("click", () => cleanup());
-
-    // Refresh card geometry from curStart/curEnd
-    const refreshCard = () => {
+    const refreshPreview = () => {
       this.setEventVerticalMetrics(
-        cardEl,
+        previewEl,
         curStart / 60,
         (curEnd - curStart) / 60,
         1,
@@ -1623,6 +1625,13 @@ export class DeskleafCalendarView extends ItemView {
         13,
       );
     };
+    const movePreviewTo = (dayEl: HTMLElement) => {
+      if (previewEl.parentElement !== dayEl) dayEl.appendChild(previewEl);
+      previewEl.style.left = cardEl.style.left;
+      previewEl.style.width = cardEl.style.width;
+    };
+    refreshPreview();
+    updateBar();
 
     // ── Top handle: adjust start time ────────────────────────────
     const onTopStart = (ev: TouchEvent) => {
@@ -1634,11 +1643,11 @@ export class DeskleafCalendarView extends ItemView {
     };
     const onTopMove = (ev: TouchEvent) => {
       ev.preventDefault();
-      const dayEl = cardEl.closest<HTMLElement>(".dl-day-body");
+      const dayEl = previewEl.closest<HTMLElement>(".dl-day-body");
       if (!dayEl) return;
       const raw = snapMins(((ev.touches[0].clientY - dayEl.getBoundingClientRect().top) / this.hourPx) * 60);
       curStart = Math.max(0, Math.min(curEnd - 15, raw));
-      refreshCard(); updateBar();
+      refreshPreview(); updateBar();
     };
     const onTopEnd = () => {
       topHandle.removeEventListener("touchmove", onTopMove);
@@ -1657,11 +1666,11 @@ export class DeskleafCalendarView extends ItemView {
     };
     const onBottomMove = (ev: TouchEvent) => {
       ev.preventDefault();
-      const dayEl = cardEl.closest<HTMLElement>(".dl-day-body");
+      const dayEl = previewEl.closest<HTMLElement>(".dl-day-body");
       if (!dayEl) return;
       const raw = snapMins(((ev.touches[0].clientY - dayEl.getBoundingClientRect().top) / this.hourPx) * 60);
       curEnd = Math.max(curStart + 15, Math.min(24 * 60, raw));
-      refreshCard(); updateBar();
+      refreshPreview(); updateBar();
     };
     const onBottomEnd = () => {
       bottomHandle.removeEventListener("touchmove", onBottomMove);
@@ -1671,62 +1680,67 @@ export class DeskleafCalendarView extends ItemView {
     bottomHandle.addEventListener("touchstart", onBottomStart, { passive: false });
 
     // ── Card body: drag to move ───────────────────────────────────
-    let isDragging = false;
+    let didMoveInMoveMode = false;
     let dragOffsetMins = 0;
-    let dragGhost: HTMLElement | null = null;
-    const cardRect = cardEl.getBoundingClientRect();
+    let moveStartX = 0;
+    let moveStartY = 0;
 
     const onBodyStart = (ev: TouchEvent) => {
       if ((ev.target as HTMLElement).closest(".dl-edit-handle")) return;
-      dragOffsetMins = Math.round(((ev.touches[0].clientY - cardRect.top) / this.hourPx) * 60);
-      isDragging = false;
-      cardEl.addEventListener("touchmove", onBodyMove, { passive: false });
-      cardEl.addEventListener("touchend",  onBodyEnd);
-      cardEl.addEventListener("touchcancel", onBodyEnd);
+      const previewRect = previewEl.getBoundingClientRect();
+      moveStartX = ev.touches[0].clientX;
+      moveStartY = ev.touches[0].clientY;
+      dragOffsetMins = Math.round(((ev.touches[0].clientY - previewRect.top) / this.hourPx) * 60);
+      didMoveInMoveMode = false;
+      previewEl.addEventListener("touchmove", onBodyMove, { passive: false });
+      previewEl.addEventListener("touchend",  onBodyEnd);
+      previewEl.addEventListener("touchcancel", onBodyEnd);
     };
     const onBodyMove = (ev: TouchEvent) => {
-      ev.preventDefault();
       const t = ev.touches[0];
-      if (!isDragging) {
-        isDragging = true;
-        dragGhost = document.body.createDiv("dl-drag-ghost");
-        dragGhost.style.display = "block";
-        this.setDragGhostGeometry(dragGhost, cardRect.left, cardRect.top, cardRect.width, cardRect.height);
-        dragGhost.createDiv({ cls: "dl-event-title", text: event.title });
+      const moved =
+        Math.abs(t.clientX - moveStartX) > 8 ||
+        Math.abs(t.clientY - moveStartY) > 8;
+      if (!moved && !didMoveInMoveMode) {
+        return;
       }
-      if (dragGhost) {
-        this.setDragGhostGeometry(
-          dragGhost,
-          t.clientX - cardRect.width / 2,
-          t.clientY - (dragOffsetMins / 60) * this.hourPx,
-          cardRect.width,
-          cardRect.height,
-        );
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (!didMoveInMoveMode) {
+        didMoveInMoveMode = true;
       }
       const hit = this.findDayBodyAt(t.clientX, t.clientY);
       if (hit) {
+        const currentDuration = curEnd - curStart;
         const raw = snapMins(((t.clientY - hit.el.getBoundingClientRect().top) / this.hourPx) * 60 - dragOffsetMins);
         curStart = Math.max(0, Math.min(23 * 60, raw));
-        curEnd   = curStart + (endMin - startMin);
+        curEnd   = curStart + currentDuration;
         curDate  = hit.date;
+        movePreviewTo(hit.el);
+        refreshPreview();
         updateBar();
       }
     };
     const onBodyEnd = () => {
-      cardEl.removeEventListener("touchmove", onBodyMove);
-      cardEl.removeEventListener("touchend",  onBodyEnd);
-      cardEl.removeEventListener("touchcancel", onBodyEnd);
-      dragGhost?.remove(); dragGhost = null;
-      if (!isDragging) return;
-      isDragging = false;
+      didMoveInMoveMode = false;
+      previewEl.removeEventListener("touchmove", onBodyMove);
+      previewEl.removeEventListener("touchend",  onBodyEnd);
+      previewEl.removeEventListener("touchcancel", onBodyEnd);
     };
-    cardEl.addEventListener("touchstart", onBodyStart, { passive: true });
+    previewEl.addEventListener("touchstart", onBodyStart, { passive: true });
 
-    // Outside tap dismisses
     const commitAndClose = async () => {
       const changed = curStart !== startMin || curEnd !== endMin || curDate !== date;
+      if (!changed) {
+        cleanup();
+        return;
+      }
+      const targetDay = Array
+        .from(this.containerEl.querySelectorAll<HTMLElement>(".dl-day-body"))
+        .find((dayEl) => dayEl.dataset.date === curDate);
+      if (targetDay && cardEl.parentElement !== targetDay) targetDay.appendChild(cardEl);
+      this.setEventVerticalMetrics(cardEl, curStart / 60, (curEnd - curStart) / 60, 1, -2);
       cleanup();
-      if (!changed) return;
       try {
         const moveStartDate = curDate !== date ? curDate : startDate;
         const moveEndDate = curDate !== date ? curDate : endDate;
@@ -1737,12 +1751,24 @@ export class DeskleafCalendarView extends ItemView {
         );
       } catch (err: any) {
         new Notice(`Fehler: ${err?.message ?? err}`);
+        this.render();
       }
     };
+    const cancelAndClose = () => {
+      cleanup();
+    };
+
+    const onConfirm = (ev: TouchEvent) => {
+      if ((ev.target as HTMLElement).closest(".dl-edit-handle")) return;
+      if (didMoveInMoveMode) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      void commitAndClose();
+    };
+    previewEl.addEventListener("touchend", onConfirm);
 
     const onOutside = (ev: TouchEvent) => {
-      if (!cardEl.contains(ev.target as Node) && !barEl.contains(ev.target as Node))
-        void commitAndClose();
+      if (!previewEl.contains(ev.target as Node)) cancelAndClose();
     };
     setTimeout(() => document.addEventListener("touchstart", onOutside, { passive: true }), 0);
 
@@ -1759,16 +1785,14 @@ export class DeskleafCalendarView extends ItemView {
       bottomHandle.removeEventListener("touchmove", onBottomMove);
       bottomHandle.removeEventListener("touchend",  onBottomEnd);
       bottomHandle.removeEventListener("touchcancel", onBottomEnd);
-      cardEl.removeEventListener("touchstart", onBodyStart);
-      cardEl.removeEventListener("touchmove",  onBodyMove);
-      cardEl.removeEventListener("touchend",   onBodyEnd);
-      cardEl.removeEventListener("touchcancel", onBodyEnd);
+      previewEl.removeEventListener("touchstart", onBodyStart);
+      previewEl.removeEventListener("touchmove",  onBodyMove);
+      previewEl.removeEventListener("touchend",   onBodyEnd);
+      previewEl.removeEventListener("touchend",   onConfirm);
+      previewEl.removeEventListener("touchcancel", onBodyEnd);
       document.removeEventListener("touchstart", onOutside);
-      dragGhost?.remove(); dragGhost = null;
-      topHandle.remove();
-      bottomHandle.remove();
-      barEl.remove();
-      cardEl.removeClass("dl-event-card--editing");
+      previewEl.remove();
+      cardEl.removeClass("dl-event-card--edit-source");
     };
 
     this.mobileEdit = { event, cleanup };
@@ -2000,7 +2024,10 @@ export class DeskleafCalendarView extends ItemView {
     const endMin = initialEnd.getHours() * 60 + initialEnd.getMinutes();
     const startDate = toDateStr(initialStart);
     const endDate = toDateStr(initialEnd);
+    const endDateOffsetDays = Math.round((parseDate(endDate).getTime() - parseDate(startDate).getTime()) / 86400000);
     const durationMin = Math.max(15, Math.round((initialEnd.getTime() - initialStart.getTime()) / 60000));
+    let editStartDate = startDate;
+    let editEndDate = endDate;
 
     let handleDragStartY: number | null = null;
     let handleDragCurrentY: number | null = null;
@@ -2178,7 +2205,7 @@ export class DeskleafCalendarView extends ItemView {
       });
     }
     headingGroup.createDiv({ cls: "dl-edit-heading", text: readOnly ? "Event ansehen" : "Event bearbeiten" });
-    headerRow.createDiv({ cls: "dl-edit-header-date", text: dayHeaderLabel(initialStart) });
+    const headerDate = headerRow.createDiv({ cls: "dl-edit-header-date", text: dayHeaderLabel(initialStart) });
     if (readOnly) {
       header.createDiv({ cls: "dl-edit-readonly-note", text: "Dieses Event ist in Deskleaf schreibgeschuetzt." });
     }
@@ -2253,6 +2280,7 @@ export class DeskleafCalendarView extends ItemView {
     };
 
     let titleInput: HTMLInputElement | null = null;
+    let dateInput: HTMLInputElement | null = null;
     let startInput: HTMLInputElement | null = null;
     let endInput: HTMLInputElement | null = null;
     let locationInput: HTMLInputElement | null = null;
@@ -2289,7 +2317,24 @@ export class DeskleafCalendarView extends ItemView {
 
       const timeSection = form.createDiv("dl-edit-section");
       timeSection.createDiv({ cls: "dl-edit-label", text: "Zeit" });
-      const timeRow = timeSection.createDiv("dl-create-time-row dl-edit-time-row");
+      const dateTimeRow = timeSection.createDiv("dl-edit-date-time-row");
+      const dateField = dateTimeRow.createEl("input") as HTMLInputElement;
+      dateField.type = "date";
+      dateField.addClass("dl-edit-date-input");
+      dateField.value = startDate;
+      dateField.setAttribute("aria-label", "Datum");
+      dateField.setAttribute("title", dayHeaderLabel(initialStart));
+      const syncEditDate = () => {
+        if (!dateField.value) return;
+        editStartDate = dateField.value;
+        editEndDate = toDateStr(addDays(parseDate(editStartDate), endDateOffsetDays));
+        const label = dayHeaderLabel(parseDate(editStartDate));
+        dateField.setAttribute("title", label);
+        headerDate.setText(label);
+      };
+      dateField.addEventListener("input", syncEditDate);
+      dateField.addEventListener("change", syncEditDate);
+      const timeRow = dateTimeRow.createDiv("dl-create-time-row dl-edit-time-row");
       const startField = timeRow.createEl("input") as HTMLInputElement;
       startField.type = "time";
       startField.addClass("dl-create-time-input");
@@ -2337,6 +2382,7 @@ export class DeskleafCalendarView extends ItemView {
       descField.value = event.body ?? "";
 
       titleInput = titleField;
+      dateInput = dateField;
       startInput = startField;
       endInput = endField;
       locationInput = locationField;
@@ -2353,18 +2399,23 @@ export class DeskleafCalendarView extends ItemView {
 
     const clearErrors = () => {
       titleInput?.removeClass("dl-create-input--invalid");
+      dateInput?.removeClass("dl-create-input--invalid");
       startInput?.removeClass("dl-create-input--invalid");
       endInput?.removeClass("dl-create-input--invalid");
     };
     const validate = (): EventUpdate | null => {
       if (!titleInput || !startInput || !endInput) return null;
       clearErrors();
+      const selectedDate = dateInput?.value ?? editStartDate;
+      if (!selectedDate) { dateInput?.addClass("dl-create-input--invalid"); dateInput?.focus(); return null; }
+      editStartDate = selectedDate;
+      editEndDate = toDateStr(addDays(parseDate(editStartDate), endDateOffsetDays));
       const s = parseClockTime(startInput.value);
       const e = parseClockTime(endInput.value);
       const update = validateEventEditInput({
         title: titleInput.value,
-        startDate,
-        endDate,
+        startDate: editStartDate,
+        endDate: editEndDate,
         startTime: startInput.value,
         endTime: endInput.value,
         location: locationInput?.value ?? "",

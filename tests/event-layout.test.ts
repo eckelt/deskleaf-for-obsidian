@@ -38,6 +38,7 @@ class StyleDeclarations {
 class TestDocument {
   readonly body = new RenderElement("body");
   private readonly listeners = new Map<string, EventListenerOrEventListenerObject[]>();
+  private pointElements: RenderElement[] = [];
 
   querySelector(selector: string): RenderElement | null {
     return this.body.querySelector(selector);
@@ -52,6 +53,14 @@ class TestDocument {
   removeEventListener(type: string, listener: EventListenerOrEventListenerObject): void {
     const listeners = this.listeners.get(type) ?? [];
     this.listeners.set(type, listeners.filter((registered) => registered !== listener));
+  }
+
+  setElementsFromPoint(elements: RenderElement[]): void {
+    this.pointElements = elements;
+  }
+
+  elementsFromPoint(_x: number, _y: number): RenderElement[] {
+    return this.pointElements;
   }
 
   dispatchEvent(event: Event, target: RenderElement): boolean {
@@ -137,6 +146,7 @@ class RenderElement {
   }
 
   appendChild(child: RenderElement): RenderElement {
+    child.remove();
     child.parent = this;
     child.connect();
     this.children.push(child);
@@ -167,6 +177,10 @@ class RenderElement {
   setAttribute(_name: string, _value: string): void {}
 
   focus(): void {}
+
+  get parentElement(): RenderElement | null {
+    return this.parent;
+  }
 
   addEventListener(type: string, _listener: EventListenerOrEventListenerObject, _options?: AddEventListenerOptions): void {
     this.listenerCounts.set(type, this.eventListenerCount(type) + 1);
@@ -469,6 +483,11 @@ function makeTouchEvent(type: string, touches: { clientX: number; clientY: numbe
   const event = new Event(type, { cancelable: true });
   Object.defineProperty(event, "touches", { value: touches });
   Object.defineProperty(event, "changedTouches", { value: touches });
+  return event;
+}
+
+function setEventTarget(event: Event, target: RenderElement): Event {
+  Object.defineProperty(event, "target", { value: target });
   return event;
 }
 
@@ -1588,6 +1607,7 @@ describe("event edit interactions", () => {
       expect(dialog.querySelector(".dl-edit-readonly-note")).not.toBeNull();
       expect(dialog.querySelector(".dl-edit-save-btn")).toBeNull();
       expect(dialog.querySelector(".dl-edit-title-input")).toBeNull();
+      expect(dialog.querySelector(".dl-edit-date-input")).toBeNull();
       expect(dialog.querySelector("input")).toBeNull();
       const readOnlyTitle = dialog.querySelector(".dl-edit-ro-title");
       expect(readOnlyTitle ? renderText(readOnlyTitle) : "").toBe("Planning review");
@@ -1833,6 +1853,86 @@ describe("event edit interactions", () => {
         isOrganizer: true,
         organizer: "Remote Organizer",
       });
+    } finally {
+      Platform.isMobile = wasMobile;
+      Platform.isDesktop = wasDesktop;
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("saves a changed edit date from the time section through the existing update path", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback): number => {
+      callback(0);
+      return 1;
+    });
+    vi.stubGlobal("window", {
+      clearTimeout,
+      innerHeight: 800,
+      innerWidth: 1200,
+      setTimeout,
+    });
+    const testDocument = new TestDocument();
+    vi.stubGlobal("document", testDocument);
+    const wasMobile = Platform.isMobile;
+    const wasDesktop = Platform.isDesktop;
+
+    try {
+      Platform.isMobile = false;
+      Platform.isDesktop = true;
+      const event: CalendarEvent = {
+        id: "event-1",
+        title: "Planning review",
+        start: "2026-05-04T10:15:00Z",
+        end: "2026-05-04T11:45:00Z",
+        location: "Room 1",
+        body: "Review current milestones",
+        calendar: "Work",
+      };
+      const view = createCalendarViewHarnessWithEvents([event]);
+      const plugin = Reflect.get(view, "plugin");
+      const calendarReader = Reflect.get(plugin, "calendarReader");
+      const noteManager = Reflect.get(plugin, "noteManager");
+      const updateEvent = vi.fn(async (): Promise<void> => {});
+      const syncEventNote = vi.fn(async (): Promise<void> => {});
+      Reflect.set(calendarReader, "updateEvent", updateEvent);
+      Reflect.set(noteManager, "syncEventNote", syncEventNote);
+
+      callViewMethod(view, "showEventEditPopover", event, "2026-05-04", makeMouseEvent("click"), false);
+      vi.runOnlyPendingTimers();
+
+      const popover = testDocument.body.querySelector(".dl-edit-dialog");
+      if (!popover) throw new Error("edit popover was not rendered");
+      const dateInput = popover.querySelector(".dl-edit-date-input");
+      if (!dateInput) throw new Error("date input was not rendered");
+      expect(dateInput.value).toBe("2026-05-04");
+      expect(dateInput.closest(".dl-edit-date-time-row")).not.toBeNull();
+
+      dateInput.value = "2026-05-06";
+      dateInput.dispatchEvent(new Event("input", { cancelable: true }));
+
+      const saveButton = popover.querySelector(".dl-edit-save-btn");
+      if (!saveButton) throw new Error("save button was not rendered");
+      saveButton.dispatchEvent(new Event("click", { cancelable: true }));
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(updateEvent).toHaveBeenCalledWith("event-1", {
+        title: "Planning review",
+        start: "2026-05-06T10:15:00+00:00",
+        end: "2026-05-06T11:45:00+00:00",
+        location: "Room 1",
+        notes: "Review current milestones",
+        calendar: "Work",
+      });
+      expect(syncEventNote).toHaveBeenCalledWith(
+        event,
+        expect.objectContaining({
+          start: "2026-05-06T10:15:00+00:00",
+          end: "2026-05-06T11:45:00+00:00",
+        }),
+      );
     } finally {
       Platform.isMobile = wasMobile;
       Platform.isDesktop = wasDesktop;
@@ -2109,7 +2209,7 @@ describe("event edit interactions", () => {
     }
   });
 
-  it("keeps mobile long-press edit handles open until an outside tap", () => {
+  it("keeps mobile long-press edit handles open until the event card is tapped", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-05-04T12:00:00Z"));
     vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback): number => {
@@ -2144,23 +2244,27 @@ describe("event edit interactions", () => {
       vi.runOnlyPendingTimers();
 
       expect(showEventEditPopover).not.toHaveBeenCalled();
-      expect(card.classList.contains("dl-event-card--editing")).toBe(true);
-      expect(card.querySelector(".dl-edit-handle--top")).not.toBeNull();
-      expect(card.querySelector(".dl-edit-handle--bottom")).not.toBeNull();
-      const editBar = testDocument.body.querySelector(".dl-mobile-edit-bar");
-      expect(editBar).not.toBeNull();
+      expect(card.classList.contains("dl-event-card--edit-source")).toBe(true);
+      const ghost = renderedGrid(view).querySelector(".dl-event-edit-ghost");
+      if (!ghost) throw new Error("mobile edit ghost was not rendered");
+      expect(ghost.classList.contains("dl-event-card--editing")).toBe(true);
+      expect(ghost.querySelector(".dl-edit-handle--top")).not.toBeNull();
+      expect(ghost.querySelector(".dl-edit-handle--bottom")).not.toBeNull();
+      expect(ghost.querySelector(".dl-edit-time-label--start")?.textContent).toBe("10:00");
+      expect(ghost.querySelector(".dl-edit-time-label--end")?.textContent).toBe("11:00");
+      expect(testDocument.body.querySelector(".dl-mobile-edit-bar")).toBeNull();
 
       card.dispatchEvent(makeTouchEvent("touchend", [{ clientX: 120, clientY: 160 }]));
 
-      expect(card.classList.contains("dl-event-card--editing")).toBe(true);
-      expect(card.querySelectorAll(".dl-edit-handle")).toHaveLength(2);
+      expect(card.classList.contains("dl-event-card--edit-source")).toBe(true);
+      expect(ghost.querySelectorAll(".dl-edit-handle")).toHaveLength(2);
 
-      const outside = testDocument.body.createDiv("outside");
-      testDocument.dispatchEvent(makeTouchEvent("touchstart", [{ clientX: 1, clientY: 1 }]), outside);
+      ghost.dispatchEvent(makeTouchEvent("touchend", [{ clientX: 120, clientY: 160 }]));
 
-      expect(card.classList.contains("dl-event-card--editing")).toBe(false);
+      expect(card.classList.contains("dl-event-card--edit-source")).toBe(false);
       expect(card.querySelectorAll(".dl-edit-handle")).toHaveLength(0);
-      expect(editBar?.isConnected).toBe(false);
+      expect(card.querySelectorAll(".dl-edit-time-label")).toHaveLength(0);
+      expect(renderedGrid(view).querySelector(".dl-event-edit-ghost")).toBeNull();
     } finally {
       Platform.isMobile = wasMobile;
       Platform.isDesktop = wasDesktop;
@@ -2169,7 +2273,7 @@ describe("event edit interactions", () => {
     }
   });
 
-  it("commits mobile long-press handle time edits through the existing move path", async () => {
+  it("commits mobile long-press handle time edits when the event card is tapped", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-05-04T12:00:00Z"));
     vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback): number => {
@@ -2203,9 +2307,12 @@ describe("event edit interactions", () => {
       card.dispatchEvent(makeTouchEvent("touchstart", [{ clientX: 120, clientY: 640 }]));
       vi.advanceTimersByTime(350);
       vi.runOnlyPendingTimers();
+      card.dispatchEvent(makeTouchEvent("touchend", [{ clientX: 120, clientY: 640 }]));
 
-      const topHandle = card.querySelector(".dl-edit-handle--top");
-      const bottomHandle = card.querySelector(".dl-edit-handle--bottom");
+      const ghost = renderedGrid(view).querySelector(".dl-event-edit-ghost");
+      if (!ghost) throw new Error("mobile edit ghost was not rendered");
+      const topHandle = ghost.querySelector(".dl-edit-handle--top");
+      const bottomHandle = ghost.querySelector(".dl-edit-handle--bottom");
       if (!topHandle) throw new Error("top edit handle was not rendered");
       if (!bottomHandle) throw new Error("bottom edit handle was not rendered");
 
@@ -2216,14 +2323,216 @@ describe("event edit interactions", () => {
       bottomHandle.dispatchEvent(makeTouchEvent("touchmove", [{ clientX: 120, clientY: 736 }]));
       bottomHandle.dispatchEvent(makeTouchEvent("touchend", [{ clientX: 120, clientY: 736 }]));
 
-      const outside = testDocument.body.createDiv("outside");
-      testDocument.dispatchEvent(makeTouchEvent("touchstart", [{ clientX: 1, clientY: 1 }]), outside);
+      expect(ghost.querySelector(".dl-edit-time-label--start")?.textContent).toBe("09:30");
+      expect(ghost.querySelector(".dl-edit-time-label--end")?.textContent).toBe("11:30");
+      expect(card.style.getPropertyValue("--f-event-top")).toBe("641px");
+      expect(card.style.getPropertyValue("--f-event-height")).toBe("62px");
+
+      ghost.dispatchEvent(makeTouchEvent("touchend", [{ clientX: 120, clientY: 640 }]));
       await Promise.resolve();
 
       expect(moveEvent).toHaveBeenCalledWith(
         "event-1",
         "2026-05-04T09:30:00+00:00",
         "2026-05-04T11:30:00+00:00",
+      );
+    } finally {
+      Platform.isMobile = wasMobile;
+      Platform.isDesktop = wasDesktop;
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("cancels mobile long-press handle time edits when the user taps outside", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-04T12:00:00Z"));
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback): number => {
+      callback(0);
+      return 1;
+    });
+    vi.stubGlobal("window", {
+      clearTimeout,
+      innerWidth: 390,
+      setTimeout,
+    });
+    vi.stubGlobal("navigator", {});
+    const testDocument = new TestDocument();
+    vi.stubGlobal("document", testDocument);
+    const wasMobile = Platform.isMobile;
+    const wasDesktop = Platform.isDesktop;
+
+    try {
+      Platform.isMobile = true;
+      Platform.isDesktop = false;
+      const event = makeEvent("event-1", "2026-05-04T10:00:00Z", "2026-05-04T11:00:00Z");
+      const view = createCalendarViewHarnessWithEvents([event]);
+      const calendarReader = Reflect.get(Reflect.get(view, "plugin"), "calendarReader");
+      const moveEvent = vi.fn(async (): Promise<void> => {});
+      Reflect.set(calendarReader, "moveEvent", moveEvent);
+
+      callViewMethod(view, "render");
+      const card = renderedGrid(view).querySelector(".dl-event-card");
+      if (!card) throw new Error("event card was not rendered");
+
+      card.dispatchEvent(makeTouchEvent("touchstart", [{ clientX: 120, clientY: 640 }]));
+      vi.advanceTimersByTime(350);
+      vi.runOnlyPendingTimers();
+      card.dispatchEvent(makeTouchEvent("touchend", [{ clientX: 120, clientY: 640 }]));
+
+      const ghost = renderedGrid(view).querySelector(".dl-event-edit-ghost");
+      if (!ghost) throw new Error("mobile edit ghost was not rendered");
+      const topHandle = ghost.querySelector(".dl-edit-handle--top");
+      if (!topHandle) throw new Error("top edit handle was not rendered");
+      topHandle.dispatchEvent(makeTouchEvent("touchstart", [{ clientX: 120, clientY: 640 }]));
+      topHandle.dispatchEvent(makeTouchEvent("touchmove", [{ clientX: 120, clientY: 608 }]));
+      topHandle.dispatchEvent(makeTouchEvent("touchend", [{ clientX: 120, clientY: 608 }]));
+
+      const outside = testDocument.body.createDiv("outside");
+      testDocument.dispatchEvent(makeTouchEvent("touchstart", [{ clientX: 1, clientY: 1 }]), outside);
+      await Promise.resolve();
+
+      expect(moveEvent).not.toHaveBeenCalled();
+      expect(card.classList.contains("dl-event-card--edit-source")).toBe(false);
+      expect(card.querySelectorAll(".dl-edit-handle")).toHaveLength(0);
+      expect(renderedGrid(view).querySelector(".dl-event-edit-ghost")).toBeNull();
+      expect(card.style.getPropertyValue("--f-event-top")).toBe("641px");
+    } finally {
+      Platform.isMobile = wasMobile;
+      Platform.isDesktop = wasDesktop;
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("does not open the mobile edit sheet after a very long press enters edit mode", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-04T12:00:00Z"));
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback): number => {
+      callback(0);
+      return 1;
+    });
+    vi.stubGlobal("window", {
+      clearTimeout,
+      innerWidth: 390,
+      setTimeout,
+    });
+    vi.stubGlobal("navigator", {});
+    const testDocument = new TestDocument();
+    vi.stubGlobal("document", testDocument);
+    const wasMobile = Platform.isMobile;
+    const wasDesktop = Platform.isDesktop;
+
+    try {
+      Platform.isMobile = true;
+      Platform.isDesktop = false;
+      const event = makeEvent("event-1", "2026-05-04T10:00:00Z", "2026-05-04T11:00:00Z");
+      const view = createCalendarViewHarnessWithEvents([event]);
+      const showEventEditPopover = vi.fn();
+      Reflect.set(view, "showEventEditPopover", showEventEditPopover);
+
+      callViewMethod(view, "render");
+      const card = renderedGrid(view).querySelector(".dl-event-card");
+      if (!card) throw new Error("event card was not rendered");
+
+      card.dispatchEvent(makeTouchEvent("touchstart", [{ clientX: 120, clientY: 160 }]));
+      vi.advanceTimersByTime(1000);
+      card.dispatchEvent(makeTouchEvent("touchend", [{ clientX: 120, clientY: 160 }]));
+      vi.advanceTimersByTime(321);
+
+      expect(card.classList.contains("dl-event-card--edit-source")).toBe(true);
+      expect(renderedGrid(view).querySelector(".dl-event-edit-ghost")).not.toBeNull();
+      expect(showEventEditPopover).not.toHaveBeenCalled();
+    } finally {
+      Platform.isMobile = wasMobile;
+      Platform.isDesktop = wasDesktop;
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("moves the mobile edit card immediately while dragging and preserves edited duration", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-04T12:00:00Z"));
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback): number => {
+      callback(0);
+      return 1;
+    });
+    vi.stubGlobal("window", {
+      clearTimeout,
+      innerWidth: 390,
+      setTimeout,
+    });
+    vi.stubGlobal("navigator", {});
+    const testDocument = new TestDocument();
+    vi.stubGlobal("document", testDocument);
+    const wasMobile = Platform.isMobile;
+    const wasDesktop = Platform.isDesktop;
+
+    try {
+      Platform.isMobile = true;
+      Platform.isDesktop = false;
+      const event = makeEvent("event-1", "2026-05-04T10:00:00Z", "2026-05-04T11:00:00Z");
+      const view = createCalendarViewHarnessWithEvents([event]);
+      const calendarReader = Reflect.get(Reflect.get(view, "plugin"), "calendarReader");
+      const readerMoveEvent = vi.fn(async (): Promise<void> => {});
+      Reflect.set(calendarReader, "moveEvent", readerMoveEvent);
+
+      callViewMethod(view, "render");
+      const grid = renderedGrid(view);
+      const card = grid.querySelector(".dl-event-card");
+      if (!card) throw new Error("event card was not rendered");
+      const bodyScroll = grid.querySelector(".dl-grid-body-scroll");
+      if (!bodyScroll) throw new Error("calendar body scroll was not rendered");
+      const dayBodies = grid.querySelectorAll(".dl-day-body");
+      const targetDay = dayBodies.find((dayBody) => dayBody.dataset.date === "2026-05-05");
+      if (!targetDay) throw new Error("target day was not rendered");
+      testDocument.setElementsFromPoint([targetDay]);
+
+      card.dispatchEvent(makeTouchEvent("touchstart", [{ clientX: 120, clientY: 160 }]));
+      vi.advanceTimersByTime(350);
+      vi.runOnlyPendingTimers();
+      card.dispatchEvent(makeTouchEvent("touchend", [{ clientX: 120, clientY: 160 }]));
+
+      const ghost = grid.querySelector(".dl-event-edit-ghost");
+      if (!ghost) throw new Error("mobile edit ghost was not rendered");
+      const bottomHandle = ghost.querySelector(".dl-edit-handle--bottom");
+      if (!bottomHandle) throw new Error("bottom edit handle was not rendered");
+      bottomHandle.dispatchEvent(makeTouchEvent("touchstart", [{ clientX: 120, clientY: 704 }]));
+      bottomHandle.dispatchEvent(makeTouchEvent("touchmove", [{ clientX: 120, clientY: 736 }]));
+      bottomHandle.dispatchEvent(makeTouchEvent("touchend", [{ clientX: 120, clientY: 736 }]));
+      expect(ghost.querySelector(".dl-edit-time-label--end")?.textContent).toBe("11:30");
+      expect(ghost.style.getPropertyValue("--f-event-height")).toBe("95px");
+      expect(card.style.getPropertyValue("--f-event-height")).toBe("62px");
+
+      bodyScroll.dispatchEvent(setEventTarget(makeTouchEvent("touchstart", [{ clientX: 120, clientY: 160 }]), ghost));
+      const blockedSwipeEvent = setEventTarget(makeTouchEvent("touchmove", [{ clientX: 220, clientY: 165 }]), ghost);
+      bodyScroll.dispatchEvent(blockedSwipeEvent);
+      expect(blockedSwipeEvent.defaultPrevented).toBe(false);
+
+      ghost.dispatchEvent(makeTouchEvent("touchstart", [{ clientX: 120, clientY: 160 }]));
+      const moveEvent = makeTouchEvent("touchmove", [{ clientX: 180, clientY: 288 }]);
+      ghost.dispatchEvent(moveEvent);
+
+      expect(moveEvent.defaultPrevented).toBe(true);
+      expect(card.parentElement).not.toBe(targetDay);
+      expect(ghost.parentElement).toBe(targetDay);
+      expect(ghost.querySelector(".dl-edit-time-label--end")?.textContent).toContain("2026-05-05 ");
+      expect(ghost.querySelector(".dl-edit-time-label--end")?.textContent).toContain("03:30");
+      expect(ghost.style.getPropertyValue("--f-event-height")).toBe("95px");
+      ghost.dispatchEvent(makeTouchEvent("touchend", [{ clientX: 180, clientY: 288 }]));
+      expect(card.classList.contains("dl-event-card--edit-source")).toBe(true);
+
+      ghost.dispatchEvent(makeTouchEvent("touchend", [{ clientX: 180, clientY: 288 }]));
+      await Promise.resolve();
+
+      expect(card.parentElement).toBe(targetDay);
+      expect(card.style.getPropertyValue("--f-event-height")).toBe("94px");
+      expect(grid.querySelector(".dl-event-edit-ghost")).toBeNull();
+      expect(readerMoveEvent).toHaveBeenCalledWith(
+        "event-1",
+        "2026-05-05T02:00:00+00:00",
+        "2026-05-05T03:30:00+00:00",
       );
     } finally {
       Platform.isMobile = wasMobile;
