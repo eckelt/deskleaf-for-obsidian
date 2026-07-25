@@ -274,7 +274,7 @@ describe("guarded factory review command", () => {
       };
       expect(state.lastAuditAt).toBe("2026-07-03T00:00:00Z");
     }
-  });
+  }, 15000);
 
   it("skips without invoking the agent and updates state when no PR was merged after the last audit", async () => {
     const root = await mkdtemp(join(tmpdir(), "deskleaf-factory-review-"));

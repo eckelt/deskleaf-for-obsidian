@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const DEFAULT_LAST_AUDIT_AT = "1970-01-01T00:00:00Z";
 const FEATURE_BRANCH_ISSUE = /^feature\/issue-(\d+)$/;
@@ -135,6 +137,6 @@ function main() {
   process.stdout.write(`${JSON.stringify(createFactoryMetrics({ lastAuditAt, pullRequests, issueComments, generatedAt }), null, 2)}\n`);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
   main();
 }
