@@ -1,0 +1,4 @@
+interface:
+  display_name: "Deskleaf Feature Builder"
+  short_description: "Implement approved Deskleaf feature specs"
+  default_prompt: "Use $deskleaf-feature-builder to implement the approved Deskleaf feature spec."

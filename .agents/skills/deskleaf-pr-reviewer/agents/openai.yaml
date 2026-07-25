@@ -1,0 +1,4 @@
+interface:
+  display_name: "Deskleaf PR Reviewer"
+  short_description: "Review Deskleaf PR diffs for standards"
+  default_prompt: "Use $deskleaf-pr-reviewer to review a Deskleaf pull request diff."

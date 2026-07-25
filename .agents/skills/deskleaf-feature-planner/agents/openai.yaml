@@ -1,0 +1,7 @@
+interface:
+  display_name: "Deskleaf Feature Planner"
+  short_description: "Plan Deskleaf issues into specs"
+  default_prompt: "Use $deskleaf-feature-planner to plan this GitHub issue into an implementation-ready feature spec."
+
+policy:
+  allow_implicit_invocation: true

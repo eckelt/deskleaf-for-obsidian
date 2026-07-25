@@ -1,0 +1,4 @@
+interface:
+  display_name: "Deskleaf Factory Reviewer"
+  short_description: "Review pipeline metrics for factory improvements"
+  default_prompt: "Use $deskleaf-factory-reviewer to analyze Deskleaf factory metrics and propose process improvements."

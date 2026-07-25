@@ -1,0 +1,4 @@
+interface:
+  display_name: "Deskleaf UX Designer"
+  short_description: "Prepare UX contracts for Deskleaf planning"
+  default_prompt: "Use $deskleaf-ux-designer to prepare UX contract material for a Deskleaf feature."

@@ -1,0 +1,24 @@
+id: 945c76e4-bf76-4e2b-9d1e-0be5e81b193d
+name: deploy-check
+description: "Run the Deskleaf deploy guard: preflight, build, tests, Swift helper build, and local plugin copy."
+tags: {}
+jobs:
+  - name: main
+    description: Validate and run the local deploy script.
+    steps:
+      - name: deploy
+        description: Run deploy.sh through the managed deploy guard.
+        task:
+          type: model_method
+          modelIdOrName: deploy-guard
+          methodName: execute
+          inputs:
+            run: bash deploy.sh
+            workingDir: /Users/nils/Library/Mobile Documents/com~apple~CloudDocs/Projekte/Repositories/deskleaf-for-obsidian
+            timeout: 300000
+        dependsOn: []
+        weight: 0
+        allowFailure: false
+    dependsOn: []
+    weight: 0
+version: 1

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Deskleaf Feature Validator"
+  short_description: "Validate Deskleaf AC coverage and tests"
+  default_prompt: "Use $deskleaf-feature-validator to verify a Deskleaf feature against its acceptance criteria."
