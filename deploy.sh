@@ -6,11 +6,19 @@ DEST="/Users/nils/Library/Mobile Documents/iCloud~md~obsidian/Documents/Connecti
 
 cd "$REPO"
 
+echo "▶  Running deploy preflight…"
+bash scripts/deploy-preflight.sh
+
+echo "▶  Building plugin frontend…"
 npm run build
+
+echo "▶  Running plugin tests…"
 npm test
 
+echo "▶  Building Swift EventKit helper…"
 bash swift/build.sh
 
+echo "▶  Copying plugin artifacts…"
 mkdir -p "$DEST"
 cp main.js "$DEST/main.js"
 cp styles.css "$DEST/styles.css"

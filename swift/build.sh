@@ -1,6 +1,10 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 cd "$(dirname "$0")"
+
+export CLANG_MODULE_CACHE_PATH="${CLANG_MODULE_CACHE_PATH:-$(pwd)/.build/clang-module-cache}"
+export SWIFTPM_MODULECACHE_PATH="${SWIFTPM_MODULECACHE_PATH:-$(pwd)/.build/swiftpm-module-cache}"
+mkdir -p "$CLANG_MODULE_CACHE_PATH" "$SWIFTPM_MODULECACHE_PATH"
 
 echo "▶  Building deskleaf-calendar-sync…"
 if swift build -c release --arch arm64 --arch x86_64 2>/dev/null; then
