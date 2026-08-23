@@ -91,37 +91,66 @@ export interface ProjectRef {
 export const CAL_COLOR_PALETTE = [346, 21, 48, 96, 188, 252] as const;
 
 /**
- * Light-mode tones per hue.
+ * Per-hue tones for the calendar palette.
  *
  * HSL lightness is not perceptually uniform: at the same L a yellow reads far
  * brighter than a purple. One shared formula therefore either washes the yellow
- * out or drowns the purple — which is why each palette hue carries its own
- * values. Pink and yellow are the reference pair the rest is tuned against.
+ * out or drowns the purple — which is why every palette hue carries its own
+ * values, for both themes.
  *
- * `bgS`/`bgL` are the card surface, `bdL` the left accent bar, `txL` the text;
- * bar and text always run at full saturation.
+ * The compensation runs in opposite directions: on a light surface the dark
+ * hues may stay dark, while on a dark surface they have to be lifted to stay
+ * visible. Yellow and purple are the two ends of that.
+ *
+ * `bgS`/`bgL` are the card surface, `bdL` the left accent bar, `txL` the text.
+ * Bar and text run at or near full saturation in both themes.
  */
-export interface CalTone {
+export interface CalToneMode {
   bgS: number;
   bgL: number;
   bdL: number;
   txL: number;
 }
 
+export interface CalTone {
+  light: CalToneMode;
+  dark: CalToneMode;
+  /**
+   * Surface of the selected card. It carries near-white text in both themes, so
+   * one value serves both — and it has to be dark enough for that text. The
+   * previous shared 38 % left yellow at 2.7:1 and green at 2.4:1.
+   */
+  selL: number;
+}
+
 export const CAL_TONES: Record<number, CalTone> = {
-  346: { bgS: 95, bgL: 88, bdL: 42, txL: 30 },
-  21: { bgS: 100, bgL: 88, bdL: 48, txL: 28 },
-  48: { bgS: 100, bgL: 88, bdL: 50, txL: 25 },
-  96: { bgS: 100, bgL: 88, bdL: 38, txL: 22 },
-  188: { bgS: 100, bgL: 88, bdL: 40, txL: 24 },
-  252: { bgS: 100, bgL: 88, bdL: 48, txL: 32 },
+  346: { light: { bgS: 95, bgL: 88, bdL: 42, txL: 30 }, dark: { bgS: 55, bgL: 16, bdL: 58, txL: 76 }, selL: 40 },
+  21: { light: { bgS: 100, bgL: 88, bdL: 48, txL: 28 }, dark: { bgS: 55, bgL: 16, bdL: 55, txL: 72 }, selL: 38 },
+  48: { light: { bgS: 100, bgL: 88, bdL: 50, txL: 25 }, dark: { bgS: 55, bgL: 16, bdL: 52, txL: 66 }, selL: 26 },
+  96: { light: { bgS: 100, bgL: 88, bdL: 38, txL: 22 }, dark: { bgS: 55, bgL: 16, bdL: 48, txL: 62 }, selL: 25 },
+  188: { light: { bgS: 100, bgL: 88, bdL: 40, txL: 24 }, dark: { bgS: 55, bgL: 16, bdL: 50, txL: 64 }, selL: 28 },
+  252: { light: { bgS: 100, bgL: 88, bdL: 48, txL: 32 }, dark: { bgS: 55, bgL: 16, bdL: 68, txL: 78 }, selL: 45 },
 };
 
 /** Tones for a hue outside the palette — a custom colour or Obsidian's accent. */
-export const CAL_TONE_FALLBACK: CalTone = { bgS: 95, bgL: 88, bdL: 45, txL: 27 };
+export const CAL_TONE_FALLBACK: CalTone = {
+  light: { bgS: 95, bgL: 88, bdL: 45, txL: 27 },
+  dark: { bgS: 55, bgL: 16, bdL: 55, txL: 70 },
+  selL: 34,
+};
 
 export function calTone(hue: number): CalTone {
   return CAL_TONES[hue] ?? CAL_TONE_FALLBACK;
+}
+
+/**
+ * The solid colour that stands for a calendar: the swatches in the settings,
+ * the dot in the event editor, any legend. It is the accent bar's colour, so a
+ * swatch always matches the bar on the cards it produces.
+ */
+export function calSwatchColor(hue: number, isDark: boolean): string {
+  const tone = isDark ? calTone(hue).dark : calTone(hue).light;
+  return `hsl(${hue} 100% ${tone.bdL}%)`;
 }
 
 export interface CalDAVSettings {

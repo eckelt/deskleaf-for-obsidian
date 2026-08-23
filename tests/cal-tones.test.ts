@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CAL_COLOR_PALETTE, CAL_TONES, CAL_TONE_FALLBACK, calTone } from "../src/types";
+import { CAL_COLOR_PALETTE, CAL_TONES, CAL_TONE_FALLBACK, calSwatchColor, calTone } from "../src/types";
 
 // HSL → sRGB → relative Luminanz → WCAG-Kontrast. Die Palette wird im
 // Stylesheet als hsl() ausgegeben, also wird hier genau das nachgerechnet.
@@ -28,10 +28,13 @@ function contrast(a: [number, number, number], b: [number, number, number]): num
   return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
 }
 
+const MODES = ["light", "dark"] as const;
+
 describe("CAL_TONES", () => {
-  it("covers every hue in the palette", () => {
+  it("covers every hue in the palette, in both themes", () => {
     for (const hue of CAL_COLOR_PALETTE) {
-      expect(CAL_TONES[hue], `Hue ${hue}`).toBeDefined();
+      expect(CAL_TONES[hue]?.light, `Hue ${hue} hell`).toBeDefined();
+      expect(CAL_TONES[hue]?.dark, `Hue ${hue} dunkel`).toBeDefined();
     }
   });
 
@@ -40,38 +43,84 @@ describe("CAL_TONES", () => {
     expect(calTone(48)).toBe(CAL_TONES[48]);
   });
 
-  it("keeps text on the card readable — WCAG AA on every hue", () => {
-    for (const hue of CAL_COLOR_PALETTE) {
-      const { bgS, bgL, txL } = calTone(hue);
-      const ratio = contrast([hue, bgS, bgL], [hue, 100, txL]);
-      expect(ratio, `Hue ${hue} liegt bei ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(4.5);
+  it("keeps text on the card readable — WCAG AA on every hue and theme", () => {
+    for (const mode of MODES) {
+      for (const hue of CAL_COLOR_PALETTE) {
+        const { bgS, bgL, txL } = calTone(hue)[mode];
+        const ratio = contrast([hue, bgS, bgL], [hue, mode === "dark" ? 95 : 100, txL]);
+        expect(ratio, `Hue ${hue} ${mode}: ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(4.5);
+      }
     }
   });
 
-  it("keeps the series variant readable too — it darkens the surface by 6", () => {
-    for (const hue of CAL_COLOR_PALETTE) {
-      const { bgS, bgL, txL } = calTone(hue);
-      const ratio = contrast([hue, bgS, bgL - 6], [hue, 100, txL]);
-      expect(ratio, `Hue ${hue} als Serie liegt bei ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(4.5);
+  it("keeps the series variant readable — it shifts the surface by 6 toward the theme", () => {
+    for (const mode of MODES) {
+      for (const hue of CAL_COLOR_PALETTE) {
+        const { bgS, bgL, txL } = calTone(hue)[mode];
+        // hell: Fläche wird dunkler, dunkel: Fläche wird heller
+        const seriesL = mode === "light" ? bgL - 6 : bgL + 6;
+        const ratio = contrast([hue, bgS, seriesL], [hue, mode === "dark" ? 95 : 100, txL]);
+        expect(ratio, `Hue ${hue} ${mode} Serie: ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(4.5);
+      }
     }
   });
 
   it("separates the accent bar from the text so both stay distinguishable", () => {
-    for (const hue of CAL_COLOR_PALETTE) {
-      const { bdL, txL } = calTone(hue);
-      expect(bdL - txL, `Hue ${hue}`).toBeGreaterThanOrEqual(10);
+    for (const mode of MODES) {
+      for (const hue of CAL_COLOR_PALETTE) {
+        const { bdL, txL } = calTone(hue)[mode];
+        expect(Math.abs(bdL - txL), `Hue ${hue} ${mode}`).toBeGreaterThanOrEqual(10);
+      }
     }
   });
 
-  it("keeps the accent bar darker than the surface it sits on", () => {
+  it("puts the bar on the correct side of the surface in each theme", () => {
     for (const hue of CAL_COLOR_PALETTE) {
-      const { bgL, bdL } = calTone(hue);
-      expect(bdL, `Hue ${hue}`).toBeLessThan(bgL);
+      const tone = calTone(hue);
+      expect(tone.light.bdL, `Hue ${hue} hell`).toBeLessThan(tone.light.bgL);
+      expect(tone.dark.bdL, `Hue ${hue} dunkel`).toBeGreaterThan(tone.dark.bgL);
     }
   });
 
-  it("pins the two tones that were specified by hand", () => {
-    expect(calTone(48)).toEqual({ bgS: 100, bgL: 88, bdL: 50, txL: 25 });
-    expect(calTone(346)).toEqual({ bgS: 95, bgL: 88, bdL: 42, txL: 30 });
+  it("keeps near-white text on the selected card readable", () => {
+    // Der Auswahl-Zustand trug in beiden Themes weiße Schrift auf einer
+    // gemeinsamen Fläche von 38 % — bei Gelb 2.7:1, bei Grün 2.4:1.
+    for (const hue of CAL_COLOR_PALETTE) {
+      const ratio = contrast([hue, 95, calTone(hue).selL], [0, 0, 100]);
+      expect(ratio, `Hue ${hue} ausgewählt: ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it("keeps the selected card darker than the resting one in light mode", () => {
+    for (const hue of CAL_COLOR_PALETTE) {
+      const tone = calTone(hue);
+      expect(tone.selL, `Hue ${hue}`).toBeLessThan(tone.light.bgL);
+    }
+  });
+
+  it("pins the two light tones that were specified by hand", () => {
+    expect(calTone(48).light).toEqual({ bgS: 100, bgL: 88, bdL: 50, txL: 25 });
+    expect(calTone(346).light).toEqual({ bgS: 95, bgL: 88, bdL: 42, txL: 30 });
+  });
+});
+
+describe("calSwatchColor", () => {
+  it("matches the accent bar of the cards it produces", () => {
+    for (const hue of CAL_COLOR_PALETTE) {
+      expect(calSwatchColor(hue, false)).toBe(`hsl(${hue} 100% ${calTone(hue).light.bdL}%)`);
+      expect(calSwatchColor(hue, true)).toBe(`hsl(${hue} 100% ${calTone(hue).dark.bdL}%)`);
+    }
+  });
+
+  it("gives every palette hue a distinct swatch — no two calendars look alike", () => {
+    for (const isDark of [false, true]) {
+      const swatches = CAL_COLOR_PALETTE.map((hue) => calSwatchColor(hue, isDark));
+      expect(new Set(swatches).size).toBe(CAL_COLOR_PALETTE.length);
+    }
+  });
+
+  it("falls back for an unknown hue instead of producing NaN", () => {
+    expect(calSwatchColor(300, false)).toBe(`hsl(300 100% ${CAL_TONE_FALLBACK.light.bdL}%)`);
+    expect(calSwatchColor(300, true)).toBe(`hsl(300 100% ${CAL_TONE_FALLBACK.dark.bdL}%)`);
   });
 });

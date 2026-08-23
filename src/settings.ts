@@ -1,7 +1,7 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
 import type DeskleafPlugin from "./main";
 import { CalDAVClient } from "./caldav-client";
-import { CAL_COLOR_PALETTE, type DeskleafSettings, type ICalFeedSubscription } from "./types";
+import { CAL_COLOR_PALETTE, calSwatchColor, type DeskleafSettings, type ICalFeedSubscription } from "./types";
 
 function trashIconSvg(size: number): string {
   return (
@@ -267,9 +267,7 @@ export class DeskleafSettingTab extends PluginSettingTab {
 
       for (const hue of CAL_COLOR_PALETTE) {
         const sw = circles.createDiv("dl-circle");
-        const swatchS = isDark ? 78 : 58;
-        const swatchL = isDark ? (hue === 48 ? 68 : 63) : (hue === 48 ? 46 : 50);
-        sw.style.background = `hsl(${hue}, ${swatchS}%, ${swatchL}%)`;
+        sw.style.background = calSwatchColor(hue, isDark);
         sw.title = `${hue}°`;
         if (isSelected && savedHue === hue) sw.addClass("dl-circle--active");
         sw.addEventListener("click", async () => {
@@ -335,9 +333,7 @@ export class DeskleafSettingTab extends PluginSettingTab {
 
       for (const hue of CAL_COLOR_PALETTE) {
         const sw = circles.createDiv("dl-circle");
-        const swatchS = isDark ? 78 : 58;
-        const swatchL = isDark ? (hue === 48 ? 68 : 63) : (hue === 48 ? 46 : 50);
-        sw.style.background = `hsl(${hue}, ${swatchS}%, ${swatchL}%)`;
+        sw.style.background = calSwatchColor(hue, isDark);
         sw.title = `${hue}°`;
         if (feed.enabled && savedHue === hue) sw.addClass("dl-circle--active");
         sw.addEventListener("click", async () => {

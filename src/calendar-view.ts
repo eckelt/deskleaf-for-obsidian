@@ -377,12 +377,17 @@ export class DeskleafCalendarView extends ItemView {
    */
   private applyCalendarTone(el: HTMLElement, calendar: string): void {
     const hue = this.calendarHue(calendar);
-    const tone = calTone(hue);
+    const { light, dark } = calTone(hue);
     el.style.setProperty("--cal-h", String(hue));
-    el.style.setProperty("--cal-bg-s", `${tone.bgS}%`);
-    el.style.setProperty("--cal-bg-l", `${tone.bgL}%`);
-    el.style.setProperty("--cal-bd-l", `${tone.bdL}%`);
-    el.style.setProperty("--cal-tx-l", `${tone.txL}%`);
+    el.style.setProperty("--cal-bg-s", `${light.bgS}%`);
+    el.style.setProperty("--cal-bg-l", `${light.bgL}%`);
+    el.style.setProperty("--cal-bd-l", `${light.bdL}%`);
+    el.style.setProperty("--cal-tx-l", `${light.txL}%`);
+    el.style.setProperty("--cal-d-bg-s", `${dark.bgS}%`);
+    el.style.setProperty("--cal-d-bg-l", `${dark.bgL}%`);
+    el.style.setProperty("--cal-d-bd-l", `${dark.bdL}%`);
+    el.style.setProperty("--cal-d-tx-l", `${dark.txL}%`);
+    el.style.setProperty("--cal-sel-l", `${calTone(hue).selL}%`);
   }
 
   private calendarHue(name: string): number {
@@ -2176,12 +2181,12 @@ export class DeskleafCalendarView extends ItemView {
     const headingGroup = headerRow.createDiv("dl-edit-heading-group");
     if (readOnly || knownCalendarNames.length === 0) {
       const headerDot = headingGroup.createDiv("dl-edit-header-dot");
-      headerDot.style.setProperty("--cal-h", String(this.calendarHue(calendarValue)));
+      this.applyCalendarTone(headerDot, calendarValue);
     } else {
       const calBtn = headingGroup.createEl("button", { cls: "dl-edit-cal-btn" });
       const calDot = calBtn.createDiv("dl-edit-header-dot");
       const syncCalendarIndicator = () => {
-        calDot.style.setProperty("--cal-h", String(this.calendarHue(calendarValue)));
+        this.applyCalendarTone(calDot, calendarValue);
         calBtn.setAttribute("aria-label", `Kalender: ${calendarValue || "kein Kalender"} – wechseln`);
         calBtn.setAttribute("title", `Kalender: ${calendarValue || "kein Kalender"} – wechseln`);
       };
@@ -2198,7 +2203,7 @@ export class DeskleafCalendarView extends ItemView {
           const item = calMenu.createEl("button", { cls: "dl-edit-cal-menu-item" });
           if (name === calendarValue) item.addClass("dl-edit-cal-menu-item--active");
           const itemDot = item.createDiv("dl-edit-header-dot");
-          itemDot.style.setProperty("--cal-h", String(this.calendarHue(name)));
+          this.applyCalendarTone(itemDot, name);
           item.createSpan({ cls: "dl-edit-cal-menu-name", text: name });
           item.addEventListener("click", (ev) => {
             ev.stopPropagation();
