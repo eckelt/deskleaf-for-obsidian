@@ -243,3 +243,59 @@ describe("CalDAV RSVP parsing and updates", () => {
     expect(updated).toContain("ATTENDEE;CN=Other;PARTSTAT=ACCEPTED:mailto:other@example.test");
   });
 });
+
+describe("conference links and own booking service", () => {
+  const wrap = (lines: string[]) =>
+    [
+      "BEGIN:VCALENDAR",
+      "BEGIN:VEVENT",
+      "UID:evt-1",
+      "SUMMARY:Tchibo Factory Tour",
+      "DTSTART:20260818T110000Z",
+      "DTEND:20260818T113000Z",
+      ...lines,
+      "END:VEVENT",
+      "END:VCALENDAR",
+    ].join("\r\n");
+
+  it("takes the join link from CONFERENCE when LOCATION has none", () => {
+    const [event] = parseICalendar(wrap([
+      "LOCATION:Hamburg",
+      "CONFERENCE;VALUE=URI;FEATURE=VIDEO:https://join.ecke.lt/tour",
+    ]), "Work");
+    expect(event.conferenceUrl).toBe("https://join.ecke.lt/tour");
+  });
+
+  it("falls back to URL when there is no CONFERENCE", () => {
+    const [event] = parseICalendar(wrap(["URL:https://join.ecke.lt/tour"]), "Work");
+    expect(event.conferenceUrl).toBe("https://join.ecke.lt/tour");
+  });
+
+  it("prefers CONFERENCE over URL", () => {
+    const [event] = parseICalendar(wrap([
+      "CONFERENCE;VALUE=URI:https://join.ecke.lt/tour",
+      "URL:https://ecke.lt/about",
+    ]));
+    expect(event.conferenceUrl).toBe("https://join.ecke.lt/tour");
+  });
+
+  it("ignores a CONFERENCE value that is not a web address", () => {
+    const [event] = parseICalendar(wrap(["CONFERENCE;VALUE=URI:tel:+4940123456"]));
+    expect(event.conferenceUrl).toBeNull();
+  });
+
+  it("recognises join.ecke.lt as its own platform", () => {
+    const [event] = parseICalendar(wrap(["LOCATION:https://join.ecke.lt/tour?host=schokoladenkeks"]), "Work");
+    expect(event.meetingPlatform).toBe("ecke");
+  });
+
+  it("does not call every booked event an ecke meeting", () => {
+    // Every event booked through the service carries this line, whatever
+    // platform the meeting itself runs on.
+    const [event] = parseICalendar(wrap([
+      "LOCATION:https://zoom.us/j/123",
+      "DESCRIPTION:Booked via book.ecke.lt",
+    ]), "Work");
+    expect(event.meetingPlatform).toBe("zoom");
+  });
+});
