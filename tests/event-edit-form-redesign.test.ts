@@ -676,6 +676,16 @@ describe("event edit form redesign", () => {
     expect(plugin.noteManager.syncEventNote).toHaveBeenCalledTimes(1);
   });
 
+  it("opens without putting any field into an edit state", () => {
+    const plugin = makePlugin();
+    const view = makeView(plugin);
+    const editor = openEditor(view, makeEvent());
+
+    // Nothing is focused on open — on touch that would also raise the keyboard.
+    expect(document.activeElement).not.toBe(editor.querySelector(".dl-edit-title-input"));
+    expect(editor.querySelector(".dl-edit-field:focus")).toBeNull();
+  });
+
   it("renders editable values as plain text until a field is focused", () => {
     const plugin = makePlugin();
     const view = makeView(plugin);
