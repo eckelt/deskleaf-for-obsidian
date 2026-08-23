@@ -1379,6 +1379,7 @@
 
 .dl-edit-actions {
     flex: 0 0 auto;
+    justify-content: flex-start;
     min-width: 0;
     gap: 8px;
     padding: 12px 16px;
@@ -2462,7 +2463,11 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    justify-content: center;
+    min-width: 0;
+}
+
+/* Shrinkable inside the flex row, so a long name still ellipsises. */
+.dl-topic-titlerow .dl-topic-title {
     min-width: 0;
 }
 

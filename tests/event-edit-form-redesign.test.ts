@@ -360,6 +360,15 @@ function openEditor(view: DeskleafCalendarView, event: CalendarEvent, readOnly =
   return editor;
 }
 
+/** The editor commits when it closes; clicking outside is that gesture. */
+async function commitByOutsideClick(): Promise<void> {
+  // The outside listener is armed one tick after opening, to survive the
+  // synthetic click iOS fires after the opening tap.
+  await vi.runAllTimersAsync();
+  document.body.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+  await vi.runAllTimersAsync();
+}
+
 function cssRule(selector: string): string {
   const styles = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
   const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -400,8 +409,10 @@ describe("event edit form redesign", () => {
     expect(editor.querySelector<HTMLInputElement>('input[placeholder="Ort"]')?.value).toBe("Hamburg Office");
     expect(editor.querySelector<HTMLTextAreaElement>("textarea")?.value).toBe("Discuss the redesigned edit form.");
     expect(editor.querySelector(".dl-edit-cal-btn")?.getAttribute("aria-label")).toContain("Work");
-    expect(actions?.textContent).toContain("Abbrechen");
-    expect(actions?.textContent).toContain("Speichern");
+    // Committing happens on close, so only the destructive action needs a button.
+    expect(actions?.textContent).toBe("Löschen");
+    expect(editor.querySelector(".dl-edit-cancel-btn")).toBeNull();
+    expect(editor.querySelector(".dl-edit-save-btn")).toBeNull();
   });
 
   it("moves the event to another calendar through the header calendar menu", async () => {
@@ -421,10 +432,7 @@ describe("event edit form redesign", () => {
     expect(editor.querySelector(".dl-edit-cal-menu")).toBeNull();
     expect(calBtn?.getAttribute("aria-label")).toContain("Private");
 
-    editor.querySelectorAll<HTMLButtonElement>(".dl-edit-actions button").forEach((button) => {
-      if (button.textContent === "Speichern") button.click();
-    });
-    await vi.runAllTimersAsync();
+    await commitByOutsideClick();
 
     expect(plugin.calendarReader.updateEvent).toHaveBeenCalledWith(
       "event-1",
@@ -516,9 +524,9 @@ describe("event edit form redesign", () => {
     await vi.runAllTimersAsync();
     expect(document.querySelector(".dl-edit-surface")).not.toBeNull();
 
-    const cancelButton = editor.querySelector<HTMLButtonElement>(".dl-edit-cancel-btn");
-    expect(cancelButton).not.toBeNull();
-    cancelButton?.dispatchEvent(new TouchEvent("touchstart", { clientY: 100, bubbles: true }));
+    const deleteButton = editor.querySelector<HTMLButtonElement>(".dl-edit-delete-btn");
+    expect(deleteButton).not.toBeNull();
+    deleteButton?.dispatchEvent(new TouchEvent("touchstart", { clientY: 100, bubbles: true }));
     document.body.dispatchEvent(new TouchEvent("touchmove", { clientY: 190, bubbles: true }));
     document.body.dispatchEvent(new TouchEvent("touchend", { clientY: 190, bubbles: true }));
     await vi.runAllTimersAsync();
@@ -597,7 +605,7 @@ describe("event edit form redesign", () => {
     expect(minicalGridRule).toContain("min-width: 0");
   });
 
-  it("renders read-only event details without save and without backend updates on close", async () => {
+  it("renders read-only event details without actions and without backend updates on close", async () => {
     const plugin = makePlugin();
     const view = makeView(plugin);
     const editor = openEditor(view, makeEvent({ isOrganizer: false }), true);
@@ -609,54 +617,71 @@ describe("event edit form redesign", () => {
     expect(editor.querySelector(".dl-edit-ro-title")?.textContent).toBe("Design Review");
     expect(editor.querySelector(".dl-edit-ro-location")?.textContent).toBe("Hamburg Office");
     expect(editor.querySelector(".dl-edit-ro-text")?.textContent).toBe("Discuss the redesigned edit form.");
+    expect(editor.querySelector(".dl-edit-actions")).toBeNull();
 
-    editor.querySelector<HTMLButtonElement>("button")?.click();
-    await vi.runAllTimersAsync();
+    await commitByOutsideClick();
 
+    expect(document.querySelector(".dl-edit-surface")).toBeNull();
     expect(plugin.calendarReader.updateEvent).not.toHaveBeenCalled();
     expect(plugin.noteManager.syncEventNote).not.toHaveBeenCalled();
   });
 
-  it("keeps cancel, outside click, escape and save semantics on the existing write paths", async () => {
+  it("commits on outside click, discards on escape and skips untouched edits", async () => {
     const plugin = makePlugin();
     const view = makeView(plugin);
 
+    // Escape discards — it is the abort gesture now that the button is gone.
     let editor = openEditor(view, makeEvent());
-    const cancelledTitle = editor.querySelector<HTMLInputElement>('input[placeholder="Titel..."]');
-    expect(cancelledTitle).not.toBeNull();
-    if (cancelledTitle) cancelledTitle.value = "Changed then cancelled";
-    editor.querySelector<HTMLButtonElement>(".dl-edit-actions button")?.click();
-    await vi.runAllTimersAsync();
-    expect(plugin.calendarReader.updateEvent).not.toHaveBeenCalled();
-    expect(plugin.noteManager.syncEventNote).not.toHaveBeenCalled();
-
-    editor = openEditor(view, makeEvent());
-    await vi.runAllTimersAsync();
-    document.body.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
-    expect(document.querySelector(".dl-edit-surface")).toBeNull();
-    expect(plugin.calendarReader.updateEvent).not.toHaveBeenCalled();
-
-    editor = openEditor(view, makeEvent());
+    const discardedTitle = editor.querySelector<HTMLInputElement>('input[placeholder="Titel..."]');
+    expect(discardedTitle).not.toBeNull();
+    if (discardedTitle) discardedTitle.value = "Changed then discarded";
     editor.querySelector<HTMLInputElement>('input[placeholder="Titel..."]')?.dispatchEvent(
       new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
     );
     await vi.runAllTimersAsync();
+    expect(document.querySelector(".dl-edit-surface")).toBeNull();
+    expect(plugin.calendarReader.updateEvent).not.toHaveBeenCalled();
+    expect(plugin.noteManager.syncEventNote).not.toHaveBeenCalled();
+
+    // An untouched editor closes without touching the backend at all.
+    editor = openEditor(view, makeEvent());
+    await commitByOutsideClick();
+    expect(document.querySelector(".dl-edit-surface")).toBeNull();
     expect(plugin.calendarReader.updateEvent).not.toHaveBeenCalled();
 
+    // A changed value is written when the editor closes.
     editor = openEditor(view, makeEvent());
     const savedTitle = editor.querySelector<HTMLInputElement>('input[placeholder="Titel..."]');
     expect(savedTitle).not.toBeNull();
     if (savedTitle) savedTitle.value = "Saved title";
-    editor.querySelectorAll<HTMLButtonElement>(".dl-edit-actions button").forEach((button) => {
-      if (button.textContent === "Speichern") button.click();
-    });
-    await vi.runAllTimersAsync();
+    await commitByOutsideClick();
 
     expect(plugin.calendarReader.updateEvent).toHaveBeenCalledWith(
       "event-1",
       expect.objectContaining({ title: "Saved title" }),
     );
     expect(plugin.noteManager.syncEventNote).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the editor open when a close would write an invalid event", async () => {
+    const plugin = makePlugin();
+    const view = makeView(plugin);
+    const editor = openEditor(view, makeEvent());
+    const titleInput = editor.querySelector<HTMLInputElement>('input[placeholder="Titel..."]');
+    expect(titleInput).not.toBeNull();
+    if (titleInput) titleInput.value = "   ";
+
+    await commitByOutsideClick();
+
+    expect(document.querySelector(".dl-edit-surface")).not.toBeNull();
+    expect(titleInput?.classList.contains("dl-create-input--invalid")).toBe(true);
+    expect(plugin.calendarReader.updateEvent).not.toHaveBeenCalled();
+
+    // Escape is the way out of an input too broken to save.
+    titleInput?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    await vi.runAllTimersAsync();
+    expect(document.querySelector(".dl-edit-surface")).toBeNull();
+    expect(plugin.calendarReader.updateEvent).not.toHaveBeenCalled();
   });
 
   it("keeps the writable edit delete action on the existing cancelEvent path", async () => {
@@ -787,9 +812,9 @@ describe("event edit form redesign", () => {
     expect(savedTitle).not.toBeNull();
     if (savedTitle) savedTitle.value = "Recurring title";
 
-    editor.querySelectorAll<HTMLButtonElement>(".dl-edit-actions button").forEach((button) => {
-      if (button.textContent === "Speichern") button.click();
-    });
+    await vi.runAllTimersAsync();
+    document.body.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    await Promise.resolve();
 
     const scopePopover = document.querySelector<HTMLElement>(".dl-edit-scope-popover");
     expect(scopePopover).not.toBeNull();
