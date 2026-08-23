@@ -663,6 +663,48 @@ describe("event edit form redesign", () => {
     expect(plugin.noteManager.syncEventNote).toHaveBeenCalledTimes(1);
   });
 
+  it("renders editable values as quiet fields that only take on chrome on interaction", () => {
+    const plugin = makePlugin();
+    const view = makeView(plugin);
+    const editor = openEditor(view, makeEvent());
+
+    // Every editable control opts into the quiet treatment.
+    const fields = Array.from(editor.querySelectorAll(".dl-edit-field"));
+    expect(fields.map((field) => field.className.split(" ").find((c) => c.startsWith("dl-edit-") && c.endsWith("-input")))).toEqual([
+      "dl-edit-title-input",
+      "dl-edit-date-input",
+      "dl-edit-start-input",
+      "dl-edit-end-input",
+      "dl-edit-location-input",
+      "dl-edit-desc-input",
+    ]);
+
+    const restRule = cssRule(".dl-edit-surface .dl-edit-field");
+    expect(restRule).toContain("border-color: transparent");
+    expect(restRule).toContain("background: transparent");
+
+    expect(cssRule(".dl-edit-surface .dl-edit-field:hover")).toContain("background: var(--background-modifier-hover)");
+
+    const focusRule = cssRule(".dl-edit-surface .dl-edit-field:focus");
+    expect(focusRule).toContain("border-color: var(--interactive-accent)");
+    expect(focusRule).toContain("background: var(--background-primary)");
+
+    // A rejected value must stay visible through hover and focus.
+    const invalidRule = cssRule(".dl-edit-surface .dl-edit-field.dl-create-input--invalid");
+    expect(invalidRule).toContain("border-color: var(--color-red)");
+  });
+
+  it("leaves the create popover fields fully framed", () => {
+    // The create form starts empty — there is nothing to read, so every field
+    // still has to announce itself.
+    const plugin = makePlugin();
+    const view = makeView(plugin);
+    view.showCreatePopover("2026-06-26", 600, 660, { clientX: 100, clientY: 100 });
+    const popover = document.querySelector<HTMLElement>(".dl-create-popover");
+    expect(popover).not.toBeNull();
+    expect(popover?.querySelector(".dl-edit-field")).toBeNull();
+  });
+
   it("keeps the editor open when a close would write an invalid event", async () => {
     const plugin = makePlugin();
     const view = makeView(plugin);

@@ -2335,6 +2335,7 @@ export class DeskleafCalendarView extends ItemView {
       titleField.type = "text";
       titleField.addClass("dl-create-input");
       titleField.addClass("dl-edit-title-input");
+      titleField.addClass("dl-edit-field");
       titleField.placeholder = "Titel...";
       titleField.value = event.title;
 
@@ -2344,6 +2345,7 @@ export class DeskleafCalendarView extends ItemView {
       const dateField = dateTimeRow.createEl("input") as HTMLInputElement;
       dateField.type = "date";
       dateField.addClass("dl-edit-date-input");
+      dateField.addClass("dl-edit-field");
       dateField.value = startDate;
       dateField.setAttribute("aria-label", "Datum");
       dateField.setAttribute("title", dayHeaderLabel(initialStart));
@@ -2362,6 +2364,7 @@ export class DeskleafCalendarView extends ItemView {
       startField.type = "time";
       startField.addClass("dl-create-time-input");
       startField.addClass("dl-edit-start-input");
+      startField.addClass("dl-edit-field");
       startField.step = "60";
       startField.value = minsToTimeStr(startMin);
       timeRow.createSpan({ cls: "dl-create-time-sep", text: "-" });
@@ -2369,6 +2372,7 @@ export class DeskleafCalendarView extends ItemView {
       endField.type = "time";
       endField.addClass("dl-create-time-input");
       endField.addClass("dl-edit-end-input");
+      endField.addClass("dl-edit-field");
       endField.step = "60";
       endField.value = minsToTimeStr(endMin);
       const keepValidEndAfterStartChange = () => {
@@ -2387,6 +2391,7 @@ export class DeskleafCalendarView extends ItemView {
       locationField.type = "text";
       locationField.addClass("dl-create-input");
       locationField.addClass("dl-edit-location-input");
+      locationField.addClass("dl-edit-field");
       locationField.placeholder = "Ort";
       locationField.value = event.location ?? "";
       appendLocationOpenButton(locationRow);
@@ -2401,6 +2406,7 @@ export class DeskleafCalendarView extends ItemView {
       const descField = descSection.createEl("textarea") as HTMLTextAreaElement;
       descField.addClass("dl-create-desc");
       descField.addClass("dl-edit-desc-input");
+      descField.addClass("dl-edit-field");
       descField.placeholder = "Beschreibung";
       descField.value = event.body ?? "";
 

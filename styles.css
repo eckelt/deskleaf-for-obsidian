@@ -1377,6 +1377,61 @@
     font-weight: 500;
 }
 
+/* ── Quiet fields ───────────────────────────────────────────────────
+   The editor is read far more often than it is edited, so the fields carry
+   no chrome of their own: they read as text until the pointer or the focus
+   ring reaches them. Scoped to the edit surface — the create popover is an
+   empty form where every field does need to announce itself. */
+.dl-edit-surface .dl-edit-field {
+    border-color: transparent;
+    background: transparent;
+    transition: background-color 90ms ease, border-color 90ms ease, box-shadow 90ms ease;
+}
+
+.dl-edit-surface .dl-edit-field:hover {
+    background: var(--background-modifier-hover);
+}
+
+.dl-edit-surface .dl-edit-field:focus {
+    border-color: var(--interactive-accent);
+    background: var(--background-primary);
+    box-shadow: 0 0 0 2px hsla(var(--accent-h), var(--accent-s), var(--accent-l), 0.22);
+    outline: none;
+}
+
+/* A rejected value keeps its red border through hover and focus alike. */
+.dl-edit-surface .dl-edit-field.dl-create-input--invalid {
+    border-color: var(--color-red);
+    background: var(--background-primary);
+    box-shadow: none;
+}
+
+/* The native pickers are chrome too — they follow the field. */
+.dl-edit-surface .dl-edit-field::-webkit-calendar-picker-indicator {
+    opacity: 0;
+    transition: opacity 90ms ease;
+}
+
+.dl-edit-surface .dl-edit-field:hover::-webkit-calendar-picker-indicator,
+.dl-edit-surface .dl-edit-field:focus::-webkit-calendar-picker-indicator {
+    opacity: 0.55;
+}
+
+/* Without borders the date and the two times should sit together as one
+   phrase instead of being stretched apart by the flex row. */
+.dl-edit-surface .dl-edit-date-input {
+    flex: 0 1 auto;
+}
+
+.dl-edit-surface .dl-edit-time-row {
+    flex: 0 1 auto;
+}
+
+.dl-edit-surface .dl-create-time-input {
+    flex: 0 0 auto;
+    width: auto;
+}
+
 .dl-edit-actions {
     flex: 0 0 auto;
     justify-content: flex-start;
