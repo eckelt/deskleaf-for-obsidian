@@ -66,14 +66,14 @@ created by `create_meeting_note` are indistinguishable.
 ```yaml
 ---
 type: termin
-title: "Tchibo – Kick-off"
+title: "Nordwind – Kick-off"
 date: 2026-08-21
 calendar_event_id: "https://caldav.fastmail.com/dav/calendars/user/…/46AAFAE9.ics"
 calendar_uid: "46AAFAE9-B10C-4BB9-81EC-54F25B320565"
 calendar_recurrence_id: "20260821T090000Z"   # only for one instance of a series
-kunde: "[[Tchibo]]"                          # only when a customer matched
-teilnehmer: ["[[Waldemar Spät]]", "[[Kamil Kubica]]"]
-tags: [kunde/tchibo]                         # only when a customer matched
+kunde: "[[Nordwind]]"                          # only when a customer matched
+teilnehmer: ["[[Wanda Sturm]]", "[[Kai Berger]]"]
+tags: [kunde/nordwind]                         # only when a customer matched
 ---
 ```
 
@@ -122,11 +122,11 @@ standard sections and their Dataview blocks — byte-compatible with
 ```yaml
 ---
 type: kunde
-tags: [kunde/tchibo]
+tags: [kunde/nordwind]
 status: aktiv          # aktiv | pausiert | beendet
-partner: "[[Hacker & Wizards]]"
+partner: "[[Werkstatt & Co]]"
 ort: Hamburg
-domains: [tchibo.de]   # hand-maintained; drives event → customer matching
+domains: [nordwind.de]   # hand-maintained; drives event → customer matching
 ---
 ```
 
@@ -136,7 +136,7 @@ single source.
 ### Event → customer matching
 
 1. **Attendee domain** against `domains:` — hard evidence, checked first.
-2. **Title prefix** — `"Tchibo – Workshop"` matches, `"Rethinking Tchibo"` does
+2. **Title prefix** — `"Nordwind – Workshop"` matches, `"Rethinking Nordwind"` does
    not. Longest customer name wins when two share a prefix.
 
 No match leaves `kunde` and `tags` off the meeting note entirely.
@@ -150,11 +150,11 @@ Lives in `peopleFolder`.
 ```yaml
 ---
 type: person
-kunde: "[[Tchibo]]"
+kunde: "[[Nordwind]]"
 rolle: Engineering
-email: waldemar.spaet@tchibo.de
+email: wanda.sturm@nordwind.de
 telefon:
-tags: [kunde/tchibo]
+tags: [kunde/nordwind]
 ---
 ```
 
@@ -171,7 +171,7 @@ Todos live where they are written (a meeting note, a project note) and are seen
 centrally — in the sidebar, and via Dataview on the customer note.
 
 ```markdown
-- [ ] Konsolidierte Mail an Waldemar due:: 2026-08-21
+- [ ] Konsolidierte Mail an Wanda due:: 2026-08-21
 - [x] Sandbox einbauen ✅ 2026-08-19
 ```
 
