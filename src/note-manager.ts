@@ -43,6 +43,7 @@ export class NoteManager {
         path: file.path,
         domains: toArray(fm.domains),
         status: typeof fm.status === "string" ? fm.status : "aktiv",
+        logo: typeof fm.logo === "string" ? fm.logo : undefined,
       };
     });
   }

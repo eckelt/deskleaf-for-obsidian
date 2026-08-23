@@ -68,6 +68,8 @@ export interface CustomerRef {
   name: string;
   slug: string;
   path: string;
+  /** Raw `logo:` frontmatter; interpreted by parseLogo in note-logo.ts. */
+  logo?: string;
   /** Frontmatter `domains: [acme.de]` — the primary evidence for a match. */
   domains: string[];
   /** Frontmatter `status:` — aktiv | pausiert | beendet. */

@@ -4,6 +4,7 @@ import { toDateStr, addDays, parseDate, weekStart, getWeekNumber } from "./date-
 import { openFile } from "./open-file";
 import type { CustomerRef, ProjectRef } from "./types";
 import { matchCustomer } from "./brain-vault";
+import { parseLogo } from "./note-logo";
 import {
   parseTodoLines, resolveTodoDate, completeTodoLine, reopenTodoLine,
   groupForDate, type TodoGroup,
@@ -50,6 +51,8 @@ function monthRangeLabel(a: Date, b: Date): string {
 interface EntityEntry {
   file: TFile;
   title: string;
+  /** Raw `logo:` frontmatter of a customer, if the note carries one. */
+  logo?: string;
   /** Right-hand chips: upcoming meetings for a customer, todo count for a project. */
   chips: string[];
   /** Customers whose status is not "aktiv" are dimmed and sorted last. */
@@ -545,6 +548,7 @@ export class DeskleafSidebarView extends ItemView {
       ? customers.map((customer) => ({
           file: this.fileFor(customer.path),
           title: customer.name,
+          logo: customer.logo,
           chips: upcoming.get(customer.name) ?? [],
           inactive: customer.status !== "aktiv",
         }))
@@ -594,7 +598,9 @@ export class DeskleafSidebarView extends ItemView {
     if (entry.inactive) row.addClass("dl-topic-row--inactive");
 
     const content = row.createDiv("dl-topic-content");
-    const title = content.createEl("span", { cls: "dl-topic-title", text: entry.title });
+    const titleRow = content.createDiv("dl-topic-titlerow");
+    this.renderLogo(titleRow, entry);
+    const title = titleRow.createEl("span", { cls: "dl-topic-title", text: entry.title });
     title.addEventListener("mousedown", (e: MouseEvent) => {
       if (e.button === 1) { e.preventDefault(); this.openEntity(entry.file, true); }
     });
@@ -604,6 +610,38 @@ export class DeskleafSidebarView extends ItemView {
       const chips = content.createDiv("dl-topic-chips");
       for (const chip of entry.chips) chips.createSpan({ cls: "dl-chip", text: chip });
     }
+  }
+
+  /**
+   * The logo in front of the name, when the note carries one. It is decoration:
+   * a missing file or an unreachable URL must leave the row looking normal, so
+   * a broken image removes itself rather than showing the browser's placeholder.
+   */
+  private renderLogo(container: HTMLElement, entry: EntityEntry) {
+    const logo = parseLogo(entry.logo);
+    if (!logo) return;
+
+    if (logo.kind === "text") {
+      container.createSpan({ cls: "dl-topic-logo dl-topic-logo--text", text: logo.value });
+      return;
+    }
+
+    const src = logo.kind === "url"
+      ? logo.url
+      : this.resolveVaultImage(logo.path, entry.file.path);
+    if (!src) return;
+
+    const img = container.createEl("img", { cls: "dl-topic-logo" });
+    img.src = src;
+    img.alt = "";
+    img.addEventListener("error", () => img.remove(), { once: true });
+  }
+
+  /** Resolves a vault-relative or link-shaped image path to a displayable URL. */
+  private resolveVaultImage(path: string, sourcePath: string): string | null {
+    const file = this.app.metadataCache.getFirstLinkpathDest(path, sourcePath)
+      ?? this.app.vault.getAbstractFileByPath(path);
+    return file instanceof TFile ? this.app.vault.getResourcePath(file) : null;
   }
 
   private renderNewEntityRow(container: HTMLElement, kind: EntityKind) {
