@@ -61,7 +61,31 @@ export interface EventNoteFrontmatter {
   topics: string[];
 }
 
-export type NoteType = "meeting" | "interview" | "recurring" | "task" | "focus";
+export type NoteType = "termin" | "interview" | "recurring" | "task" | "focus";
+
+/** A customers/ note, reduced to what event matching and linking need. */
+export interface CustomerRef {
+  name: string;
+  slug: string;
+  path: string;
+  /** Frontmatter `domains: [acme.de]` — the primary evidence for a match. */
+  domains: string[];
+  /** Frontmatter `status:` — aktiv | pausiert | beendet. */
+  status: string;
+}
+
+/** A people/ note, reduced to what attendee resolution needs. */
+export interface PersonRef {
+  name: string;
+  path: string;
+  emails: string[];
+}
+
+/** A projects/ note. */
+export interface ProjectRef {
+  name: string;
+  path: string;
+}
 
 // 6 Monokai Pro calendar hues: pink · orange · yellow · green · cyan · purple
 export const CAL_COLOR_PALETTE = [346, 21, 48, 96, 188, 252] as const;
@@ -95,13 +119,26 @@ export interface BusinessHoursSettings {
   days: number[]; // JavaScript weekday numbers: 1 = Monday, ... 5 = Friday
 }
 
+/** Folder layout of the Brain vault, shared with the Deskleaf MCP. */
+export interface VaultSettings {
+  meetingsFolder: string;
+  customersFolder: string;
+  peopleFolder: string;
+  projectsFolder: string;
+  /** Folders scanned for open todos; root notes are always included. */
+  todoFolders: string[];
+}
+
 export interface DeskleafSettings {
   binaryPath: string; // empty = auto-detect deskleaf-calendar-sync in plugin directory
   weekStartsOn: "monday";
   templateFolder: string;
+  /** Legacy notes/ folder — still read so pre-Brain notes keep resolving. */
   notesFolder: string;
-  topicsFolder: string;
-  topicsOrder: string[];
+  vault: VaultSettings;
+  /** Persisted order of the customers and projects sidebar sections. */
+  customersOrder: string[];
+  projectsOrder: string[];
   businessHours: BusinessHoursSettings;
   caldav: CalDAVSettings;
   icalSubscriptions: ICalFeedSubscription[];
@@ -110,10 +147,17 @@ export interface DeskleafSettings {
 export const DEFAULT_SETTINGS: DeskleafSettings = {
   binaryPath: "",
   weekStartsOn: "monday",
-  templateFolder: "templates",
+  templateFolder: "_templates",
   notesFolder: "notes",
-  topicsFolder: "topics",
-  topicsOrder: [],
+  vault: {
+    meetingsFolder: "meetings",
+    customersFolder: "customers",
+    peopleFolder: "people",
+    projectsFolder: "projects",
+    todoFolders: ["meetings", "projects", "customers"],
+  },
+  customersOrder: [],
+  projectsOrder: [],
   businessHours: {
     enabled: true,
     start: "09:00",

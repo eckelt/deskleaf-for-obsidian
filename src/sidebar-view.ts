@@ -1,24 +1,33 @@
-import { ItemView, WorkspaceLeaf, TFile, normalizePath, MarkdownRenderer, setIcon } from "obsidian";
+import { ItemView, WorkspaceLeaf, TFile, MarkdownRenderer, setIcon } from "obsidian";
 import type DeskleafPlugin from "./main";
 import { toDateStr, addDays, parseDate, weekStart, getWeekNumber } from "./date-utils";
 import { openFile } from "./open-file";
+import type { CustomerRef, ProjectRef } from "./types";
+import { matchCustomer } from "./brain-vault";
+import {
+  parseTodoLines, resolveTodoDate, completeTodoLine, reopenTodoLine,
+  groupForDate, type TodoGroup,
+} from "./todo-parser";
 
-function getSectionIconName(section: "calendar" | "topics" | "todos"): string {
+function getSectionIconName(section: SectionName): string {
   switch (section) {
     case "calendar": return "calendar-days";
-    case "topics": return "file-text";
+    case "customers": return "building-2";
+    case "projects": return "folder-kanban";
     case "todos": return "square-check-big";
   }
 }
 
 export const VIEW_TYPE_SIDEBAR = "deskleaf-sidebar";
 
-type SectionName = "calendar" | "topics" | "todos";
+type SectionName = "calendar" | "customers" | "projects" | "todos";
 
-const LAYOUT_STORAGE_KEY = "deskleaf-sidebar-layout";
-const SECTIONS: SectionName[] = ["calendar", "topics", "todos"];
-const DEFAULT_SECTION_SIZES: Record<SectionName, number> = { calendar: 170, topics: 200, todos: 240 };
-const MIN_SECTION_H: Record<SectionName, number> = { calendar: 66, topics: 56, todos: 56 };
+// Bumped when the section set changes so a stored layout from the pre-Brain
+// "topics" era cannot pin the sidebar to sections that no longer exist.
+const LAYOUT_STORAGE_KEY = "deskleaf-sidebar-layout-v2";
+const SECTIONS: SectionName[] = ["calendar", "customers", "projects", "todos"];
+const DEFAULT_SECTION_SIZES: Record<SectionName, number> = { calendar: 170, customers: 180, projects: 140, todos: 240 };
+const MIN_SECTION_H: Record<SectionName, number> = { calendar: 66, customers: 56, projects: 56, todos: 56 };
 
 // Mini calendar geometry — must match .dl-minical-* CSS (row height incl. grid gap)
 const MINICAL_ROW_H = 19;
@@ -37,23 +46,28 @@ function monthRangeLabel(a: Date, b: Date): string {
   return `${MONTHS_SHORT[a.getMonth()]} ${a.getFullYear()} – ${MONTHS_SHORT[b.getMonth()]} ${b.getFullYear()}`;
 }
 
-interface TopicEntry { file: TFile; title: string; }
+/** One row in the Kunden or Projekte section. */
+interface EntityEntry {
+  file: TFile;
+  title: string;
+  /** Right-hand chips: upcoming meetings for a customer, todo count for a project. */
+  chips: string[];
+  /** Customers whose status is not "aktiv" are dimmed and sorted last. */
+  inactive: boolean;
+}
+type EntityKind = "customers" | "projects";
+
 interface TodoItem {
   text: string; checked: boolean; file: TFile;
   lineIndex: number; date: string | null; noteTitle: string;
 }
-type TodoGroup = "today" | "week" | "later" | "undated" | "past";
 
 export class DeskleafSidebarView extends ItemView {
   plugin: DeskleafPlugin;
   private refreshTimer: number | null = null;
   private activeFilePath: string | null = null;
-  private sectionOrder: SectionName[] = ["calendar", "topics", "todos"];
-  private sectionVisibility: Map<string, boolean> = new Map([
-    ["calendar", true],
-    ["topics", true],
-    ["todos", true],
-  ]);
+  private sectionOrder: SectionName[] = [...SECTIONS];
+  private sectionVisibility: Map<string, boolean> = new Map(SECTIONS.map((s) => [s, true]));
   private sectionSizes: Record<SectionName, number> = { ...DEFAULT_SECTION_SIZES };
   private draggedSection: string | null = null;
   private unsubscribeReader: (() => void) | null = null;
@@ -79,12 +93,12 @@ export class DeskleafSidebarView extends ItemView {
     this.loadLayout();
     await this.render();
     this.activeFilePath = this.app.workspace.getActiveFile()?.path ?? null;
-    this.highlightActiveTopic();
+    this.highlightActiveEntity();
 
     this.registerEvent(this.app.workspace.on("file-open", (file) => {
       const prev = this.activeFilePath;
       this.activeFilePath = file?.path ?? null;
-      this.highlightActiveTopic();
+      this.highlightActiveEntity();
       if (file?.path !== prev) this.debouncedRefresh(200);
     }));
     this.registerEvent(this.app.metadataCache.on("changed", (file) => {
@@ -165,7 +179,7 @@ export class DeskleafSidebarView extends ItemView {
     }));
   }
 
-  private highlightActiveTopic() {
+  private highlightActiveEntity() {
     const root = this.containerEl.children[1] as HTMLElement;
     root.querySelectorAll<HTMLElement>(".dl-topic-row[data-path]").forEach((row) => {
       row.toggleClass("dl-topic-row--active", row.getAttribute("data-path") === this.activeFilePath);
@@ -211,8 +225,10 @@ export class DeskleafSidebarView extends ItemView {
         this.minicalEl = wrap.createDiv("dl-sidebar-minical");
         this.renderMiniCal(this.minicalEl);
         this.observeMiniCal(wrap);
-      } else if (section === "topics") {
-        await this.renderTopics(wrap.createDiv("dl-sidebar-topics"));
+      } else if (section === "customers") {
+        this.renderEntities(wrap.createDiv("dl-sidebar-topics"), "customers");
+      } else if (section === "projects") {
+        this.renderEntities(wrap.createDiv("dl-sidebar-topics"), "projects");
       } else if (section === "todos") {
         await this.renderTodos(wrap.createDiv("dl-sidebar-todos"));
       }
@@ -220,7 +236,7 @@ export class DeskleafSidebarView extends ItemView {
       if (!isLast) this.renderResizer(root, section, wrap);
     }
 
-    this.highlightActiveTopic();
+    this.highlightActiveEntity();
   }
 
   private renderResizer(root: HTMLElement, section: SectionName, wrap: HTMLElement) {
@@ -302,10 +318,11 @@ export class DeskleafSidebarView extends ItemView {
     }
   }
 
-  private getSectionLabel(section: "calendar" | "topics" | "todos"): string {
+  private getSectionLabel(section: SectionName): string {
     switch (section) {
       case "calendar": return "Kalender ein-/ausblenden";
-      case "topics": return "Topics ein-/ausblenden";
+      case "customers": return "Kunden ein-/ausblenden";
+      case "projects": return "Projekte ein-/ausblenden";
       case "todos": return "Todos ein-/ausblenden";
     }
   }
@@ -483,87 +500,119 @@ export class DeskleafSidebarView extends ItemView {
     }
   }
 
-  // ── Topics ───────────────────────────────────────────────────────
+  // ── Kunden & Projekte ────────────────────────────────────────────
+  //
+  // The vault's anchor is the customer: meetings, people and todos all hang off
+  // a customers/ note by wiki-link and #kunde/<slug> tag. These two sections
+  // mirror that structure rather than maintaining a second ordering of their own.
 
-  private get order(): string[] { return this.plugin.settings.topicsOrder; }
-  private async saveOrder(o: string[]) {
-    this.plugin.settings.topicsOrder = o;
+  private order(kind: EntityKind): string[] {
+    return kind === "customers" ? this.plugin.settings.customersOrder : this.plugin.settings.projectsOrder;
+  }
+
+  private async saveOrder(kind: EntityKind, order: string[]) {
+    if (kind === "customers") this.plugin.settings.customersOrder = order;
+    else this.plugin.settings.projectsOrder = order;
     await this.plugin.saveSettings();
   }
 
-  private hasTopicTag(file: TFile): boolean {
-    const cache = this.app.metadataCache.getFileCache(file);
-    if (!cache) return false;
-    if ((cache.tags ?? []).some((t) => t.tag.toLowerCase() === "#topic")) return true;
-    const fmTags = cache.frontmatter?.tags ?? [];
-    const arr: string[] = Array.isArray(fmTags) ? fmTags : [fmTags];
-    return arr.some((t) => typeof t === "string" && t.replace(/^#/, "").toLowerCase() === "topic");
+  /**
+   * Upcoming meeting titles per customer, as chip labels. Matched in one pass
+   * over the calendar rather than once per customer — matchCustomer already
+   * scans every customer, so the naive shape is quadratic in a full year of events.
+   */
+  private upcomingByCustomer(customers: CustomerRef[]): Map<string, string[]> {
+    const today = toDateStr(new Date());
+    const byName = new Map<string, string[]>(customers.map((customer) => [customer.name, []]));
+    const upcoming = this.plugin.calendarReader
+      .getEvents()
+      .filter((event) => !event.isCancelled && event.start.slice(0, 10) >= today)
+      .sort((a, b) => a.start.localeCompare(b.start));
+
+    for (const event of upcoming) {
+      const customer = matchCustomer(event, customers);
+      if (!customer) continue;
+      const titles = byName.get(customer.name);
+      if (titles && titles.length < 6) titles.push(event.title);
+    }
+    return byName;
   }
 
-  private getTopics(): TopicEntry[] {
-    const files = this.app.vault.getMarkdownFiles().filter((f) => this.hasTopicTag(f));
-    const inOrder: TopicEntry[] = [];
-    const seen = new Set<string>();
-    for (const p of this.order) {
-      const f = files.find((x) => x.path === p);
-      if (f) { inOrder.push({ file: f, title: f.basename }); seen.add(f.path); }
+  private getEntities(kind: EntityKind): EntityEntry[] {
+    const customers = kind === "customers" ? this.plugin.noteManager.getCustomers() : [];
+    const upcoming = kind === "customers" ? this.upcomingByCustomer(customers) : new Map<string, string[]>();
+    const raw = kind === "customers"
+      ? customers.map((customer) => ({
+          file: this.fileFor(customer.path),
+          title: customer.name,
+          chips: upcoming.get(customer.name) ?? [],
+          inactive: customer.status !== "aktiv",
+        }))
+      : this.plugin.noteManager.getProjects().map((project) => ({
+          file: this.fileFor(project.path),
+          title: project.name,
+          chips: this.openTodoChip(project),
+          inactive: false,
+        }));
+
+    const present = raw.filter((entry): entry is EntityEntry => entry.file != null);
+    const byPath = new Map(present.map((entry) => [entry.file.path, entry]));
+    const ordered: EntityEntry[] = [];
+    for (const path of this.order(kind)) {
+      const entry = byPath.get(path);
+      if (entry) { ordered.push(entry); byPath.delete(path); }
     }
-    for (const f of files) {
-      if (!seen.has(f.path)) inOrder.push({ file: f, title: f.basename });
-    }
-    return inOrder;
+    ordered.push(...byPath.values());
+    // Inactive customers keep their relative order but sink below the active ones.
+    return [...ordered.filter((entry) => !entry.inactive), ...ordered.filter((entry) => entry.inactive)];
   }
 
-  private async renderTopics(container: HTMLElement) {
-    const topics = this.getTopics();
+  private fileFor(path: string): TFile {
+    return this.app.vault.getAbstractFileByPath(path) as TFile;
+  }
+
+  private openTodoChip(project: ProjectRef): string[] {
+    const file = this.fileFor(project.path);
+    if (!file) return [];
+    const items = this.app.metadataCache.getFileCache(file)?.listItems ?? [];
+    const open = items.filter((item) => item.task === " ").length;
+    return open > 0 ? [`${open} offen`] : [];
+  }
+
+  private renderEntities(container: HTMLElement, kind: EntityKind) {
+    const entries = this.getEntities(kind);
     const list = container.createDiv("dl-topics-list");
-    for (let i = 0; i < topics.length; i++) this.renderTopicRow(list, topics[i]);
-    if (topics.length > 0) this.initDragDrop(list, topics);
-    this.renderNewTopicRow(list);
+    for (const entry of entries) this.renderEntityRow(list, entry);
+    if (entries.length > 0) this.initDragDrop(list, kind, entries);
+    this.renderNewEntityRow(list, kind);
   }
 
-  private renderTopicRow(container: HTMLElement, topic: TopicEntry) {
+  private renderEntityRow(container: HTMLElement, entry: EntityEntry) {
     const row = container.createDiv("dl-topic-row");
     row.setAttribute("draggable", "true");
-    row.setAttribute("data-path", topic.file.path);
+    row.setAttribute("data-path", entry.file.path);
+    if (entry.inactive) row.addClass("dl-topic-row--inactive");
 
     const content = row.createDiv("dl-topic-content");
-    const title = content.createEl("span", { cls: "dl-topic-title", text: topic.title });
+    const title = content.createEl("span", { cls: "dl-topic-title", text: entry.title });
     title.addEventListener("mousedown", (e: MouseEvent) => {
-      if (e.button === 1) {
-        e.preventDefault();
-        this.openTopic(topic.file, true);
-      }
+      if (e.button === 1) { e.preventDefault(); this.openEntity(entry.file, true); }
     });
-    title.addEventListener("click", (e: MouseEvent) => this.openTopic(topic.file, e.metaKey || e.ctrlKey));
+    title.addEventListener("click", (e: MouseEvent) => this.openEntity(entry.file, e.metaKey || e.ctrlKey));
 
-    const linkedEvents = this.plugin.calendarReader.getEvents().filter((e) => {
-      const nf = this.plugin.noteManager.noteExists(e);
-      if (!nf) return false;
-      return (this.app.metadataCache.getFileCache(nf)?.frontmatter?.topics ?? []).includes(topic.title);
-    });
-    if (linkedEvents.length > 0) {
+    if (entry.chips.length > 0) {
       const chips = content.createDiv("dl-topic-chips");
-      for (const ev of linkedEvents.slice(0, 6))
-        chips.createSpan({ cls: "dl-chip", text: ev.title });
+      for (const chip of entry.chips) chips.createSpan({ cls: "dl-chip", text: chip });
     }
-
-    const del = row.createEl("span", { cls: "dl-topic-delete", text: "✕" });
-    del.setAttribute("title", "Topic-Tag entfernen");
-    del.addEventListener("click", async (e) => {
-      e.stopPropagation();
-      await this.removeTopicTag(topic.file);
-      await this.saveOrder(this.order.filter((p) => p !== topic.file.path));
-      await this.render();
-    });
   }
 
-  private renderNewTopicRow(container: HTMLElement) {
+  private renderNewEntityRow(container: HTMLElement, kind: EntityKind) {
     const row = container.createDiv("dl-topic-new-row");
+    const placeholder = kind === "customers" ? "Kundenname …" : "Projektname …";
     const activate = () => {
       row.empty();
       row.addClass("dl-topic-new-row--active");
-      const input = row.createEl("input", { type: "text", placeholder: "Topic-Titel …", cls: "dl-topic-new-input" });
+      const input = row.createEl("input", { type: "text", placeholder, cls: "dl-topic-new-input" });
       const cancel = () => {
         row.removeClass("dl-topic-new-row--active");
         row.empty();
@@ -571,7 +620,7 @@ export class DeskleafSidebarView extends ItemView {
       };
       const confirm = async () => {
         const title = input.value.trim();
-        if (title) await this.createTopic(title); else cancel();
+        if (title) await this.createEntity(kind, title); else cancel();
       };
       input.addEventListener("keydown", (e) => {
         if (e.key === "Enter") { e.preventDefault(); confirm(); }
@@ -585,34 +634,18 @@ export class DeskleafSidebarView extends ItemView {
     row.addEventListener("click", activate, { once: true });
   }
 
-  private async openTopic(file: TFile, modifier = false) {
+  private async openEntity(file: TFile, modifier = false) {
     await openFile(this.app, file, modifier);
   }
 
-  private async createTopic(title: string) {
-    const folder = this.plugin.settings.topicsFolder;
-    if (!this.app.vault.getAbstractFileByPath(folder))
-      await this.app.vault.createFolder(folder);
-    const path = normalizePath(`${folder}/${title}.md`);
-    let file = this.app.vault.getAbstractFileByPath(path) as TFile | null;
-    if (!file)
-      file = await this.app.vault.create(path, `---\ntags: [topic]\n---\n\n# ${title}\n\n`);
-    await this.openTopic(file);
+  private async createEntity(kind: EntityKind, title: string) {
+    const file = kind === "customers"
+      ? await this.plugin.noteManager.createCustomerNote(title)
+      : await this.plugin.noteManager.createProjectNote(title);
+    await this.openEntity(file);
   }
 
-  private async removeTopicTag(file: TFile) {
-    await this.app.fileManager.processFrontMatter(file, (fm) => {
-      const tags = fm.tags ?? [];
-      const arr: string[] = Array.isArray(tags) ? tags : [String(tags)];
-      const filtered = arr.filter((t) => t.toLowerCase() !== "topic");
-      if (filtered.length === 0) delete fm.tags; else fm.tags = filtered;
-    });
-    const content = await this.app.vault.read(file);
-    const cleaned = content.replace(/\s?#topic\b/gi, "");
-    if (cleaned !== content) await this.app.vault.modify(file, cleaned);
-  }
-
-  private initDragDrop(list: HTMLElement, topics: TopicEntry[]) {
+  private initDragDrop(list: HTMLElement, kind: EntityKind, entries: EntityEntry[]) {
     let dragSrcPath: string | null = null;
     const clearIndicators = () => {
       list.querySelectorAll(".dl-dragging").forEach((el) => el.removeClass("dl-dragging"));
@@ -642,7 +675,7 @@ export class DeskleafSidebarView extends ItemView {
       const targetPath = targetRow.getAttribute("data-path");
       if (!targetPath || targetPath === dragSrcPath) return;
       const insertAfter = e.clientY > targetRow.getBoundingClientRect().top + targetRow.getBoundingClientRect().height / 2;
-      const order = topics.map((t) => t.file.path);
+      const order = entries.map((entry) => entry.file.path);
       const si = order.indexOf(dragSrcPath);
       if (si === -1) return;
       order.splice(si, 1);
@@ -659,7 +692,7 @@ export class DeskleafSidebarView extends ItemView {
       clearIndicators();
 
       // Persist and re-render in background
-      this.saveOrder(order).then(() => this.render());
+      this.saveOrder(kind, order).then(() => this.render());
     });
   }
 
@@ -738,26 +771,32 @@ export class DeskleafSidebarView extends ItemView {
   }
 
   private parseTodosFromFile(file: TFile, content: string): TodoItem[] {
-    const lines = content.split("\n");
     const cache = this.app.metadataCache.getFileCache(file);
-    const date: string | null = cache?.frontmatter?.date ?? null;
-    const noteTitle: string = cache?.frontmatter?.title ?? file.basename;
-    const todos: TodoItem[] = [];
-    for (let i = 0; i < lines.length; i++) {
-      const openMatch = /^- \[ \] (.+)$/.exec(lines[i]);
-      const doneMatch = /^- \[x\] (.+)$/i.exec(lines[i]);
-      if (openMatch || doneMatch)
-        todos.push({ text: (openMatch ?? doneMatch)![1], checked: !!doneMatch, file, lineIndex: i, date, noteTitle });
-    }
-    return todos;
+    const fm = cache?.frontmatter;
+    // Meeting notes carry `date` (MCP shape) or `datum` (older template); it is
+    // only the fallback — a line's own `due::` always wins.
+    const noteDate: string | null = fm?.date ?? fm?.datum ?? null;
+    const noteTitle: string = fm?.title ?? file.basename;
+    return parseTodoLines(content).map((todo) => ({
+      text: todo.text,
+      checked: todo.checked,
+      file,
+      lineIndex: todo.lineIndex,
+      date: resolveTodoDate(todo, noteDate),
+      noteTitle,
+    }));
   }
 
+  /**
+   * Same source set as the MCP's list_open_todos: the configured folders plus
+   * loose notes at the vault root. Kanban boards are excluded — their cards are
+   * checkboxes too, and they have their own board.
+   */
   private async collectTodos(): Promise<TodoItem[]> {
-    const notesFolder = this.plugin.settings.notesFolder;
-    const files = this.app.vault.getMarkdownFiles().filter((f) => {
-      const fm = this.app.metadataCache.getFileCache(f)?.frontmatter;
-      if (fm?.["kanban-plugin"]) return false;
-      return f.path.startsWith(notesFolder + "/") || this.hasTopicTag(f);
+    const folders = this.plugin.settings.vault.todoFolders;
+    const files = this.app.vault.getMarkdownFiles().filter((file) => {
+      if (this.app.metadataCache.getFileCache(file)?.frontmatter?.["kanban-plugin"]) return false;
+      return folders.some((folder) => file.path.startsWith(folder + "/")) || !file.path.includes("/");
     });
     const todos: TodoItem[] = [];
     for (const file of files) {
@@ -773,21 +812,18 @@ export class DeskleafSidebarView extends ItemView {
     const groups: Record<TodoGroup, TodoItem[]> = { today: [], week: [], later: [], undated: [], past: [] };
     for (const todo of todos) {
       if (todo.checked) continue;
-      if (!todo.date) groups.undated.push(todo);
-      else if (todo.date < today) groups.past.push(todo);
-      else if (todo.date === today) groups.today.push(todo);
-      else if (todo.date <= weekEnd) groups.week.push(todo);
-      else groups.later.push(todo);
+      groups[groupForDate(todo.date, today, weekEnd)].push(todo);
     }
     return groups;
   }
 
+  /** Writes `- [x] … ✅ yyyy-mm-dd`, the shape complete_todo in the MCP expects. */
   private async toggleTodo(todo: TodoItem, checked: boolean) {
     const content = await this.app.vault.read(todo.file);
     const lines = content.split("\n");
     lines[todo.lineIndex] = checked
-      ? lines[todo.lineIndex].replace(/^- \[ \]/, "- [x]")
-      : lines[todo.lineIndex].replace(/^- \[x\]/i, "- [ ]");
+      ? completeTodoLine(lines[todo.lineIndex], toDateStr(new Date()))
+      : reopenTodoLine(lines[todo.lineIndex]);
     await this.app.vault.modify(todo.file, lines.join("\n"));
   }
 }

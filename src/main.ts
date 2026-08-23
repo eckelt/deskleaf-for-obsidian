@@ -72,7 +72,8 @@ export default class DeskleafPlugin extends Plugin {
       },
       async () => ({ events: this.calendarCache, date: this.calendarCacheDate })
     );
-    this.noteManager = new NoteManager(this.app, this.settings);
+    // Late-bound: saveSettings() can swap the reader when CalDAV credentials change.
+    this.noteManager = new NoteManager(this.app, this.settings, (id) => this.calendarReader.getEventUrl(id));
 
     this.registerView(VIEW_TYPE_CALENDAR, (leaf) => new DeskleafCalendarView(leaf, this));
     this.registerView(VIEW_TYPE_SIDEBAR, (leaf) => new DeskleafSidebarView(leaf, this));
@@ -125,6 +126,9 @@ export default class DeskleafPlugin extends Plugin {
     // Deep-merge caldav so new sub-fields (selectedCalendars, discoveredCalendars) always exist
     this.settings.caldav = Object.assign({}, DEFAULT_SETTINGS.caldav, data.caldav ?? {});
     this.settings.businessHours = Object.assign({}, DEFAULT_SETTINGS.businessHours, data.businessHours ?? {});
+    // Deep-merge vault so a settings file written before the Brain structure
+    // still gets every folder key rather than an undefined meetingsFolder.
+    this.settings.vault = Object.assign({}, DEFAULT_SETTINGS.vault, data.vault ?? {});
     this.calendarCache = data.calendarCache ?? [];
     this.calendarCacheDate = data.calendarCacheDate ?? null;
   }

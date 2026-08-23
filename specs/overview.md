@@ -125,13 +125,23 @@ Per-calendar colour swatches use the 6 Monokai Pro hues from `CAL_COLOR_PALETTE`
 (`[346, 21, 48, 96, 188, 252]`). Clicking a swatch calls `saveSettingsQuiet()` — writes
 `calendar-colors.json` in the plugin directory without triggering a reader restart.
 
-### Notizen section
+### Vault-Struktur section
+
+Folders of the Brain structure shared with the Deskleaf MCP.
 
 | Setting | Key | Default |
 |---|---|---|
-| Template-Ordner | `templateFolder` | `"templates"` |
-| Notizen-Ordner | `notesFolder` | `"notes"` |
-| Topics-Ordner | `topicsFolder` | `"topics"` |
+| Template-Ordner | `templateFolder` | `"_templates"` |
+| Termine | `vault.meetingsFolder` | `"meetings"` |
+| Kunden | `vault.customersFolder` | `"customers"` |
+| Personen | `vault.peopleFolder` | `"people"` |
+| Projekte | `vault.projectsFolder` | `"projects"` |
+| Todo-Quellen | `vault.todoFolders` | `["meetings", "projects", "customers"]` |
+| Alt-Notizen-Ordner | `notesFolder` | `"notes"` (read-only, pre-Brain notes) |
+
+A folder field left empty falls back to its default rather than writing notes to
+the vault root. Todo-Quellen is a comma-separated list; notes at the vault root
+are always scanned in addition.
 
 ### Erweitert section
 

@@ -47,6 +47,15 @@ Obsidian plugin: time-grid calendar + structured note-taking workflow.
 Two backends: **CalDAV** (all platforms) and a bundled **Swift binary** reading macOS EventKit.
 Active backend is auto-selected: CalDAV if `caldav.username + password` set, else binary.
 
+**Vault structure.** The plugin reads and writes the *Brain* structure it shares with
+the Deskleaf MCP (`eckelt/deskleaf-for-ai` operating on `eckelt/brain`): customers in
+`customers/` (`type: kunde`), meetings in `meetings/` (`type: termin`, identified by
+`calendar_event_id`/`calendar_uid`), people in `people/`, projects in `projects/`.
+The anchor is the **customer** — meetings, people and todos hang off a customer note by
+wiki-link and `#kunde/<slug>` tag. A note written by the plugin and one written by
+`create_meeting_note` are indistinguishable, so the agent can prepare a meeting and the
+user can keep working in the same note. See `specs/data-model.md`.
+
 ---
 
 ## Source map
@@ -56,14 +65,16 @@ src/
   main.ts             Plugin entry: icons, settings, reader factory, view registration
   types.ts            All TS types + CAL_COLOR_PALETTE constant
   calendar-view.ts    Time-grid calendar ItemView (drag, resize, create, navigate)
-  sidebar-view.ts     Left panel: Topics list + Todos board
+  sidebar-view.ts     Left panel: mini calendar + Kunden + Projekte + Todos board
   calendar-reader.ts  macOS EventKit backend (binary bridge)
   caldav-reader.ts    CalDAV backend (HTTP polling, iCal parsing)
   caldav-client.ts    Low-level CalDAV HTTP client (PROPFIND, REPORT, PUT, DELETE)
   ical-parser.ts      RFC 5545 iCal parser + VEVENT builder
   event-filter.ts     Pure date-range filtering (shared by both readers)
   event-layout.ts     Pixel math: event position, height, overlap columns
-  note-manager.ts     Create / find / template / remove event notes
+  note-manager.ts     Create / find / template / remove event notes; Brain vault index
+  brain-vault.ts      Pure: Brain note shapes, customer/person matching, slugs
+  todo-parser.ts      Pure: due:: parsing, text cleaning, complete/reopen lines
   note-utils.ts       Pure helpers: attendee normalisation, filename sanitisation
   date-utils.ts       Date arithmetic, column builders, header label formatters
   open-file.ts        Shared navigation helper (modifier-aware tab/split logic)
@@ -104,14 +115,28 @@ CalendarEvent { id, title, start, end, calendar?, isAllDay?, isRecurring?,
                 isOrganizer?, isCancelled?, meetingPlatform?, attendees?, body?,
                 location?, numAttendees?, organizer? }
 
-DeskleafSettings { binaryPath, weekStartsOn: "monday", templateFolder,
-                   notesFolder, topicsFolder, topicsOrder, caldav, icalSubscriptions }
+DeskleafSettings { binaryPath, weekStartsOn: "monday", templateFolder, notesFolder,
+                   vault: VaultSettings, customersOrder, projectsOrder,
+                   businessHours, caldav, icalSubscriptions }
+
+VaultSettings { meetingsFolder, customersFolder, peopleFolder, projectsFolder,
+                todoFolders }
+
+CustomerRef { name, slug, path, domains, status }   // customers/, type: kunde
+PersonRef   { name, path, emails }                  // people/,    type: person
+ProjectRef  { name, path }                          // projects/,  type: project
 
 CAL_COLOR_PALETTE = [346, 21, 48, 96, 188, 252]  // hues for calendar colour picker
 ```
 
 Event IDs: binary non-recurring = raw `eventIdentifier`; binary recurring = `id|YYYY-MM-DD`;
-CalDAV = `UID` or `UID_RECURRENCE-ID`.
+CalDAV = `UID` or `UID_RECURRENCE-ID`. A meeting note stores the UID part as
+`calendar_uid` and the rest as `calendar_recurrence_id`; `calendar_event_id` is the
+absolute CalDAV URL, written only when the active backend knows one.
+
+**Todos** are MCP-compatible: due date per line as `due:: yyyy-mm-dd` (canonical),
+`📅` or `[[yyyy-mm-dd]]`, falling back to the note's `date`; completion writes
+`- [x] … ✅ yyyy-mm-dd`.
 
 ---
 
@@ -139,7 +164,10 @@ sets `status:ready-for-acceptance`. For manual/interactive changes, run
 ## Architecture principles
 
 - **Lean modules** — each `src/*.ts` has one clear responsibility; no cross-cutting God classes
-- **Pure functions first** — date math, filtering, layout math live in pure utility files
+- **Pure functions first** — date math, filtering, layout math, Brain note shapes and
+  todo parsing live in pure utility files (`brain-vault.ts`, `todo-parser.ts`)
+- **The MCP owns the contract** — where a note shape, a lookup rule or a todo syntax is
+  shared with `eckelt/deskleaf-for-ai`, mirror it rather than inventing a variant
 - **No direct DOM** outside view files — `calendar-view.ts` and `sidebar-view.ts` own the DOM
 - **Shared types in `types.ts`** — domain/shared/exported cross-module types live there;
   local unexported helper types may stay next to the code or tests that use them

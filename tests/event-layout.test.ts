@@ -339,6 +339,8 @@ function createCalendarViewHarness(): object {
       },
       noteManager: {
         buildNoteCache: (): Map<string, unknown> => new Map(),
+        lookupInCache: (cache: Map<string, unknown>, event: CalendarEvent): unknown =>
+          cache.get(event.id) ?? null,
       },
       settings: {
         businessHours: {

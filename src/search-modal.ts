@@ -37,9 +37,17 @@ export class DeskleafSearchModal extends Modal {
     setTimeout(() => input.focus(), 50);
   }
 
+  /**
+   * Everything the Brain structure treats as a note the user writes: meetings,
+   * customers, people, projects — plus the legacy notes/ folder so older notes
+   * stay findable.
+   */
   private getNotesFiles(): TFile[] {
-    const folder = this.plugin.settings.notesFolder;
-    return this.app.vault.getMarkdownFiles().filter((f) => f.path.startsWith(folder + "/"));
+    const { vault, notesFolder } = this.plugin.settings;
+    const folders = [vault.meetingsFolder, vault.customersFolder, vault.peopleFolder, vault.projectsFolder, notesFolder]
+      .filter(Boolean)
+      .map((folder) => folder + "/");
+    return this.app.vault.getMarkdownFiles().filter((file) => folders.some((folder) => file.path.startsWith(folder)));
   }
 
   private showRecentNotes(container: HTMLElement) {
