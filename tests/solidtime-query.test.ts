@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
 import {
   parseSolidTimeQuery, resolveDate, SolidTimeQueryError, roundHours, centsToEur,
   formatHours, formatEur, totalRow, monthLabel, DEFAULT_LIMIT,
@@ -177,5 +178,31 @@ describe("Aufbereitung", () => {
     expect(monthLabel("2026-08")).toBe("August 2026");
     expect(monthLabel("2026-08-01T00:00:00Z")).toBe("August 2026");
     expect(monthLabel("kaputt")).toBe("kaputt");
+  });
+});
+
+describe("solidtime table styling", () => {
+  const styles = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
+  const cssRule = (selector: string): string => {
+    const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const match = new RegExp(`${escaped}\\s*\\{([^}]*)\\}`).exec(styles);
+    if (!match) throw new Error(`CSS rule ${selector} was not found`);
+    return match[1];
+  };
+
+  it("keeps only the horizontal rules", () => {
+    // Obsidian draws full cell borders on rendered tables, so resetting the
+    // shorthand is what actually removes the vertical grid lines.
+    const cells = cssRule(".dl-solidtime-table th,\n.dl-solidtime-table td");
+    expect(cells).toContain("border: none");
+    expect(cells).toContain("border-bottom: 1px solid var(--background-modifier-border)");
+    expect(cssRule(".dl-solidtime-table")).toContain("border: none");
+  });
+
+  it("reads as rows: plain headers, no closing rule under the last one", () => {
+    const header = cssRule(".dl-solidtime-table th");
+    expect(header).not.toContain("text-transform");
+    expect(header).toContain("color: var(--text-normal)");
+    expect(cssRule(".dl-solidtime-table tbody tr:last-child td")).toContain("border-bottom: none");
   });
 });

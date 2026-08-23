@@ -146,7 +146,7 @@ function renderTable(el: HTMLElement, rows: SolidTimeRow[], columns: Columns): v
   for (const row of rows) {
     const tr = body.createEl("tr");
     if (columns === "entries") {
-      tr.createEl("td", { text: row.date ?? "" });
+      tr.createEl("td", { text: row.date ?? "", cls: "dl-st-date" });
       tr.createEl("td", { text: row.label });
       tr.createEl("td", { text: row.description ?? "" });
       tr.createEl("td", { text: formatHours(row.hours), cls: "dl-num" });
