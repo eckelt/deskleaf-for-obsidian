@@ -525,9 +525,9 @@
     font-weight: 700;
     padding: 2px 6px;
     border-radius: 3px;
-    background: hsl(var(--cal-h, var(--accent-h)), 68%, 88%);
-    border-left: 4px solid hsl(var(--cal-h, var(--accent-h)), 70%, 45%);
-    color: hsl(var(--cal-h, var(--accent-h)), 70%, 20%);
+    background: hsl(var(--cal-h, var(--accent-h)), 88%, 76%);
+    border-left: 4px solid hsl(var(--cal-h, var(--accent-h)), 90%, 42%);
+    color: hsl(var(--cal-h, var(--accent-h)), 95%, 18%);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -553,8 +553,8 @@
 }
 
 .dl-allday-chip--series {
-    background: hsl(var(--cal-h, var(--accent-h)), 52%, 82%);
-    border-left-color: hsl(var(--cal-h, var(--accent-h)), 60%, 44%);
+    background: hsl(var(--cal-h, var(--accent-h)), 88%, 84%);
+    border-left-color: hsl(var(--cal-h, var(--accent-h)), 90%, 42%);
 }
 
 /* Scrollable body */
@@ -704,10 +704,10 @@
 .dl-event-card {
     position: absolute;
     box-sizing: border-box;
-    background: hsl(var(--cal-h, var(--accent-h)), 82%, 91%);
+    background: hsl(var(--cal-h, var(--accent-h)), 90%, 70%);
     border: none;
-    border-left: 4px solid hsl(var(--cal-h, var(--accent-h)), 88%, 47%);
-    color: hsl(var(--cal-h, var(--accent-h)), 88%, 24%);
+    border-left: 4px solid hsl(var(--cal-h, var(--accent-h)), 90%, 42%);
+    color: hsl(var(--cal-h, var(--accent-h)), 95%, 18%);
     padding: 4px 14px 3px 6px;
     cursor: pointer;
     overflow: hidden;
@@ -740,8 +740,8 @@
 }
 
 .dl-event-card--series {
-    background: hsl(var(--cal-h, var(--accent-h)), 82%, 82%);
-    border-color: hsl(var(--cal-h, var(--accent-h)), 80%, 44%);
+    background: hsl(var(--cal-h, var(--accent-h)), 90%, 78%);
+    border-color: hsl(var(--cal-h, var(--accent-h)), 90%, 42%);
 }
 
 .theme-dark .dl-event-card--series {
