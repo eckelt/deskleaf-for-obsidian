@@ -1388,8 +1388,11 @@ describe("event edit interactions", () => {
       expect(sheet.querySelector(".dl-edit-end-input")?.value).toBe("11:45");
       expect(sheet.querySelector(".dl-edit-location-input")?.value).toBe("Room 1");
       expect(sheet.querySelector(".dl-edit-desc-input")?.value).toBe("Review current milestones");
-      expect(sheet.querySelector(".dl-edit-save-btn")).not.toBeNull();
-      expect(sheet.querySelector(".dl-edit-cancel-btn")).not.toBeNull();
+      // The editor commits on close, so the only button left is the destructive one.
+      expect(sheet.querySelector(".dl-edit-save-btn")).toBeNull();
+      expect(sheet.querySelector(".dl-edit-cancel-btn")).toBeNull();
+      expect(sheet.querySelector(".dl-edit-delete-btn")).not.toBeNull();
+      expect(renderText(sheet.querySelector(".dl-edit-actions"))).toBe("Löschen");
     } finally {
       Platform.isMobile = wasMobile;
       Platform.isDesktop = wasDesktop;
@@ -1614,11 +1617,11 @@ describe("event edit interactions", () => {
       const readOnlyTitle = dialog.querySelector(".dl-edit-ro-title");
       expect(readOnlyTitle ? renderText(readOnlyTitle) : "").toBe("Planning review");
 
-      const closeButton = dialog
-        .querySelectorAll(".dl-create-btn")
-        .find((button) => renderText(button) === "Schliessen");
-      if (!closeButton) throw new Error("close button was not rendered");
-      closeButton.dispatchEvent(new Event("click", { cancelable: true }));
+      // Nothing is editable here, so the action bar has no button to hold.
+      expect(dialog.querySelector(".dl-edit-actions")).toBeNull();
+
+      const outside = testDocument.body.createDiv("outside");
+      testDocument.dispatchEvent(makeMouseEvent("mousedown"), outside);
 
       expect(updateEvent).not.toHaveBeenCalled();
       expect(dialog.isConnected).toBe(false);
@@ -1699,11 +1702,8 @@ describe("event edit interactions", () => {
       if (!privateCalendar) throw new Error("private calendar menu item was not rendered");
       privateCalendar.dispatchEvent(new Event("click", { cancelable: true }));
 
-      const cancelButton = popover
-        .querySelectorAll(".dl-create-btn")
-        .find((button) => renderText(button) === "Abbrechen");
-      if (!cancelButton) throw new Error("cancel button was not rendered");
-      cancelButton.dispatchEvent(new Event("click", { cancelable: true }));
+      // Escape is the discard gesture now that the cancel button is gone.
+      testDocument.dispatchEvent(makeKeyboardEvent("keydown", "Escape"));
 
       expect(popover.isConnected).toBe(false);
       expect(updateEvent).not.toHaveBeenCalled();
@@ -1825,9 +1825,9 @@ describe("event edit interactions", () => {
       if (!privateCalendar) throw new Error("private calendar menu item was not rendered");
       privateCalendar.dispatchEvent(new Event("click", { cancelable: true }));
 
-      const saveButton = popover.querySelector(".dl-edit-save-btn");
-      if (!saveButton) throw new Error("save button was not rendered");
-      saveButton.dispatchEvent(new Event("click", { cancelable: true }));
+      // Clicking outside is the commit gesture — there is no save button.
+      const outside = testDocument.body.createDiv("outside");
+      testDocument.dispatchEvent(makeMouseEvent("mousedown"), outside);
       await Promise.resolve();
       await Promise.resolve();
 
@@ -1914,9 +1914,9 @@ describe("event edit interactions", () => {
       dateInput.value = "2026-05-06";
       dateInput.dispatchEvent(new Event("input", { cancelable: true }));
 
-      const saveButton = popover.querySelector(".dl-edit-save-btn");
-      if (!saveButton) throw new Error("save button was not rendered");
-      saveButton.dispatchEvent(new Event("click", { cancelable: true }));
+      // Clicking outside is the commit gesture — there is no save button.
+      const outside = testDocument.body.createDiv("outside");
+      testDocument.dispatchEvent(makeMouseEvent("mousedown"), outside);
       await Promise.resolve();
       await Promise.resolve();
 
@@ -1943,7 +1943,7 @@ describe("event edit interactions", () => {
     }
   });
 
-  it("closes the edit popover on outside click without backend update or note sync", () => {
+  it("commits changed edit values on outside click", async () => {
     const { surface, testDocument, updateEvent, syncEventNote, restorePlatform } =
       openWritableEditFormForCloseTest({ mobile: false });
     try {
@@ -1951,6 +1951,28 @@ describe("event edit interactions", () => {
       if (!titleInput) throw new Error("title input was not rendered");
       titleInput.value = "Changed title";
 
+      const outside = testDocument.body.createDiv("outside");
+      testDocument.dispatchEvent(makeMouseEvent("mousedown"), outside);
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(surface.isConnected).toBe(false);
+      expect(updateEvent).toHaveBeenCalledWith("event-1", expect.objectContaining({
+        title: "Changed title",
+      }));
+      expect(syncEventNote).toHaveBeenCalled();
+      expect(testDocument.body.querySelector(".dl-edit-overlay")).toBeNull();
+    } finally {
+      restorePlatform();
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("closes on outside click without backend update when nothing changed", () => {
+    const { surface, testDocument, updateEvent, syncEventNote, restorePlatform } =
+      openWritableEditFormForCloseTest({ mobile: false });
+    try {
       const outside = testDocument.body.createDiv("outside");
       testDocument.dispatchEvent(makeMouseEvent("mousedown"), outside);
 
@@ -1965,7 +1987,27 @@ describe("event edit interactions", () => {
     }
   });
 
-  it("closes the mobile edit sheet on outside tap without backend update or note sync", () => {
+  it("discards changed edit values on Escape", () => {
+    const { surface, testDocument, updateEvent, syncEventNote, restorePlatform } =
+      openWritableEditFormForCloseTest({ mobile: false });
+    try {
+      const titleInput = surface.querySelector(".dl-edit-title-input");
+      if (!titleInput) throw new Error("title input was not rendered");
+      titleInput.value = "Changed title";
+
+      testDocument.dispatchEvent(makeKeyboardEvent("keydown", "Escape"));
+
+      expect(surface.isConnected).toBe(false);
+      expect(updateEvent).not.toHaveBeenCalled();
+      expect(syncEventNote).not.toHaveBeenCalled();
+    } finally {
+      restorePlatform();
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("commits the mobile edit sheet on outside tap", async () => {
     const { surface, testDocument, updateEvent, syncEventNote, restorePlatform } =
       openWritableEditFormForCloseTest({ mobile: true });
     try {
@@ -1983,13 +2025,17 @@ describe("event edit interactions", () => {
       overlay.dispatchEvent(makeMouseEvent("click"));
       expect(surface.isConnected).toBe(true);
 
-      // A deliberate outside tap later on does dismiss the sheet.
+      // A deliberate outside tap later on dismisses the sheet and writes the edit.
       vi.advanceTimersByTime(600);
       overlay.dispatchEvent(makeMouseEvent("click"));
+      await Promise.resolve();
+      await Promise.resolve();
 
       expect(surface.isConnected).toBe(false);
-      expect(updateEvent).not.toHaveBeenCalled();
-      expect(syncEventNote).not.toHaveBeenCalled();
+      expect(updateEvent).toHaveBeenCalledWith("event-1", expect.objectContaining({
+        title: "Changed title",
+      }));
+      expect(syncEventNote).toHaveBeenCalled();
       expect(testDocument.body.querySelector(".dl-edit-overlay")).toBeNull();
     } finally {
       restorePlatform();
@@ -2069,12 +2115,20 @@ describe("event edit interactions", () => {
 
       const popover = testDocument.body.querySelector(".dl-edit-dialog");
       if (!popover) throw new Error("edit popover was not rendered");
-      const saveButton = popover
-        .querySelectorAll(".dl-create-btn")
-        .find((button) => renderText(button) === "Speichern");
-      if (!saveButton) throw new Error("save button was not rendered");
+      const titleInput = popover.querySelector(".dl-edit-title-input");
+      if (!titleInput) throw new Error("title input was not rendered");
+      titleInput.value = "Planning review";
 
-      saveButton.dispatchEvent(new Event("click", { cancelable: true }));
+      const locationInput = popover.querySelector(".dl-edit-location-input");
+      if (!locationInput) throw new Error("location input was not rendered");
+      locationInput.value = "Room 1";
+
+      const descriptionInput = popover.querySelector("textarea");
+      if (!descriptionInput) throw new Error("description input was not rendered");
+      descriptionInput.value = "Review current milestones and next steps";
+
+      const outside = testDocument.body.createDiv("outside");
+      testDocument.dispatchEvent(makeMouseEvent("mousedown"), outside);
       await Promise.resolve();
 
       const scopePopover = testDocument.body.querySelector(".dl-edit-scope-popover");
@@ -2094,7 +2148,7 @@ describe("event edit interactions", () => {
       expect(updateEvent).toHaveBeenCalledWith("event-1|2026-05-04", expect.objectContaining({
         title: "Planning review",
         location: "Room 1",
-        notes: "Review current milestones",
+        notes: "Review current milestones and next steps",
         calendar: "Work",
         span: "this",
       }));

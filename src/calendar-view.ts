@@ -294,6 +294,8 @@ export class DeskleafCalendarView extends ItemView {
   private desktopSlideZone: HTMLElement | null = null;
   private preserveScrollForNextRender: number | null = null;
   private mobileEdit: { event: CalendarEvent; cleanup: () => void } | null = null;
+  /** Unbinds the open event editor's document listeners when it is torn down. */
+  private activeEventEditCleanup: (() => void) | null = null;
   private activeTouchCreateCleanup: (() => void) | null = null;
   private hourPx = DEFAULT_HOUR_PX;
 
@@ -2410,13 +2412,14 @@ export class DeskleafCalendarView extends ItemView {
       descInput = descField;
     }
 
-    const actions = popover.createDiv("dl-create-actions dl-edit-actions");
-    const deleteBtn = readOnly ? null : actions.createEl("button", {
-      cls: "dl-create-btn dl-create-btn--danger",
+    // The editor commits on close, so it needs no save and no cancel button:
+    // clicking outside writes the changes, Escape discards them. Delete has no
+    // such gesture and stays.
+    const actions = readOnly ? null : popover.createDiv("dl-create-actions dl-edit-actions");
+    const deleteBtn = actions?.createEl("button", {
+      cls: "dl-create-btn dl-create-btn--danger dl-edit-delete-btn",
       text: event.isOrganizer === false ? "Ablehnen" : "Löschen",
-    });
-    const cancelBtn = actions.createEl("button", { cls: "dl-create-btn dl-edit-cancel-btn", text: readOnly ? "Schliessen" : "Abbrechen" });
-    const saveBtn = readOnly ? null : actions.createEl("button", { cls: "dl-create-btn dl-create-btn--primary dl-edit-save-btn", text: "Speichern" });
+    }) ?? null;
 
     const clearErrors = () => {
       titleInput?.removeClass("dl-create-input--invalid");
@@ -2448,13 +2451,39 @@ export class DeskleafCalendarView extends ItemView {
       if (!endInput.value || e <= s) { endInput.addClass("dl-create-input--invalid"); endInput.focus(); return null; }
       return update;
     };
-    const close = () => { overlay.remove(); cleanup(); };
-    const save = async () => {
+    let closed = false;
+    const close = () => {
+      closed = true;
+      this.activeEventEditCleanup = null;
+      overlay.remove();
+      cleanup();
+    };
+
+    // Snapshot of every editable value, so a close that changed nothing skips
+    // both the network write and the recurring-scope question.
+    const snapshot = () => JSON.stringify([
+      titleInput?.value ?? "", dateInput?.value ?? "", startInput?.value ?? "",
+      endInput?.value ?? "", locationInput?.value ?? "", descInput?.value ?? "",
+      calendarValue,
+    ]);
+    const initialSnapshot = snapshot();
+
+    // Guard against re-entry: the recurring-scope dialog sits outside the
+    // popover, so clicking one of its buttons also fires the outside-click
+    // handler that started the commit in the first place.
+    let committing = false;
+    const commit = async (): Promise<boolean> => {
+      if (committing) return true;
+      if (readOnly || snapshot() === initialSnapshot) { close(); return true; }
       const update = validate();
-      if (!update) return;
+      if (!update) {
+        new Notice("Änderungen unvollständig – bitte korrigieren oder mit Escape verwerfen.");
+        return false;
+      }
+      committing = true;
       if (event.isRecurring) {
         const span = await this.askRecurringEditSpan();
-        if (!span) return;
+        if (!span) { committing = false; return false; }
         update.span = span;
       }
       close();
@@ -2474,14 +2503,14 @@ export class DeskleafCalendarView extends ItemView {
         new Notice(`Fehler beim Speichern: ${err?.message ?? err}`);
         this.render();
       }
+      return true;
     };
 
-    cancelBtn.addEventListener("mousedown", (ev) => ev.preventDefault());
-    cancelBtn.addEventListener("click", close);
     deleteBtn?.addEventListener("mousedown", (ev) => ev.preventDefault());
     deleteBtn?.addEventListener("click", async () => {
+      committing = true;
       const span = event.isRecurring ? await this.askRecurringEditSpan() : "this";
-      if (!span) return;
+      if (!span) { committing = false; return; }
       close();
       try {
         await this.plugin.calendarReader.cancelEvent(event.id, span === "series" ? "future" : "this");
@@ -2489,16 +2518,16 @@ export class DeskleafCalendarView extends ItemView {
         new Notice(`Fehler: ${err?.message ?? err}`);
       }
     });
-    saveBtn?.addEventListener("mousedown", (ev) => ev.preventDefault());
-    saveBtn?.addEventListener("click", save);
     titleInput?.addEventListener("keydown", (ev) => {
-      if (ev.key === "Enter" && !readOnly) { ev.preventDefault(); save(); }
+      if (ev.key === "Enter" && !readOnly) { ev.preventDefault(); void commit(); }
       if (ev.key === "Escape") close();
     });
 
     const onOutside = (ev: Event) => {
-      if (!popover.contains(ev.target as Node)) close();
+      if (!popover.contains(ev.target as Node)) void commit();
     };
+    // Escape is the discard gesture now that the cancel button is gone — and the
+    // only way out when the input is too broken to save.
     const onEscape = (ev: KeyboardEvent) => {
       if (ev.key === "Escape") close();
     };
@@ -2508,7 +2537,7 @@ export class DeskleafCalendarView extends ItemView {
       // immediately (intermittently, depending on the exact timing), so ignore
       // overlay clicks that arrive right after opening.
       if (Platform.isMobile && Date.now() - overlayOpenedAt < 500) return;
-      if (ev.target === overlay) close();
+      if (ev.target === overlay) void commit();
     };
     const cleanup = () => {
       document.removeEventListener("mousedown", onOutside);
@@ -2517,7 +2546,11 @@ export class DeskleafCalendarView extends ItemView {
       overlay.removeEventListener("click", onOverlayClick);
     };
     overlay.addEventListener("click", onOverlayClick);
+    this.activeEventEditCleanup = cleanup;
     setTimeout(() => {
+      // An editor closed within the same tick must not get its listeners armed
+      // after the fact — they would outlive the popover and commit into it.
+      if (closed) return;
       // Mobile taps outside the sheet always hit the full-screen overlay, which
       // closes via onOverlayClick. Document-level listeners must stay desktop-only:
       // iOS fires synthetic mouse events ~300ms after the opening tap, and those
@@ -2533,6 +2566,8 @@ export class DeskleafCalendarView extends ItemView {
   }
 
   private removeEventEditOverlay() {
+    this.activeEventEditCleanup?.();
+    this.activeEventEditCleanup = null;
     document.querySelector(".dl-edit-overlay")?.remove();
   }
 
