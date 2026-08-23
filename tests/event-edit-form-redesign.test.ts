@@ -401,8 +401,9 @@ describe("event edit form redesign", () => {
 
     expect(editor.classList.contains("dl-edit-sheet")).toBe(true);
     expect(editor.querySelector(".dl-edit-sheet-handle")).not.toBeNull();
-    expect(editor.querySelector(".dl-edit-header")).not.toBeNull();
     expect(editor.querySelector(".dl-edit-form-scroll")).not.toBeNull();
+    // Nothing needs saying above the form on a writable event.
+    expect(editor.querySelector(".dl-edit-header")).toBeNull();
     const actions = editor.querySelector(".dl-edit-actions");
     expect(actions).not.toBeNull();
     expect(editor.querySelector<HTMLInputElement>(".dl-edit-title-input")?.value).toBe("Design Review");
@@ -415,7 +416,7 @@ describe("event edit form redesign", () => {
     expect(editor.querySelector(".dl-edit-save-btn")).toBeNull();
   });
 
-  it("moves the event to another calendar through the header calendar menu", async () => {
+  it("moves the event to another calendar through the title-row calendar menu", async () => {
     const plugin = makePlugin();
     const view = makeView(plugin);
 
@@ -423,6 +424,8 @@ describe("event edit form redesign", () => {
     const calBtn = editor.querySelector<HTMLButtonElement>(".dl-edit-cal-btn");
     expect(calBtn).not.toBeNull();
     expect(calBtn?.getAttribute("aria-label")).toContain("Work");
+    // The chip sits with the title, and the menu hangs off the chip.
+    expect(calBtn?.closest(".dl-edit-title-row")).not.toBeNull();
 
     calBtn?.click();
     const menuItems = Array.from(editor.querySelectorAll<HTMLButtonElement>(".dl-edit-cal-menu-item"));
@@ -495,10 +498,11 @@ describe("event edit form redesign", () => {
     const view = makeView(plugin);
 
     let editor = openEditor(view, makeEvent());
-    const header = editor.querySelector(".dl-edit-header");
-    expect(header).not.toBeNull();
+    // A writable sheet has no header — the handle is its non-interactive chrome.
+    const handle = editor.querySelector(".dl-edit-sheet-handle");
+    expect(handle).not.toBeNull();
 
-    header?.dispatchEvent(new TouchEvent("touchstart", { clientY: 100, bubbles: true }));
+    handle?.dispatchEvent(new TouchEvent("touchstart", { clientY: 100, bubbles: true }));
     document.body.dispatchEvent(new TouchEvent("touchmove", { clientY: 190, bubbles: true }));
     document.body.dispatchEvent(new TouchEvent("touchend", { clientY: 190, bubbles: true }));
     await vi.runAllTimersAsync();
@@ -558,7 +562,6 @@ describe("event edit form redesign", () => {
 
     expect(editor.classList.contains("dl-edit-surface")).toBe(true);
     expect(editor.classList.contains("dl-create-popover")).toBe(false);
-    expect(editor.querySelector(".dl-edit-header")).not.toBeNull();
     expect(editor.querySelector(".dl-edit-actions")).not.toBeNull();
 
     // The uppercase field labels are gone — the values name themselves and the
@@ -576,9 +579,12 @@ describe("event edit form redesign", () => {
     expect(surfaceRule).toContain("border: 1px solid var(--background-modifier-border)");
     expect(surfaceRule).toContain("border-radius: 8px");
 
-    // Each group is its own card, so the header needs no rule to separate itself.
-    const headerRule = cssRule(".dl-edit-header");
-    expect(headerRule).not.toContain("border-bottom");
+    // The calendar menu is positioned against its own chip, not against a bar.
+    const calRule = cssRule(".dl-edit-cal");
+    expect(calRule).toContain("position: relative");
+    const menuRule = cssRule(".dl-edit-cal-menu");
+    expect(menuRule).toContain("position: absolute");
+    expect(menuRule).toContain("right: 0");
 
     const sectionRule = cssRule(".dl-edit-section");
     expect(sectionRule).toContain("background: var(--background-secondary)");

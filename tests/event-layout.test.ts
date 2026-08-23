@@ -1314,7 +1314,9 @@ describe("event edit interactions", () => {
       const descriptionInput = popover.querySelector("textarea");
 
       expect(popover.classList.contains("dl-create-popover")).toBe(false);
-      expect(popover.querySelector(".dl-edit-header")).not.toBeNull();
+      // The calendar chip lives with the title, so a writable event has no header.
+      expect(popover.querySelector(".dl-edit-header")).toBeNull();
+      expect(popover.querySelector(".dl-edit-cal-btn")?.closest(".dl-edit-title-row")).not.toBeNull();
       expect(popover.querySelector(".dl-edit-form-scroll")).not.toBeNull();
       expect(popover.querySelector(".dl-edit-actions")).not.toBeNull();
       expect(textInputs.map((input) => input.value)).toEqual([
@@ -1380,7 +1382,7 @@ describe("event edit interactions", () => {
 
       expect(testDocument.body.querySelector(".dl-edit-overlay--mobile")).not.toBeNull();
       expect(sheet.querySelector(".dl-edit-sheet-handle")).not.toBeNull();
-      expect(sheet.querySelector(".dl-edit-header")).not.toBeNull();
+      expect(sheet.querySelector(".dl-edit-header")).toBeNull();
       expect(sheet.querySelector(".dl-edit-form-scroll")).not.toBeNull();
       expect(sheet.querySelector(".dl-edit-actions")).not.toBeNull();
       expect(sheet.querySelector(".dl-edit-title-input")?.value).toBe("Planning review");
