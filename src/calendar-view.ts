@@ -1331,7 +1331,7 @@ export class DeskleafCalendarView extends ItemView {
       event.title === this.selectedSeriesTitle
     )
       card.addClass("dl-event-card--series");
-    const noteFile = this.noteCache.get(event.id) ?? null;
+    const noteFile = this.plugin.noteManager.lookupInCache(this.noteCache, event);
     if (noteFile) card.addClass("dl-event-card--has-note");
     if (event.isRecurring) card.addClass("dl-event-card--recurring");
     if (event.isCancelled) card.addClass("dl-event-card--cancelled");
@@ -2877,7 +2877,7 @@ export class DeskleafCalendarView extends ItemView {
         el.createDiv({ cls: "dl-hover-meta", text: `${event.numAttendees} Teilnehmer` });
       if (!isTeams && !isMeet && !isJitsi && event.meetingPlatform)
         el.createDiv({ cls: "dl-hover-meta", text: event.meetingPlatform });
-      if (this.noteCache.has(event.id))
+      if (this.plugin.noteManager.lookupInCache(this.noteCache, event))
         el.createDiv({ cls: "dl-hover-meta dl-hover-note", text: "Notiz verknüpft" });
 
       el.style.left = `${e.clientX + 14}px`;

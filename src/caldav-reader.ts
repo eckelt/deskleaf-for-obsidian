@@ -253,6 +253,15 @@ export class CalDAVReader {
     return cal;
   }
 
+  /**
+   * Absolute CalDAV URL of an event, or null when it is not in the current
+   * window. This is exactly what the Deskleaf MCP stores as `calendar_event_id`,
+   * so a note written with it resolves in both tools.
+   */
+  getEventUrl(id: string): string | null {
+    return this.hrefMap.get(id) ?? null;
+  }
+
   private requireHref(id: string): string {
     const href = this.hrefMap.get(id);
     if (!href) throw new Error(`Event ${id} nicht gefunden`);

@@ -34,7 +34,7 @@ Install the latest build manually:
 3. Extract it into your vault plugin folder:
 
 ```text
-<vault>/.obsidian/plugins/deskleaf-for-obsidian/
+<vault>/.obsidian/plugins/deskleaf/
 ```
 
 The folder must contain:

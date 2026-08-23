@@ -52,6 +52,12 @@ export class CalendarReader {
   getCacheDate(): string | null { return this.cacheDate; }
   getPath(): string { return this.binaryPath; }
 
+  /**
+   * EventKit has no CalDAV URL, so meeting notes from this backend are resolved
+   * by `calendar_uid` + `date` alone — the MCP's second lookup path.
+   */
+  getEventUrl(_id: string): string | null { return null; }
+
   getEventsForDate(date: string): CalendarEvent[] {
     return getEventsForDate(this.events, date);
   }

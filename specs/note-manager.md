@@ -8,15 +8,26 @@ Handles all note lifecycle operations: lookup, creation, templating, and removal
 
 `noteExists(event): TFile | null`
 
-Scans all markdown files in the vault. For each file:
+Scans all markdown files in the vault, in this order — the same resolution the
+Deskleaf MCP's `findMeetingNoteForEvent` uses, so both tools land on one note:
 
-1. **Primary lookup**: reads `frontmatter["event-id"]`. Supports both a single string and
-   a YAML array. If the event's `id` is in that list, returns the file.
-2. **Fallback** (legacy notes with older ID formats): if no primary match is found, returns
-   the first file where `frontmatter.title === event.title` and
-   `frontmatter.date === event.start.slice(0, 10)`.
+1. `calendar_event_id` equals the event's absolute CalDAV URL. Exact identity;
+   returns immediately.
+2. `calendar_uid` equals the event's UID **and** `date` equals its date. The path
+   for the EventKit backend, which has no URL.
+3. `frontmatter["event-id"]` contains the event id — pre-Brain notes. Supports
+   both a single string and a YAML array.
+4. `title` + `date` — last resort for notes carrying neither identity.
+
+`date` is compared tolerantly: an unquoted YAML date may reach the plugin as a
+`Date` rather than a string, and both must equal `YYYY-MM-DD`. The older `datum`
+key is accepted alongside `date`.
 
 The filename is not load-bearing — only frontmatter fields are used.
+
+`buildNoteCache()` builds the same index once for a render cycle (keyed by URL,
+`uid@date` and event id); `lookupInCache(cache, event)` queries it in the same
+order. Callers iterating many events use the pair to avoid O(n²) vault scans.
 
 ---
 
@@ -33,10 +44,12 @@ via `editor.fold({ line: 0, ch: 0 })` with a 100ms timeout.
 
 ### File path resolution
 
-Preferred path: `<notesFolder>/<sanitizedTitle>.md`
+For a `termin` note: `<vault.meetingsFolder>/<YYYY-MM-DD> <sanitizedTitle>.md` —
+the vault's own convention, so meeting notes sort chronologically in the file
+explorer. Every other type keeps `<notesFolder>/<sanitizedTitle>.md`.
 
-If that path is already taken by a **different** event (different `event-id`), fall back
-to: `<notesFolder>/<sanitizedTitle> <YYYY-MM-DD>.md`
+If that path is already taken, a numeric suffix is appended (`… 2.md`, `… 3.md`).
+An existing note is **never** overwritten.
 
 Filename sanitisation removes `\ / : * ? " < > | # ^ [ ]`, collapses whitespace, and
 truncates to 100 characters.
@@ -49,43 +62,85 @@ truncates to 100 characters.
 |---|---|
 | `focus` | title matches "fokus", "focus", "deep work", or "deepwork" (case-insensitive) |
 | `interview` | title contains "interview" or "bewerbung" (case-insensitive) |
-| `recurring` | `event.isRecurring === true` |
-| `meeting` | fallback |
+| `termin` | fallback — the Brain vault's meeting type |
 
-`task` is not inferred automatically — it must be set manually in the frontmatter.
+`recurring` is no longer inferred: a recurring event is a `termin` like any other,
+distinguished by `calendar_recurrence_id` rather than by a separate note type.
+`task` and `recurring` remain valid types but must be set manually.
+
+---
+
+## Vault index
+
+`NoteManager` also indexes the Brain entity folders, which is what lets the
+calendar and the sidebar speak in customers and people rather than file paths:
+
+| Method | Source | Returns |
+|---|---|---|
+| `getCustomers()` | `vault.customersFolder`, `type: kunde` | name, slug, path, `domains`, `status` |
+| `getPeople()` | `vault.peopleFolder`, `type: person` | name, path, `email` + `emails` merged |
+| `getProjects()` | `vault.projectsFolder`, `type: project` | name, path |
+| `customerFor(event)` | the above | the matched customer, or `null` |
+
+`createCustomerNote` / `createProjectNote` / `createPersonNote` write those notes
+in the MCP's shape and return an existing note untouched.
 
 ---
 
 ## Templates
 
-Template files are loaded from `<templateFolder>/<type>.md`. If the file doesn't exist,
-a built-in default is used.
+Template files are loaded from `<templateFolder>/<type>.md` (`termin.md` for
+meetings). If the file doesn't exist, a built-in default is used. A template's
+own frontmatter and H1 are stripped — the note's own are authoritative.
+
+Whatever a custom template omits of `## Initial context`, `## Sources` and
+`## Related notes` is appended: `prepare_meeting` in the MCP reads the wiki-links
+under Related notes, and `append_meeting_note` appends after them.
 
 ### Substitution tokens
 
 | Token | Value |
 |---|---|
-| `{{title}}` | `event.title` |
-| `{{date}}` | `event.start.slice(0, 10)` |
-| `{{attendees}}` | `- [[First Last]]` list (names normalised from "Last, First" format) |
-| `{{location}}` | `event.location ?? ""` |
-| `{{body}}` | `## Beschreibung\n<cleaned body>\n\n` (empty string if no body) |
+| `{{title}}` / `{{titel}}` | `event.title` |
+| `{{date}}` / `{{datum}}` | `event.start.slice(0, 10)` |
+| `{{context}}` | Time, location and the cleaned calendar description |
+| `{{kunde}}` / `{{kunde_link}}` / `{{kunde_slug}}` | The matched customer, or empty |
+| `{{teilnehmer}}` | Comma-separated attendee wiki-links |
+| `{{related}}` | `- [[…]]` list: customer, attendees, related notes |
+| `{{sources}}` | `_No sources linked yet._` |
+| `{{attendees}}` | `- [[First Last]]` list (legacy types) |
+| `{{location}}` | `event.location ?? ""` (legacy types) |
+| `{{body}}` | `## Beschreibung\n<cleaned body>\n\n` (legacy types) |
 | `{{carried_todos}}` | DataviewJS live query block (see below) |
 | `{{focus_todos}}` | DataviewJS live task query for Focus Block notes (see below) |
 
+An unknown `{{token}}` is left in place rather than blanked, so a typo is visible
+instead of silently eating content.
+
 ### Default templates
 
-**meeting**
+**termin**
 ```
-{{body}}## Agenda
+## Initial context
+{{context}}
+
+## Mitgebracht
 -
 
 ## Notizen
+-
 
-## Todos
+## Todos bis nächstes Mal
 - [ ]
 
-## Entscheidungen
+## Fürs nächste Treffen
+-
+
+## Sources
+{{sources}}
+
+## Related notes
+{{related}}
 ```
 
 **interview**
@@ -185,6 +240,22 @@ else dv.paragraph("_Keine offenen Todos._");
 
 ## Frontmatter written on creation
 
+For a `termin` note — the Brain shape shared with the Deskleaf MCP:
+
+```yaml
+type: termin
+title: "<title>"
+date: <YYYY-MM-DD>
+calendar_event_id: "<absolute CalDAV URL>"   # only when the backend knows one
+calendar_uid: "<UID>"
+calendar_recurrence_id: "<RECURRENCE-ID>"    # only for one instance of a series
+kunde: "[[<Customer>]]"                      # only when a customer matched
+teilnehmer: ["[[First Last]]", …]
+tags: [kunde/<slug>]                         # only when a customer matched
+```
+
+For the legacy types (`focus`, `interview`, `recurring`, `task`):
+
 ```yaml
 event-id: "<id>"
 title: "<title>"
@@ -193,11 +264,12 @@ start: "<HH:MM>"
 end: "<HH:MM>"
 location: "<location>"
 attendees: ["[[First Last]]", …]
-type: <meeting|interview|recurring|task|focus>
+type: <interview|recurring|task|focus>
 toBeRemoved: false
 removalDate: null
-topics: []
 ```
+
+See `specs/data-model.md` for how a note is resolved back from an event.
 
 ---
 

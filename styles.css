@@ -2408,6 +2408,12 @@
     border-bottom: 2px solid var(--interactive-accent);
 }
 
+/* Kunden mit status: pausiert/beendet — sichtbar, aber zurückgenommen. */
+.dl-topic-row--inactive .dl-topic-title {
+    color: var(--f-muted);
+    opacity: 0.65;
+}
+
 .dl-topic-content {
     flex: 1;
     min-width: 0;

@@ -1,7 +1,7 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
 import type DeskleafPlugin from "./main";
 import { CalDAVClient } from "./caldav-client";
-import { CAL_COLOR_PALETTE, type ICalFeedSubscription } from "./types";
+import { CAL_COLOR_PALETTE, type DeskleafSettings, type ICalFeedSubscription } from "./types";
 
 function trashIconSvg(size: number): string {
   return (
@@ -147,15 +147,20 @@ export class DeskleafSettingTab extends PluginSettingTab {
           });
       });
 
-    // ── Notizen ──────────────────────────────────────────────────
-    containerEl.createEl("h3", { text: "Notizen" });
+    // ── Vault-Struktur (Brain) ───────────────────────────────────
+    containerEl.createEl("h3", { text: "Vault-Struktur" });
+    containerEl.createEl("p", {
+      cls: "setting-item-description",
+      text: "Ordner der Brain-Struktur, die sich Deskleaf mit dem Deskleaf-MCP teilt. "
+        + "Termin-Notizen tragen type: termin und die Kalender-Identität, Kunden-Notizen type: kunde.",
+    });
 
     new Setting(containerEl)
       .setName("Template-Ordner")
-      .setDesc("Ordner mit Event-Vorlagen (meeting.md, interview.md, …)")
+      .setDesc("Ordner mit Notiz-Vorlagen (termin.md, kunde.md, person.md, …)")
       .addText(text =>
         text
-          .setPlaceholder("templates")
+          .setPlaceholder("_templates")
           .setValue(this.plugin.settings.templateFolder)
           .onChange(async value => {
             this.plugin.settings.templateFolder = value;
@@ -163,28 +168,53 @@ export class DeskleafSettingTab extends PluginSettingTab {
           })
       );
 
+    const folders: Array<[keyof DeskleafSettings["vault"], string, string, string]> = [
+      ["meetingsFolder", "Termine", "Zielordner für Termin-Notizen (type: termin)", "meetings"],
+      ["customersFolder", "Kunden", "Ordner der Kunden-Notizen (type: kunde)", "customers"],
+      ["peopleFolder", "Personen", "Ordner der Personen-Notizen (type: person)", "people"],
+      ["projectsFolder", "Projekte", "Ordner der Projekt-Notizen (type: project)", "projects"],
+    ];
+
+    for (const [key, name, desc, placeholder] of folders) {
+      new Setting(containerEl)
+        .setName(name)
+        .setDesc(desc)
+        .addText(text =>
+          text
+            .setPlaceholder(placeholder)
+            .setValue(this.plugin.settings.vault[key] as string)
+            .onChange(async value => {
+              (this.plugin.settings.vault[key] as string) = value.trim() || placeholder;
+              await this.plugin.saveSettings();
+            })
+        );
+    }
+
     new Setting(containerEl)
-      .setName("Notizen-Ordner")
-      .setDesc("Zielordner für Event-Notizen")
+      .setName("Todo-Quellen")
+      .setDesc("Ordner, die nach offenen Todos durchsucht werden (kommagetrennt). Notizen im Vault-Root sind immer dabei.")
+      .addText(text =>
+        text
+          .setPlaceholder("meetings, projects, customers")
+          .setValue(this.plugin.settings.vault.todoFolders.join(", "))
+          .onChange(async value => {
+            this.plugin.settings.vault.todoFolders = value
+              .split(",")
+              .map(folder => folder.trim().replace(/\/$/, ""))
+              .filter(Boolean);
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
+      .setName("Alt-Notizen-Ordner")
+      .setDesc("Ordner der Notizen aus der Zeit vor der Brain-Struktur. Wird nur noch gelesen, damit Bestandsnotizen zu ihren Terminen gefunden werden.")
       .addText(text =>
         text
           .setPlaceholder("notes")
           .setValue(this.plugin.settings.notesFolder)
           .onChange(async value => {
             this.plugin.settings.notesFolder = value;
-            await this.plugin.saveSettings();
-          })
-      );
-
-    new Setting(containerEl)
-      .setName("Topics-Ordner")
-      .setDesc("Zielordner für neue Topics")
-      .addText(text =>
-        text
-          .setPlaceholder("topics")
-          .setValue(this.plugin.settings.topicsFolder)
-          .onChange(async value => {
-            this.plugin.settings.topicsFolder = value;
             await this.plugin.saveSettings();
           })
       );

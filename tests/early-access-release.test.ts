@@ -46,7 +46,7 @@ async function createBundleRoot(): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "deskleaf-release-"));
   await writeFile(join(root, "main.js"), "console.log('deskleaf');\n");
   await writeFile(join(root, "styles.css"), ".deskleaf {}\n");
-  await writeFile(join(root, "manifest.json"), JSON.stringify({ id: "obs-focal" }, null, 2));
+  await writeFile(join(root, "manifest.json"), JSON.stringify({ id: "deskleaf" }, null, 2));
   await writeFile(join(root, "install.sh"), "#!/bin/bash\n");
   await writeFile(join(root, "deskleaf-calendar-sync"), "#!/bin/bash\n");
   await execFileAsync("chmod", ["0755", join(root, "install.sh"), join(root, "deskleaf-calendar-sync")]);
@@ -133,7 +133,7 @@ describe("early access installer", () => {
 
     await runBashWithInput(join(process.cwd(), "install.sh"), bundleRoot, { ...process.env, HOME: homeRoot }, `${vaultRoot}\n`);
 
-    const pluginRoot = join(vaultRoot, ".obsidian", "plugins", "obs-focal");
+    const pluginRoot = join(vaultRoot, ".obsidian", "plugins", "deskleaf");
     await expect(stat(join(pluginRoot, "main.js"))).resolves.toBeTruthy();
     await expect(stat(join(pluginRoot, "styles.css"))).resolves.toBeTruthy();
     await expect(stat(join(pluginRoot, "manifest.json"))).resolves.toBeTruthy();
@@ -151,8 +151,8 @@ describe("early access installer", () => {
     ).rejects.toMatchObject({
       stderr: expect.stringContaining("Obsidian vault directory is required"),
     });
-    await expect(stat(join(invalidVaultRoot, ".obsidian", "plugins", "obs-focal"))).rejects.toMatchObject({ code: "ENOENT" });
-    await expect(stat(join(invalidVaultRoot, ".obsidian", "plugins", "obs-focal", "main.js"))).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(stat(join(invalidVaultRoot, ".obsidian", "plugins", "deskleaf"))).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(stat(join(invalidVaultRoot, ".obsidian", "plugins", "deskleaf", "main.js"))).rejects.toMatchObject({ code: "ENOENT" });
   });
 
   it("derives the plugin folder from manifest.json without private vault paths", async () => {
