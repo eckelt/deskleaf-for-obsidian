@@ -1369,18 +1369,14 @@
 }
 
 /* ── Quiet fields ───────────────────────────────────────────────────
-   The editor is read far more often than it is edited, so the fields carry
-   no chrome of their own: they read as text until the pointer or the focus
-   ring reaches them. Scoped to the edit surface — the create popover is an
-   empty form where every field does need to announce itself. */
+   The fields do not announce themselves — the value does, or the placeholder
+   where there is none. So they carry no chrome at all until they are focused.
+   Scoped to the edit surface: the create popover is an empty form where every
+   field does need to announce itself. */
 .dl-edit-surface .dl-edit-field {
     border-color: transparent;
     background: transparent;
     transition: background-color 90ms ease, border-color 90ms ease, box-shadow 90ms ease;
-}
-
-.dl-edit-surface .dl-edit-field:hover {
-    background: var(--background-modifier-hover);
 }
 
 .dl-edit-surface .dl-edit-field:focus {
@@ -1390,15 +1386,6 @@
     outline: none;
 }
 
-/* Without a pointer there is no hover to reveal the fields with, so touch
-   gets a faint outline instead. That is the gap iOS Calendar fills with a
-   dedicated edit button — this keeps the sheet directly editable instead. */
-@media (hover: none) {
-    .dl-edit-surface .dl-edit-field {
-        border-color: var(--background-modifier-border);
-    }
-}
-
 /* A rejected value keeps its red border through hover and focus alike. */
 .dl-edit-surface .dl-edit-field.dl-create-input--invalid {
     border-color: var(--color-red);
@@ -1406,13 +1393,12 @@
     box-shadow: none;
 }
 
-/* The native pickers are chrome too — they follow the field. */
+/* The native pickers are chrome too — they appear with the focused field. */
 .dl-edit-surface .dl-edit-field::-webkit-calendar-picker-indicator {
     opacity: 0;
     transition: opacity 90ms ease;
 }
 
-.dl-edit-surface .dl-edit-field:hover::-webkit-calendar-picker-indicator,
 .dl-edit-surface .dl-edit-field:focus::-webkit-calendar-picker-indicator {
     opacity: 0.55;
 }
