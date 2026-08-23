@@ -12,6 +12,7 @@ import {
 } from "obsidian";
 import type DeskleafPlugin from "./main";
 import type { CalendarEvent, EventUpdate, RsvpResponse } from "./types";
+import { calTone } from "./types";
 import { isFeedEvent } from "./ical-feed-manager";
 import {
   toDateStr,
@@ -367,6 +368,21 @@ export class DeskleafCalendarView extends ItemView {
     el.style.setProperty("--f-drag-top", `${topPx}px`);
     el.style.setProperty("--f-drag-width", `${widthPx}px`);
     el.style.setProperty("--f-drag-height", `${heightPx}px`);
+  }
+
+  /**
+   * Sets the hue plus its light-mode tones on an element. The tones cannot live
+   * in CSS alone: a stylesheet cannot branch on the value of --cal-h, and the
+   * lightness has to differ per hue to look even (see CAL_TONES).
+   */
+  private applyCalendarTone(el: HTMLElement, calendar: string): void {
+    const hue = this.calendarHue(calendar);
+    const tone = calTone(hue);
+    el.style.setProperty("--cal-h", String(hue));
+    el.style.setProperty("--cal-bg-s", `${tone.bgS}%`);
+    el.style.setProperty("--cal-bg-l", `${tone.bgL}%`);
+    el.style.setProperty("--cal-bd-l", `${tone.bdL}%`);
+    el.style.setProperty("--cal-tx-l", `${tone.txL}%`);
   }
 
   private calendarHue(name: string): number {
@@ -1225,7 +1241,7 @@ export class DeskleafCalendarView extends ItemView {
       const { ev, fracStart, fracEnd } = items[i];
       const row = rowOf[i];
       const chip = area.createDiv("dl-allday-chip");
-      chip.style.setProperty("--cal-h", String(this.calendarHue(ev.calendar ?? "")));
+      this.applyCalendarTone(chip, ev.calendar ?? "");
       chip.addEventListener("mouseenter", (e) => this.showHoverPopover(e, ev));
       chip.addEventListener("mouseleave", () => this.hideHoverPopover());
       if (ev.id === this.selectedEventId) chip.addClass("dl-allday-chip--selected");
@@ -1320,7 +1336,7 @@ export class DeskleafCalendarView extends ItemView {
     const heightPx = clampedBottom - topPx - 1;
 
     const card = container.createDiv("dl-event-card");
-    card.style.setProperty("--cal-h", String(this.calendarHue(event.calendar ?? "")));
+    this.applyCalendarTone(card, event.calendar ?? "");
     card.addEventListener("mouseenter", (e) => this.showHoverPopover(e, event));
     card.addEventListener("mouseleave", () => this.hideHoverPopover());
     card.addEventListener("mousedown", () => this.hideHoverPopover());
@@ -1600,7 +1616,7 @@ export class DeskleafCalendarView extends ItemView {
     cardEl.addClass("dl-event-card--edit-source");
 
     const previewEl = originalDayEl.createDiv("dl-event-card dl-event-card--editing dl-event-edit-ghost");
-    previewEl.style.setProperty("--cal-h", String(this.calendarHue(event.calendar ?? "")));
+    this.applyCalendarTone(previewEl, event.calendar ?? "");
     previewEl.style.left = cardEl.style.left;
     previewEl.style.width = cardEl.style.width;
     previewEl.createDiv({ cls: "dl-event-title", text: event.title });

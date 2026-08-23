@@ -90,6 +90,40 @@ export interface ProjectRef {
 // 6 Monokai Pro calendar hues: pink · orange · yellow · green · cyan · purple
 export const CAL_COLOR_PALETTE = [346, 21, 48, 96, 188, 252] as const;
 
+/**
+ * Light-mode tones per hue.
+ *
+ * HSL lightness is not perceptually uniform: at the same L a yellow reads far
+ * brighter than a purple. One shared formula therefore either washes the yellow
+ * out or drowns the purple — which is why each palette hue carries its own
+ * values. Pink and yellow are the reference pair the rest is tuned against.
+ *
+ * `bgS`/`bgL` are the card surface, `bdL` the left accent bar, `txL` the text;
+ * bar and text always run at full saturation.
+ */
+export interface CalTone {
+  bgS: number;
+  bgL: number;
+  bdL: number;
+  txL: number;
+}
+
+export const CAL_TONES: Record<number, CalTone> = {
+  346: { bgS: 95, bgL: 88, bdL: 42, txL: 30 },
+  21: { bgS: 100, bgL: 88, bdL: 48, txL: 28 },
+  48: { bgS: 100, bgL: 88, bdL: 50, txL: 25 },
+  96: { bgS: 100, bgL: 88, bdL: 38, txL: 22 },
+  188: { bgS: 100, bgL: 88, bdL: 40, txL: 24 },
+  252: { bgS: 100, bgL: 88, bdL: 48, txL: 32 },
+};
+
+/** Tones for a hue outside the palette — a custom colour or Obsidian's accent. */
+export const CAL_TONE_FALLBACK: CalTone = { bgS: 95, bgL: 88, bdL: 45, txL: 27 };
+
+export function calTone(hue: number): CalTone {
+  return CAL_TONES[hue] ?? CAL_TONE_FALLBACK;
+}
+
 export interface CalDAVSettings {
   url: string;
   username: string;
