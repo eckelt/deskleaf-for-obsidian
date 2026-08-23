@@ -670,7 +670,7 @@ describe("event edit form redesign", () => {
     expect(plugin.noteManager.syncEventNote).toHaveBeenCalledTimes(1);
   });
 
-  it("renders editable values as quiet fields that only take on chrome on interaction", () => {
+  it("renders editable values as plain text until a field is focused", () => {
     const plugin = makePlugin();
     const view = makeView(plugin);
     const editor = openEditor(view, makeEvent());
@@ -690,19 +690,19 @@ describe("event edit form redesign", () => {
     expect(restRule).toContain("border-color: transparent");
     expect(restRule).toContain("background: transparent");
 
-    expect(cssRule(".dl-edit-surface .dl-edit-field:hover")).toContain("background: var(--background-modifier-hover)");
-
     const focusRule = cssRule(".dl-edit-surface .dl-edit-field:focus");
     expect(focusRule).toContain("border-color: var(--interactive-accent)");
     expect(focusRule).toContain("background: var(--background-primary)");
 
-    // Touch has no hover to reveal the fields with, so it keeps a faint outline
-    // rather than needing a mode switch into editing.
+    // Nothing reveals a field but focusing it — no hover state, and so nothing
+    // that a touch device would have to make up for.
     const styles = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
-    const touchBlock = /@media \(hover: none\) \{([\s\S]*?)\n\}/.exec(styles);
-    expect(touchBlock).not.toBeNull();
-    expect(touchBlock?.[1]).toContain(".dl-edit-surface .dl-edit-field");
-    expect(touchBlock?.[1]).toContain("border-color: var(--background-modifier-border)");
+    expect(styles).not.toContain(".dl-edit-surface .dl-edit-field:hover");
+    expect(styles).not.toContain("@media (hover: none)");
+
+    // An empty field says what it is; a filled one shows its value.
+    expect(editor.querySelector<HTMLInputElement>(".dl-edit-location-input")?.placeholder)
+      .toBe("Ort hinzufügen");
 
     // A rejected value must stay visible through hover and focus.
     const invalidRule = cssRule(".dl-edit-surface .dl-edit-field.dl-create-input--invalid");
