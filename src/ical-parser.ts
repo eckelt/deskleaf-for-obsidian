@@ -118,7 +118,15 @@ function unescape(s: string | null | undefined): string | null {
 
 // ── Meeting platform detection (mirrors Swift MeetingPlatform.swift) ─
 
+function webUrl(value: string | null): string | null {
+  const trimmed = value?.trim() ?? "";
+  return /^https?:\/\/\S+$/i.test(trimmed) ? trimmed : null;
+}
+
 function detectMeetingPlatform(haystack: string): string | undefined {
+  // Only the join host counts: "Booked via book.ecke.lt" sits in the body of
+  // every booked event, whatever platform the meeting itself runs on.
+  if (haystack.includes("join.ecke.lt")) return "ecke";
   if (haystack.includes("zoom.us")) return "zoom";
   if (haystack.includes("teams.microsoft.com") || haystack.includes("teams.live.com")) return "teams";
   if (haystack.includes("meet.google.com")) return "meet";
@@ -218,7 +226,12 @@ function buildEvent(props: ICalProp[], calendarName: string, currentUserEmail?: 
   const location = unescape(first("LOCATION")?.value ?? null);
   const description = unescape(first("DESCRIPTION")?.value ?? null);
   const url = first("URL")?.value ?? null;
-  const haystack = [description, url, location].filter(Boolean).join(" ").toLowerCase();
+  // RFC 7986 CONFERENCE is the field meant for a join link. URL is a pointer to
+  // more information about the event, so it is only a fallback — and neither is
+  // trusted unless it is actually a web address.
+  const conference = first("CONFERENCE")?.value ?? null;
+  const conferenceUrl = [conference, url].map(webUrl).find(Boolean) ?? null;
+  const haystack = [description, url, conference, location].filter(Boolean).join(" ").toLowerCase();
 
   return {
     id,
@@ -234,6 +247,7 @@ function buildEvent(props: ICalProp[], calendarName: string, currentUserEmail?: 
     ...(rsvp ? { rsvp } : {}),
     isRecurring: !!first("RRULE") || !!first("RECURRENCE-ID"),
     isCancelled: first("STATUS")?.value?.toUpperCase() === "CANCELLED",
+    conferenceUrl,
     meetingPlatform: detectMeetingPlatform(haystack),
     calendar: calendarName,
   };

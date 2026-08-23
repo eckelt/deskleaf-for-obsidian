@@ -13,6 +13,8 @@ export interface CalendarEvent {
   isAllDay?: boolean;
   isOrganizer?: boolean;
   meetingPlatform?: string;
+  /** Join link from RFC 7986 CONFERENCE, falling back to URL. */
+  conferenceUrl?: string | null;
   numAttendees?: number;
   organizer?: string | null;
   rsvp?: EventRsvp;
