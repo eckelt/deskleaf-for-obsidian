@@ -540,10 +540,6 @@
     color: hsl(var(--cal-h, var(--accent-h)), 72%, 70%);
 }
 
-.dl-allday-chip:hover {
-    filter: brightness(0.94);
-}
-
 .dl-allday-chip--selected {
     background: hsl(var(--cal-h, var(--accent-h)), 65%, 38%);
     border-left-color: hsl(var(--cal-h, var(--accent-h)), 65%, 26%);
@@ -718,7 +714,6 @@
     border-radius: 5px;
     margin: 0 2px;
     z-index: 2;
-    transition: filter 80ms;
 }
 
 .theme-dark .dl-event-card {
@@ -728,7 +723,6 @@
 }
 
 .dl-event-card:hover {
-    filter: brightness(0.94);
     z-index: 3;
 }
 
