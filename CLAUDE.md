@@ -149,7 +149,9 @@ bash deploy.sh           # build + copy main.js + styles.css to Obsidian vault
 ```
 
 Vault plugin path:
-`~/Library/Mobile Documents/iCloud~md~obsidian/Documents/Connections/.obsidian/plugins/deskleaf-for-obsidian/`
+`<vault>/.obsidian/plugins/deskleaf/` — the folder is the `id` from `manifest.json`.
+`deploy.sh` derives it and defaults to the Connections vault; point it elsewhere with
+`DESKLEAF_VAULT=<pfad> bash deploy.sh`.
 
 **Deploy before human review.** A feature is only reviewable once it actually
 runs in the vault. Never request human review of a feature that lives only on a

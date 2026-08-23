@@ -20,7 +20,7 @@ cp "$BINARY" "$DEST"
 chmod +x "$DEST"
 codesign --force --sign - "$DEST"
 
-OBSIDIAN_PLUGIN="/Users/nils.eckelt/Library/Mobile Documents/iCloud~md~obsidian/Documents/Verknüpfungen/.obsidian/plugins/obs-focal"
+OBSIDIAN_PLUGIN="/Users/nils.eckelt/Library/Mobile Documents/iCloud~md~obsidian/Documents/Verknüpfungen/.obsidian/plugins/deskleaf"
 if [ -d "$OBSIDIAN_PLUGIN" ]; then
     cp "$DEST" "$OBSIDIAN_PLUGIN/deskleaf-calendar-sync"
     # Also deploy JS/CSS so the plugin is always in sync with the binary

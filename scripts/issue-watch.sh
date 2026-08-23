@@ -9,7 +9,7 @@ AGENTS_DIR="${REPO_DIR}/.github/agents"
 WORKTREE_BASE="${HOME}/.cache/deskleaf-worktrees"   # bewusst außerhalb von iCloud
 # Obsidian-Vault: Ziel des Auto-Deploys nach dem Merge. Ohne diesen Schritt läuft
 # die menschliche Abnahme gegen veralteten Vault-Code (siehe CLAUDE.md, Build & deploy).
-VAULT_DIR="${HOME}/Library/Mobile Documents/iCloud~md~obsidian/Documents/Connections/.obsidian/plugins/deskleaf-for-obsidian"
+VAULT_DIR="${DESKLEAF_VAULT:-${HOME}/Library/Mobile Documents/iCloud~md~obsidian/Documents/Connections}/.obsidian/plugins/deskleaf"
 
 # Bot-Marker: jeder maschinelle Kommentar beginnt damit. Der Loop triggert nur
 # auf Kommentare, die NICHT damit beginnen (= menschliche Eingabe).

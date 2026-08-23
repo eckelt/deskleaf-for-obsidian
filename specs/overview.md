@@ -60,7 +60,7 @@ Deploy by copying `main.js`, `styles.css`, `manifest.json`, and `deskleaf-calend
 into the Obsidian plugin folder:
 
 ```
-~/Library/Mobile Documents/iCloud~md~obsidian/Documents/<vault>/.obsidian/plugins/deskleaf-for-obsidian/
+<vault>/.obsidian/plugins/deskleaf/
 ```
 
 The binary must be built separately: `cd swift && bash build.sh`
