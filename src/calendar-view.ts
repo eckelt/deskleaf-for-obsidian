@@ -2593,7 +2593,8 @@ export class DeskleafCalendarView extends ItemView {
       document.addEventListener("keydown", onEscape);
     }, 0);
 
-    if (!Platform.isMobile) titleInput?.focus();
+    // The editor opens to be read. Focusing the title would put it straight
+    // into an edit state nobody asked for — and raise the keyboard on touch.
   }
 
   private removeEventEditOverlay() {
@@ -2934,6 +2935,9 @@ export class DeskleafCalendarView extends ItemView {
         event.meetingPlatform?.toLowerCase().includes("jitsi") ||
         event.location?.toLowerCase().includes("jitsi") ||
         event.location?.toLowerCase().includes("meet.jit.si");
+      const isEcke =
+        event.meetingPlatform?.toLowerCase() === "ecke" ||
+        event.location?.toLowerCase().includes("join.ecke.lt");
       const isTeams =
         event.meetingPlatform?.toLowerCase().includes("teams") ||
         event.location?.toLowerCase().includes("teams");
@@ -2943,7 +2947,10 @@ export class DeskleafCalendarView extends ItemView {
           (event.location?.toLowerCase().includes("meet") && event.location?.toLowerCase().includes("google"))
         );
 
-      if (isTeams) {
+      if (isEcke) {
+        const row = el.createDiv({ cls: "dl-hover-meta dl-hover-ecke" });
+        row.innerHTML = neIconSvg(14) + `<span style="margin-left:4px">ecke.lt</span>`;
+      } else if (isTeams) {
         const row = el.createDiv({ cls: "dl-hover-meta dl-hover-teams" });
         row.innerHTML = teamsIconSvg(14) + `<span style="margin-left:4px">Microsoft Teams</span>`;
       } else if (isMeet) {
@@ -2962,7 +2969,7 @@ export class DeskleafCalendarView extends ItemView {
         el.createDiv({ cls: "dl-hover-meta dl-hover-calendar", text: event.calendar });
       if ((event.numAttendees ?? 0) > 1)
         el.createDiv({ cls: "dl-hover-meta", text: `${event.numAttendees} Teilnehmer` });
-      if (!isTeams && !isMeet && !isJitsi && event.meetingPlatform)
+      if (!isEcke && !isTeams && !isMeet && !isJitsi && event.meetingPlatform)
         el.createDiv({ cls: "dl-hover-meta", text: event.meetingPlatform });
       if (this.plugin.noteManager.lookupInCache(this.noteCache, event))
         el.createDiv({ cls: "dl-hover-meta dl-hover-note", text: "Notiz verknüpft" });
