@@ -2227,8 +2227,6 @@ export class DeskleafCalendarView extends ItemView {
         closeCalMenu();
       });
     }
-    headingGroup.createDiv({ cls: "dl-edit-heading", text: readOnly ? "Event ansehen" : "Event bearbeiten" });
-    const headerDate = headerRow.createDiv({ cls: "dl-edit-header-date", text: dayHeaderLabel(initialStart) });
     if (readOnly) {
       header.createDiv({ cls: "dl-edit-readonly-note", text: "Dieses Event ist in Deskleaf schreibgeschuetzt." });
     }
@@ -2312,21 +2310,18 @@ export class DeskleafCalendarView extends ItemView {
     if (readOnly) {
       form.createDiv({ cls: "dl-edit-ro-title", text: event.title });
       const timeSection = form.createDiv("dl-edit-section");
-      timeSection.createDiv({ cls: "dl-edit-label", text: "Zeit" });
       timeSection.createDiv({
         cls: "dl-edit-ro-value",
-        text: `${minsToTimeStr(startMin)} – ${minsToTimeStr(endMin)}`,
+        text: `${dayHeaderLabel(initialStart)}  ${minsToTimeStr(startMin)} – ${minsToTimeStr(endMin)}`,
       });
       if (event.location) {
         const locationSection = form.createDiv("dl-edit-section");
-        locationSection.createDiv({ cls: "dl-edit-label", text: "Ort" });
         const locationRow = locationSection.createDiv("dl-edit-location-row");
         locationRow.createDiv({ cls: "dl-edit-ro-value dl-edit-ro-location", text: event.location });
         appendLocationOpenButton(locationRow);
       }
       if (event.body) {
         const descSection = form.createDiv("dl-edit-section");
-        descSection.createDiv({ cls: "dl-edit-label", text: "Beschreibung" });
         descSection.createDiv({ cls: "dl-edit-ro-text", text: event.body });
       }
     } else {
@@ -2335,15 +2330,16 @@ export class DeskleafCalendarView extends ItemView {
       titleField.type = "text";
       titleField.addClass("dl-create-input");
       titleField.addClass("dl-edit-title-input");
-      titleField.placeholder = "Titel...";
+      titleField.addClass("dl-edit-field");
+      titleField.placeholder = "Titel hinzufügen";
       titleField.value = event.title;
 
       const timeSection = form.createDiv("dl-edit-section");
-      timeSection.createDiv({ cls: "dl-edit-label", text: "Zeit" });
       const dateTimeRow = timeSection.createDiv("dl-edit-date-time-row");
       const dateField = dateTimeRow.createEl("input") as HTMLInputElement;
       dateField.type = "date";
       dateField.addClass("dl-edit-date-input");
+      dateField.addClass("dl-edit-field");
       dateField.value = startDate;
       dateField.setAttribute("aria-label", "Datum");
       dateField.setAttribute("title", dayHeaderLabel(initialStart));
@@ -2351,9 +2347,7 @@ export class DeskleafCalendarView extends ItemView {
         if (!dateField.value) return;
         editStartDate = dateField.value;
         editEndDate = toDateStr(addDays(parseDate(editStartDate), endDateOffsetDays));
-        const label = dayHeaderLabel(parseDate(editStartDate));
-        dateField.setAttribute("title", label);
-        headerDate.setText(label);
+        dateField.setAttribute("title", dayHeaderLabel(parseDate(editStartDate)));
       };
       dateField.addEventListener("input", syncEditDate);
       dateField.addEventListener("change", syncEditDate);
@@ -2362,6 +2356,7 @@ export class DeskleafCalendarView extends ItemView {
       startField.type = "time";
       startField.addClass("dl-create-time-input");
       startField.addClass("dl-edit-start-input");
+      startField.addClass("dl-edit-field");
       startField.step = "60";
       startField.value = minsToTimeStr(startMin);
       timeRow.createSpan({ cls: "dl-create-time-sep", text: "-" });
@@ -2369,6 +2364,7 @@ export class DeskleafCalendarView extends ItemView {
       endField.type = "time";
       endField.addClass("dl-create-time-input");
       endField.addClass("dl-edit-end-input");
+      endField.addClass("dl-edit-field");
       endField.step = "60";
       endField.value = minsToTimeStr(endMin);
       const keepValidEndAfterStartChange = () => {
@@ -2381,13 +2377,13 @@ export class DeskleafCalendarView extends ItemView {
       startField.addEventListener("change", keepValidEndAfterStartChange);
 
       const locationSection = form.createDiv("dl-edit-section");
-      locationSection.createDiv({ cls: "dl-edit-label", text: "Ort" });
       const locationRow = locationSection.createDiv("dl-edit-location-row");
       const locationField = locationRow.createEl("input") as HTMLInputElement;
       locationField.type = "text";
       locationField.addClass("dl-create-input");
       locationField.addClass("dl-edit-location-input");
-      locationField.placeholder = "Ort";
+      locationField.addClass("dl-edit-field");
+      locationField.placeholder = "Ort hinzufügen";
       locationField.value = event.location ?? "";
       appendLocationOpenButton(locationRow);
 
@@ -2397,11 +2393,11 @@ export class DeskleafCalendarView extends ItemView {
       if (event.rsvp && canUpdateRsvp(rsvpReader)) renderRsvpSection(form, rsvpReader);
 
       const descSection = form.createDiv("dl-edit-section");
-      descSection.createDiv({ cls: "dl-edit-label", text: "Beschreibung" });
       const descField = descSection.createEl("textarea") as HTMLTextAreaElement;
       descField.addClass("dl-create-desc");
       descField.addClass("dl-edit-desc-input");
-      descField.placeholder = "Beschreibung";
+      descField.addClass("dl-edit-field");
+      descField.placeholder = "Notizen hinzufügen";
       descField.value = event.body ?? "";
 
       titleInput = titleField;
