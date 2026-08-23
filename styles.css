@@ -535,20 +535,20 @@
 }
 
 .theme-dark .dl-allday-chip {
-    background: hsl(var(--cal-h, var(--accent-h)), 28%, 15%);
-    border-left-color: hsl(var(--cal-h, var(--accent-h)), 78%, 63%);
-    color: hsl(var(--cal-h, var(--accent-h)), 72%, 70%);
+    background: hsl(var(--cal-h, var(--accent-h)) var(--cal-d-bg-s, 55%) var(--cal-d-bg-l, 16%));
+    border-left-color: hsl(var(--cal-h, var(--accent-h)) 100% var(--cal-d-bd-l, 55%));
+    color: hsl(var(--cal-h, var(--accent-h)) 95% var(--cal-d-tx-l, 70%));
 }
 
 .dl-allday-chip--selected {
-    background: hsl(var(--cal-h, var(--accent-h)), 65%, 38%);
-    border-left-color: hsl(var(--cal-h, var(--accent-h)), 65%, 26%);
+    background: hsl(var(--cal-h, var(--accent-h)) 95% var(--cal-sel-l, 34%));
+    border-left-color: hsl(var(--cal-h, var(--accent-h)) 95% calc(var(--cal-sel-l, 34%) - 10%));
     color: #fff;
 }
 
 .theme-dark .dl-allday-chip--selected {
-    background: hsl(var(--cal-h, var(--accent-h)), 80%, 48%);
-    border-left-color: hsl(var(--cal-h, var(--accent-h)), 80%, 34%);
+    background: hsl(var(--cal-h, var(--accent-h)) 95% var(--cal-sel-l, 34%));
+    border-left-color: hsl(var(--cal-h, var(--accent-h)) 95% calc(var(--cal-sel-l, 34%) - 10%));
     color: #fcfcfa;
 }
 
@@ -717,9 +717,9 @@
 }
 
 .theme-dark .dl-event-card {
-    background: hsl(var(--cal-h, var(--accent-h)), 28%, 15%);
-    border-left: 4px solid hsl(var(--cal-h, var(--accent-h)), 78%, 63%);
-    color: hsl(var(--cal-h, var(--accent-h)), 72%, 70%);
+    background: hsl(var(--cal-h, var(--accent-h)) var(--cal-d-bg-s, 55%) var(--cal-d-bg-l, 16%));
+    border-left: 4px solid hsl(var(--cal-h, var(--accent-h)) 100% var(--cal-d-bd-l, 55%));
+    color: hsl(var(--cal-h, var(--accent-h)) 95% var(--cal-d-tx-l, 70%));
 }
 
 .dl-event-card:hover {
@@ -727,15 +727,15 @@
 }
 
 .dl-event-card--selected {
-    background: hsl(var(--cal-h, var(--accent-h)), 95%, 38%);
-    border-color: hsl(var(--cal-h, var(--accent-h)), 95%, 26%);
+    background: hsl(var(--cal-h, var(--accent-h)) 95% var(--cal-sel-l, 34%));
+    border-color: hsl(var(--cal-h, var(--accent-h)) 95% calc(var(--cal-sel-l, 34%) - 10%));
     color: #fff;
     z-index: 4;
 }
 
 .theme-dark .dl-event-card--selected {
-    background: hsl(var(--cal-h, var(--accent-h)), 80%, 48%);
-    border-color: hsl(var(--cal-h, var(--accent-h)), 80%, 34%);
+    background: hsl(var(--cal-h, var(--accent-h)) 95% var(--cal-sel-l, 34%));
+    border-color: hsl(var(--cal-h, var(--accent-h)) 95% calc(var(--cal-sel-l, 34%) - 10%));
     color: #fcfcfa;
 }
 
@@ -745,8 +745,8 @@
 }
 
 .theme-dark .dl-event-card--series {
-    background: hsl(var(--cal-h, var(--accent-h)), 30%, 24%);
-    border-color: hsl(var(--cal-h, var(--accent-h)), 70%, 55%);
+    background: hsl(var(--cal-h, var(--accent-h)) var(--cal-d-bg-s, 55%) calc(var(--cal-d-bg-l, 16%) + 6%));
+    border-color: hsl(var(--cal-h, var(--accent-h)) 100% var(--cal-d-bd-l, 55%));
 }
 
 .dl-event-card--cancelled {
@@ -1110,11 +1110,11 @@
     height: 10px;
     border-radius: 50%;
     flex-shrink: 0;
-    background: hsl(var(--cal-h, 188), 58%, 47%);
+    background: hsl(var(--cal-h, 188) 100% var(--cal-bd-l, 45%));
 }
 
 .theme-dark .dl-edit-header-dot {
-    background: hsl(var(--cal-h, 188), 78%, 63%);
+    background: hsl(var(--cal-h, 188) 100% var(--cal-d-bd-l, 55%));
 }
 
 .dl-edit-cal-btn {
