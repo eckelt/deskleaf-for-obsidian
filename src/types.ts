@@ -194,6 +194,17 @@ export interface VaultSettings {
   todoFolders: string[];
 }
 
+/**
+ * SolidTime access for the ```solidtime blocks. The key lives in the plugin's
+ * data.json, in clear text like every Obsidian plugin setting — keep that file
+ * out of version control.
+ */
+export interface SolidTimeSettings {
+  apiKey: string;
+  /** Only needed when the account belongs to more than one organization. */
+  organizationId: string;
+}
+
 export interface DeskleafSettings {
   binaryPath: string; // empty = auto-detect deskleaf-calendar-sync in plugin directory
   weekStartsOn: "monday";
@@ -206,6 +217,7 @@ export interface DeskleafSettings {
   projectsOrder: string[];
   businessHours: BusinessHoursSettings;
   caldav: CalDAVSettings;
+  solidtime: SolidTimeSettings;
   icalSubscriptions: ICalFeedSubscription[];
 }
 
@@ -228,6 +240,10 @@ export const DEFAULT_SETTINGS: DeskleafSettings = {
     start: "09:00",
     end: "17:00",
     days: [1, 2, 3, 4, 5],
+  },
+  solidtime: {
+    apiKey: "",
+    organizationId: "",
   },
   caldav: {
     url: "https://caldav.fastmail.com",

@@ -219,6 +219,41 @@ export class DeskleafSettingTab extends PluginSettingTab {
           })
       );
 
+    // ── SolidTime ────────────────────────────────────────────────
+    containerEl.createEl("h3", { text: "SolidTime" });
+    containerEl.createEl("p", {
+      cls: "setting-item-description",
+      text: "Für ```solidtime-Blöcke in Notizen. Der Key wird in data.json des Plugins "
+        + "im Klartext abgelegt — halte diese Datei aus der Versionsverwaltung heraus.",
+    });
+
+    new Setting(containerEl)
+      .setName("API-Key")
+      .setDesc("Personal Access Token aus den SolidTime-Benutzereinstellungen. Nur lesender Zugriff wird genutzt.")
+      .addText(text => {
+        text.inputEl.type = "password";
+        return text
+          .setPlaceholder("(nicht gesetzt)")
+          .setValue(this.plugin.settings.solidtime.apiKey)
+          .onChange(async value => {
+            this.plugin.settings.solidtime.apiKey = value.trim();
+            await this.plugin.saveSettings();
+          });
+      });
+
+    new Setting(containerEl)
+      .setName("Organisation")
+      .setDesc("Nur nötig, wenn dein Konto zu mehreren Organisationen gehört. Leer = die erste.")
+      .addText(text =>
+        text
+          .setPlaceholder("(automatisch)")
+          .setValue(this.plugin.settings.solidtime.organizationId)
+          .onChange(async value => {
+            this.plugin.settings.solidtime.organizationId = value.trim();
+            await this.plugin.saveSettings();
+          })
+      );
+
     // ── Erweitert ─────────────────────────────────────────────────
     containerEl.createEl("h3", { text: "Erweitert" });
 

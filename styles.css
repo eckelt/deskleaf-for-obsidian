@@ -2992,3 +2992,53 @@
         justify-content: flex-start;
     }
 }
+
+/* ── SolidTime-Blöcke ───────────────────────────────────────────────── */
+
+.dl-solidtime-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9em;
+}
+
+.dl-solidtime-table th,
+.dl-solidtime-table td {
+    padding: 4px 8px;
+    border-bottom: 1px solid var(--background-modifier-border);
+    text-align: left;
+}
+
+.dl-solidtime-table th {
+    font-weight: 600;
+    color: var(--text-muted);
+    font-size: 0.88em;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+/* Zahlen rechtsbündig und in Tabellenziffern, damit die Spalten fluchten */
+.dl-solidtime-table .dl-num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.dl-solidtime-table tfoot td {
+    font-weight: 650;
+    border-bottom: none;
+    border-top: 2px solid var(--background-modifier-border);
+}
+
+.dl-solidtime-notice {
+    color: var(--text-muted);
+    font-size: 0.88em;
+    padding: 4px 0;
+}
+
+.dl-solidtime-notice--error {
+    color: var(--text-error);
+}
+
+.dl-solidtime-notice--hint {
+    font-style: italic;
+}

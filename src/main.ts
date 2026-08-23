@@ -8,6 +8,7 @@ import { DeskleafSidebarView, VIEW_TYPE_SIDEBAR } from "./sidebar-view";
 import { DeskleafSearchModal } from "./search-modal";
 import { DEFAULT_SETTINGS, type DeskleafSettings, type CalendarEvent } from "./types";
 import { ICalFeedManager } from "./ical-feed-manager";
+import { registerSolidTimeBlock } from "./solidtime-block";
 
 export default class DeskleafPlugin extends Plugin {
   settings!: DeskleafSettings;
@@ -109,6 +110,8 @@ export default class DeskleafPlugin extends Plugin {
       callback: () => new DeskleafSearchModal(this.app, this).open(),
     });
 
+    registerSolidTimeBlock(this);
+
     this.addSettingTab(new DeskleafSettingTab(this.app, this));
     window.addEventListener("beforeunload", this._beforeUnloadHandler);
   }
@@ -130,6 +133,7 @@ export default class DeskleafPlugin extends Plugin {
     // Deep-merge vault so a settings file written before the Brain structure
     // still gets every folder key rather than an undefined meetingsFolder.
     this.settings.vault = Object.assign({}, DEFAULT_SETTINGS.vault, data.vault ?? {});
+    this.settings.solidtime = Object.assign({}, DEFAULT_SETTINGS.solidtime, data.solidtime ?? {});
     this.calendarCache = data.calendarCache ?? [];
     this.calendarCacheDate = data.calendarCacheDate ?? null;
   }
