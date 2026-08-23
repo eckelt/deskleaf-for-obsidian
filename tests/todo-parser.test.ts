@@ -54,7 +54,7 @@ describe("parseTodoLines", () => {
     "",
     "## Todos bis nächstes Mal",
     "",
-    "- [ ] Konsolidierte Mail an Waldemar due:: 2026-08-21",
+    "- [ ] Konsolidierte Mail an Wanda due:: 2026-08-21",
     "- [ ] Zeitbudget klären",
     "  - [ ] Eingerückter Unterpunkt",
     "* [ ] Sternchen-Liste",
@@ -67,7 +67,7 @@ describe("parseTodoLines", () => {
 
   it("finds open and done items, indented and star-prefixed alike", () => {
     expect(todos.map((todo) => todo.text)).toEqual([
-      "Konsolidierte Mail an Waldemar",
+      "Konsolidierte Mail an Wanda",
       "Zeitbudget klären",
       "Eingerückter Unterpunkt",
       "Sternchen-Liste",

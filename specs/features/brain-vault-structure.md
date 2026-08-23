@@ -52,7 +52,7 @@ lesbar: der MCP findet eine Termin-Notiz ausschließlich über
       (`Termin-Historie` auf `kunde`, `Offene Todos` auf den Tag).
 - [x] AC4: Kunden-Erkennung läuft über die E-Mail-Domain der Teilnehmer gegen
       `domains:` der Kundennotizen; schlägt das fehl, über einen Präfix-Match
-      des Termin-Titels auf den Kundennamen (`"Tchibo – Workshop"` → `Tchibo`).
+      des Termin-Titels auf den Kundennamen (`"Nordwind – Workshop"` → `Nordwind`).
       Wird kein Kunde erkannt, bleibt das Frontmatter ohne `kunde`/`tags`.
 - [x] AC5: Teilnehmer werden zu `people/`-Notizen aufgelöst (über
       `email:`/`emails:` im Frontmatter, sonst über den Basenamen) und als
@@ -154,7 +154,7 @@ die Topic-Zeilen-Styles. Keine neuen Farben — inaktive Kunden über
 
 **Automatisiert (Vitest, 361 Tests grün):**
 - `brain-vault.test.ts` — 43 Tests: Slug (inkl. Umlaute), Domain- und Titel-Match
-  (inkl. der Nicht-Treffer „Rethinking Tchibo"), Personen-Auflösung, Dateinamen,
+  (inkl. der Nicht-Treffer „Rethinking Nordwind"), Personen-Auflösung, Dateinamen,
   Frontmatter-Rendering, alle drei Notiz-Templates, Verhalten bei
   handgeschriebenem Template.
 - `todo-parser.test.ts` — 27 Tests: alle drei Due-Syntaxen, Vorrang Zeile vor

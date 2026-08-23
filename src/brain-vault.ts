@@ -6,7 +6,7 @@
 
 import type { CalendarEvent, CustomerRef, PersonRef } from "./types";
 
-/** `Tchibo` → `tchibo`, `dmTECH GmbH` → `dmtech-gmbh`. Mirrors slugify() in the MCP. */
+/** `Nordwind` → `nordwind`, `Talwerk GmbH` → `talwerk-gmbh`. Mirrors slugify() in the MCP. */
 export function slugify(value: string): string {
   return value
     .toLowerCase()
@@ -37,9 +37,9 @@ export function attendeeEmail(attendee: string): string | null {
 /**
  * Which customer a calendar event belongs to.
  *
- * Domain first — an attendee from `tchibo.de` is hard evidence. Only when no
- * attendee resolves does the title decide, and then only as a prefix ("Tchibo –
- * Workshop"), never as a substring: "Rethinking Tchibo" is about the customer,
+ * Domain first — an attendee from `nordwind.de` is hard evidence. Only when no
+ * attendee resolves does the title decide, and then only as a prefix ("Nordwind –
+ * Workshop"), never as a substring: "Rethinking Nordwind" is about the customer,
  * a note titled "Retro" at a customer whose name happens to appear mid-sentence
  * is not.
  */
@@ -53,7 +53,7 @@ export function matchCustomer(event: CalendarEvent, customers: CustomerRef[]): C
 
 export function matchCustomerByTitle(title: string, customers: CustomerRef[]): CustomerRef | null {
   const normalized = title.trim().toLowerCase();
-  // Longest name first so "dmTECH Retail" wins over "dmTECH" when both exist.
+  // Longest name first so "Talwerk Retail" wins over "Talwerk" when both exist.
   const byLength = [...customers].sort((a, b) => b.name.length - a.name.length);
   for (const customer of byLength) {
     const name = customer.name.toLowerCase();
@@ -76,7 +76,7 @@ export function matchPerson(attendee: string, people: PersonRef[]): PersonRef | 
   return people.find((person) => person.name.toLowerCase() === name) ?? null;
 }
 
-/** "Waldemar Spät <w@x.de>" → "Waldemar Spät"; a bare address keeps its local part. */
+/** "Wanda Sturm <w@x.de>" → "Wanda Sturm"; a bare address keeps its local part. */
 export function displayName(attendee: string): string {
   const angled = attendee.match(/^\s*"?([^"<]+?)"?\s*<[^>]+>\s*$/);
   if (angled) return angled[1].trim();
@@ -85,7 +85,7 @@ export function displayName(attendee: string): string {
   return bare.slice(0, bare.indexOf("@")).replace(/[._]+/g, " ").trim();
 }
 
-/** Vault convention: `meetings/2026-08-21 Tchibo – Kick-off.md`. */
+/** Vault convention: `meetings/2026-08-21 Nordwind – Kick-off.md`. */
 export function meetingFilename(date: string, title: string): string {
   return `${date} ${sanitizeNoteName(title)}`.trim();
 }

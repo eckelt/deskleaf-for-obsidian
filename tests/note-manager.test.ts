@@ -236,19 +236,19 @@ function brainApp(notes: VaultNote[], options: { existingPaths?: string[] } = {}
   };
 }
 
-const tchibo: VaultNote = {
-  path: "customers/Tchibo.md",
-  frontmatter: { type: "kunde", domains: ["tchibo.de"], status: "aktiv" },
+const nordwind: VaultNote = {
+  path: "customers/Nordwind.md",
+  frontmatter: { type: "kunde", domains: ["nordwind.de"], status: "aktiv" },
 };
 const waldemar: VaultNote = {
-  path: "people/Waldemar Spät.md",
-  frontmatter: { type: "person", email: "waldemar.spaet@tchibo.de" },
+  path: "people/Wanda Sturm.md",
+  frontmatter: { type: "person", email: "wanda.sturm@nordwind.de" },
 };
 
 describe("NoteManager vault index", () => {
   it("reads customers, people and projects from their folders by type", () => {
     const fixture = brainApp([
-      tchibo,
+      nordwind,
       waldemar,
       { path: "projects/Benchmark.md", frontmatter: { type: "project" } },
       // Right folder, wrong type — not a customer.
@@ -258,9 +258,9 @@ describe("NoteManager vault index", () => {
     ]);
     const manager = new NoteManager(fixture.app as any, settings);
 
-    expect(manager.getCustomers().map((c) => c.name)).toEqual(["Tchibo"]);
-    expect(manager.getCustomers()[0].slug).toBe("tchibo");
-    expect(manager.getPeople().map((p) => p.name)).toEqual(["Waldemar Spät"]);
+    expect(manager.getCustomers().map((c) => c.name)).toEqual(["Nordwind"]);
+    expect(manager.getCustomers()[0].slug).toBe("nordwind");
+    expect(manager.getPeople().map((p) => p.name)).toEqual(["Wanda Sturm"]);
     expect(manager.getProjects().map((p) => p.name)).toEqual(["Benchmark"]);
   });
 
@@ -286,7 +286,7 @@ describe("NoteManager vault index", () => {
 
 describe("NoteManager meeting note creation", () => {
   it("writes a type: termin note into meetings/ with the calendar identity", async () => {
-    const fixture = brainApp([tchibo, waldemar]);
+    const fixture = brainApp([nordwind, waldemar]);
     const manager = new NoteManager(
       fixture.app as any,
       settings,
@@ -295,15 +295,15 @@ describe("NoteManager meeting note creation", () => {
 
     await manager.openOrCreate(event({
       id: "46AAFAE9",
-      title: "Tchibo – Kick-off",
+      title: "Nordwind – Kick-off",
       start: "2026-08-21T09:00:00Z",
       end: "2026-08-21T17:00:00Z",
-      attendees: ["Waldemar Spät <waldemar.spaet@tchibo.de>"],
+      attendees: ["Wanda Sturm <wanda.sturm@nordwind.de>"],
       body: "Workshop Tag 1.",
       location: "Hamburg",
     }));
 
-    expect(fixture.created.path).toBe("meetings/2026-08-21 Tchibo – Kick-off.md");
+    expect(fixture.created.path).toBe("meetings/2026-08-21 Nordwind – Kick-off.md");
     const content = fixture.created.content!;
     expect(content).toContain("type: termin");
     expect(content).toContain('calendar_event_id: "https://caldav.fastmail.com/dav/calendars/user/nils/x.ics"');
@@ -312,32 +312,32 @@ describe("NoteManager meeting note creation", () => {
   });
 
   it("links the matched customer through both kunde and the tag", async () => {
-    const fixture = brainApp([tchibo]);
+    const fixture = brainApp([nordwind]);
     const manager = new NoteManager(fixture.app as any, settings);
 
     await manager.openOrCreate(event({
       id: "u1", title: "Sync", start: "2026-08-21T09:00:00Z", end: "2026-08-21T10:00:00Z",
-      attendees: ["someone@tchibo.de"],
+      attendees: ["someone@nordwind.de"],
     }));
 
-    expect(fixture.created.content).toContain('kunde: "[[Tchibo]]"');
-    expect(fixture.created.content).toContain("tags: [kunde/tchibo]");
+    expect(fixture.created.content).toContain('kunde: "[[Nordwind]]"');
+    expect(fixture.created.content).toContain("tags: [kunde/nordwind]");
   });
 
   it("resolves attendees to their people/ notes", async () => {
-    const fixture = brainApp([tchibo, waldemar]);
+    const fixture = brainApp([nordwind, waldemar]);
     const manager = new NoteManager(fixture.app as any, settings);
 
     await manager.openOrCreate(event({
       id: "u2", title: "Sync", start: "2026-08-21T09:00:00Z", end: "2026-08-21T10:00:00Z",
-      attendees: ["waldemar.spaet@tchibo.de", "Fremde Person <x@extern.io>"],
+      attendees: ["wanda.sturm@nordwind.de", "Fremde Person <x@extern.io>"],
     }));
 
-    expect(fixture.created.content).toContain('teilnehmer: ["[[Waldemar Spät]]", "[[Fremde Person]]"]');
+    expect(fixture.created.content).toContain('teilnehmer: ["[[Wanda Sturm]]", "[[Fremde Person]]"]');
   });
 
   it("leaves the customer fields out when nothing matches", async () => {
-    const fixture = brainApp([tchibo]);
+    const fixture = brainApp([nordwind]);
     const manager = new NoteManager(fixture.app as any, settings);
 
     await manager.openOrCreate(event({
@@ -449,12 +449,12 @@ describe("NoteManager entity notes", () => {
   });
 
   it("returns the existing note instead of overwriting it", async () => {
-    const fixture = brainApp([tchibo]);
+    const fixture = brainApp([nordwind]);
     const manager = new NoteManager(fixture.app as any, settings);
 
-    const file = await manager.createCustomerNote("Tchibo");
+    const file = await manager.createCustomerNote("Nordwind");
 
-    expect(file.path).toBe("customers/Tchibo.md");
+    expect(file.path).toBe("customers/Nordwind.md");
     expect(fixture.created.path).toBeNull();
   });
 });
