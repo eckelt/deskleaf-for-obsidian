@@ -405,8 +405,8 @@ describe("event edit form redesign", () => {
     expect(editor.querySelector(".dl-edit-form-scroll")).not.toBeNull();
     const actions = editor.querySelector(".dl-edit-actions");
     expect(actions).not.toBeNull();
-    expect(editor.querySelector<HTMLInputElement>('input[placeholder="Titel..."]')?.value).toBe("Design Review");
-    expect(editor.querySelector<HTMLInputElement>('input[placeholder="Ort"]')?.value).toBe("Hamburg Office");
+    expect(editor.querySelector<HTMLInputElement>(".dl-edit-title-input")?.value).toBe("Design Review");
+    expect(editor.querySelector<HTMLInputElement>(".dl-edit-location-input")?.value).toBe("Hamburg Office");
     expect(editor.querySelector<HTMLTextAreaElement>("textarea")?.value).toBe("Discuss the redesigned edit form.");
     expect(editor.querySelector(".dl-edit-cal-btn")?.getAttribute("aria-label")).toContain("Work");
     // Committing happens on close, so only the destructive action needs a button.
@@ -508,7 +508,7 @@ describe("event edit form redesign", () => {
     expect(plugin.noteManager.syncEventNote).not.toHaveBeenCalled();
 
     editor = openEditor(view, makeEvent());
-    const titleInput = editor.querySelector<HTMLInputElement>('input[placeholder="Titel..."]');
+    const titleInput = editor.querySelector<HTMLInputElement>(".dl-edit-title-input");
     expect(titleInput).not.toBeNull();
     titleInput?.dispatchEvent(new TouchEvent("touchstart", { clientY: 100, bubbles: true }));
     document.body.dispatchEvent(new TouchEvent("touchmove", { clientY: 190, bubbles: true }));
@@ -547,7 +547,7 @@ describe("event edit form redesign", () => {
     expect(editor.querySelector(".dl-edit-section")).not.toBeNull();
     expect(editor.querySelector(".dl-edit-form-scroll")).not.toBeNull();
     expect(editor.querySelector(".dl-edit-actions")).not.toBeNull();
-    expect(editor.querySelector<HTMLInputElement>('input[placeholder="Titel..."]')?.value).toBe("Design Review");
+    expect(editor.querySelector<HTMLInputElement>(".dl-edit-title-input")?.value).toBe("Design Review");
   });
 
   it("keeps the rendered edit surface on Obsidian theme variables and Deskleaf edit styling", () => {
@@ -559,23 +559,30 @@ describe("event edit form redesign", () => {
     expect(editor.classList.contains("dl-edit-surface")).toBe(true);
     expect(editor.classList.contains("dl-create-popover")).toBe(false);
     expect(editor.querySelector(".dl-edit-header")).not.toBeNull();
-    expect(editor.querySelector(".dl-edit-heading")).not.toBeNull();
-    expect(editor.querySelector(".dl-edit-label")).not.toBeNull();
     expect(editor.querySelector(".dl-edit-actions")).not.toBeNull();
+
+    // The uppercase field labels are gone — the values name themselves and the
+    // placeholders carry what an empty field would have been called.
+    expect(editor.querySelector(".dl-edit-heading")).toBeNull();
+    expect(editor.querySelector(".dl-edit-label")).toBeNull();
+    expect(editor.querySelector(".dl-edit-header-date")).toBeNull();
+    expect(editor.querySelector<HTMLInputElement>(".dl-edit-location-input")?.placeholder)
+      .toBe("Ort hinzufügen");
+    expect(editor.querySelector<HTMLTextAreaElement>(".dl-edit-desc-input")?.placeholder)
+      .toBe("Notizen hinzufügen");
 
     const surfaceRule = cssRule(".dl-edit-surface");
     expect(surfaceRule).toContain("background: var(--background-primary)");
     expect(surfaceRule).toContain("border: 1px solid var(--background-modifier-border)");
     expect(surfaceRule).toContain("border-radius: 8px");
 
+    // Each group is its own card, so the header needs no rule to separate itself.
     const headerRule = cssRule(".dl-edit-header");
-    expect(headerRule).toContain("border-bottom: 1px solid var(--background-modifier-border)");
+    expect(headerRule).not.toContain("border-bottom");
 
-    const headingRule = cssRule(".dl-edit-heading");
-    expect(headingRule).toContain("color: var(--text-normal)");
-
-    const labelRule = cssRule(".dl-edit-label");
-    expect(labelRule).toContain("color: var(--text-muted)");
+    const sectionRule = cssRule(".dl-edit-section");
+    expect(sectionRule).toContain("background: var(--background-secondary)");
+    expect(sectionRule).toContain("border-radius: 10px");
 
     const actionsRule = cssRule(".dl-edit-actions");
     expect(actionsRule).toContain("border-top: 1px solid var(--background-modifier-border)");
@@ -632,10 +639,10 @@ describe("event edit form redesign", () => {
 
     // Escape discards — it is the abort gesture now that the button is gone.
     let editor = openEditor(view, makeEvent());
-    const discardedTitle = editor.querySelector<HTMLInputElement>('input[placeholder="Titel..."]');
+    const discardedTitle = editor.querySelector<HTMLInputElement>(".dl-edit-title-input");
     expect(discardedTitle).not.toBeNull();
     if (discardedTitle) discardedTitle.value = "Changed then discarded";
-    editor.querySelector<HTMLInputElement>('input[placeholder="Titel..."]')?.dispatchEvent(
+    editor.querySelector<HTMLInputElement>(".dl-edit-title-input")?.dispatchEvent(
       new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
     );
     await vi.runAllTimersAsync();
@@ -651,7 +658,7 @@ describe("event edit form redesign", () => {
 
     // A changed value is written when the editor closes.
     editor = openEditor(view, makeEvent());
-    const savedTitle = editor.querySelector<HTMLInputElement>('input[placeholder="Titel..."]');
+    const savedTitle = editor.querySelector<HTMLInputElement>(".dl-edit-title-input");
     expect(savedTitle).not.toBeNull();
     if (savedTitle) savedTitle.value = "Saved title";
     await commitByOutsideClick();
@@ -709,7 +716,7 @@ describe("event edit form redesign", () => {
     const plugin = makePlugin();
     const view = makeView(plugin);
     const editor = openEditor(view, makeEvent());
-    const titleInput = editor.querySelector<HTMLInputElement>('input[placeholder="Titel..."]');
+    const titleInput = editor.querySelector<HTMLInputElement>(".dl-edit-title-input");
     expect(titleInput).not.toBeNull();
     if (titleInput) titleInput.value = "   ";
 
@@ -850,7 +857,7 @@ describe("event edit form redesign", () => {
     const plugin = makePlugin();
     const view = makeView(plugin);
     const editor = openEditor(view, makeEvent({ isRecurring: true }));
-    const savedTitle = editor.querySelector<HTMLInputElement>('input[placeholder="Titel..."]');
+    const savedTitle = editor.querySelector<HTMLInputElement>(".dl-edit-title-input");
     expect(savedTitle).not.toBeNull();
     if (savedTitle) savedTitle.value = "Recurring title";
 
