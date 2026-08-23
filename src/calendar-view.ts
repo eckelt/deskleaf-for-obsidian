@@ -2178,14 +2178,16 @@ export class DeskleafCalendarView extends ItemView {
       : Array.from(new Set((reader.getEvents?.() ?? []).map(ev => ev.calendar ?? ""))).filter(Boolean);
     if (calendarValue && !knownCalendarNames.includes(calendarValue)) knownCalendarNames.unshift(calendarValue);
 
-    const header = popover.createDiv("dl-edit-header");
-    const headerRow = header.createDiv("dl-edit-header-row");
-    const headingGroup = headerRow.createDiv("dl-edit-heading-group");
-    if (readOnly || knownCalendarNames.length === 0) {
-      const headerDot = headingGroup.createDiv("dl-edit-header-dot");
-      this.applyCalendarTone(headerDot, calendarValue);
-    } else {
-      const calBtn = headingGroup.createEl("button", { cls: "dl-edit-cal-btn" });
+    // The calendar belongs to the title, so its chip sits in the title row and
+    // the menu hangs off the chip itself rather than off a header bar.
+    const renderCalendarControl = (row: HTMLElement) => {
+      const anchor = row.createDiv("dl-edit-cal");
+      if (readOnly || knownCalendarNames.length === 0) {
+        const headerDot = anchor.createDiv("dl-edit-header-dot");
+        this.applyCalendarTone(headerDot, calendarValue);
+        return;
+      }
+      const calBtn = anchor.createEl("button", { cls: "dl-edit-cal-btn" });
       const calDot = calBtn.createDiv("dl-edit-header-dot");
       const syncCalendarIndicator = () => {
         this.applyCalendarTone(calDot, calendarValue);
@@ -2200,7 +2202,7 @@ export class DeskleafCalendarView extends ItemView {
         calMenu = null;
       };
       const openCalMenu = () => {
-        calMenu = header.createDiv("dl-edit-cal-menu");
+        calMenu = anchor.createDiv("dl-edit-cal-menu");
         for (const name of knownCalendarNames) {
           const item = calMenu.createEl("button", { cls: "dl-edit-cal-menu-item" });
           if (name === calendarValue) item.addClass("dl-edit-cal-menu-item--active");
@@ -2226,8 +2228,11 @@ export class DeskleafCalendarView extends ItemView {
         if (target.closest(".dl-edit-cal-menu") || target.closest(".dl-edit-cal-btn")) return;
         closeCalMenu();
       });
-    }
+    };
+
+    // Only a read-only event has anything to say above the form.
     if (readOnly) {
+      const header = popover.createDiv("dl-edit-header");
       header.createDiv({ cls: "dl-edit-readonly-note", text: "Dieses Event ist in Deskleaf schreibgeschuetzt." });
     }
 
@@ -2308,7 +2313,10 @@ export class DeskleafCalendarView extends ItemView {
     let descInput: HTMLTextAreaElement | null = null;
 
     if (readOnly) {
-      form.createDiv({ cls: "dl-edit-ro-title", text: event.title });
+      const roTitleSection = form.createDiv("dl-edit-section dl-edit-section--title");
+      const roTitleRow = roTitleSection.createDiv("dl-edit-title-row");
+      roTitleRow.createDiv({ cls: "dl-edit-ro-title", text: event.title });
+      renderCalendarControl(roTitleRow);
       const timeSection = form.createDiv("dl-edit-section");
       timeSection.createDiv({
         cls: "dl-edit-ro-value",
@@ -2326,13 +2334,15 @@ export class DeskleafCalendarView extends ItemView {
       }
     } else {
       const titleSection = form.createDiv("dl-edit-section dl-edit-section--title");
-      const titleField = titleSection.createEl("input") as HTMLInputElement;
+      const titleRow = titleSection.createDiv("dl-edit-title-row");
+      const titleField = titleRow.createEl("input") as HTMLInputElement;
       titleField.type = "text";
       titleField.addClass("dl-create-input");
       titleField.addClass("dl-edit-title-input");
       titleField.addClass("dl-edit-field");
       titleField.placeholder = "Titel hinzufügen";
       titleField.value = event.title;
+      renderCalendarControl(titleRow);
 
       const timeSection = form.createDiv("dl-edit-section");
       const dateTimeRow = timeSection.createDiv("dl-edit-date-time-row");
