@@ -696,6 +696,14 @@ describe("event edit form redesign", () => {
     expect(focusRule).toContain("border-color: var(--interactive-accent)");
     expect(focusRule).toContain("background: var(--background-primary)");
 
+    // Touch has no hover to reveal the fields with, so it keeps a faint outline
+    // rather than needing a mode switch into editing.
+    const styles = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
+    const touchBlock = /@media \(hover: none\) \{([\s\S]*?)\n\}/.exec(styles);
+    expect(touchBlock).not.toBeNull();
+    expect(touchBlock?.[1]).toContain(".dl-edit-surface .dl-edit-field");
+    expect(touchBlock?.[1]).toContain("border-color: var(--background-modifier-border)");
+
     // A rejected value must stay visible through hover and focus.
     const invalidRule = cssRule(".dl-edit-surface .dl-edit-field.dl-create-input--invalid");
     expect(invalidRule).toContain("border-color: var(--color-red)");
