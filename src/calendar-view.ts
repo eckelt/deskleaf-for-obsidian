@@ -1691,9 +1691,19 @@ export class DeskleafCalendarView extends ItemView {
     const startTimeLabel = topHandle.createDiv("dl-edit-time-label dl-edit-time-label--start");
     const endTimeLabel = bottomHandle.createDiv("dl-edit-time-label dl-edit-time-label--end");
 
+    // The check only appears once there is something to confirm, so the resting
+    // state of a long press stays quiet.
+    const confirmBtn = previewEl.createEl("button", { cls: "dl-event-confirm-btn" });
+    setIcon(confirmBtn, "check");
+    confirmBtn.setAttribute("aria-label", "Änderung übernehmen");
+    confirmBtn.setAttribute("title", "Änderung übernehmen");
+    const isChanged = () => curStart !== startMin || curEnd !== endMin || curDate !== date;
+
     const updateBar = () => {
       startTimeLabel.textContent = minsToTimeStr(curStart);
       endTimeLabel.textContent = curDate === date ? minsToTimeStr(curEnd) : `${curDate} ${minsToTimeStr(curEnd)}`;
+      if (isChanged()) previewEl.addClass("dl-event-card--dirty");
+      else previewEl.removeClass("dl-event-card--dirty");
     };
 
     const refreshPreview = () => {
@@ -1811,7 +1821,7 @@ export class DeskleafCalendarView extends ItemView {
     previewEl.addEventListener("touchstart", onBodyStart, { passive: true });
 
     const commitAndClose = async () => {
-      const changed = curStart !== startMin || curEnd !== endMin || curDate !== date;
+      const changed = isChanged();
       if (!changed) {
         cleanup();
         return;
@@ -1839,12 +1849,22 @@ export class DeskleafCalendarView extends ItemView {
       cleanup();
     };
 
+    const onConfirmTap = (ev: Event) => {
+      ev.stopPropagation();
+      ev.preventDefault();
+      void commitAndClose();
+    };
+    confirmBtn.addEventListener("touchstart", (ev) => ev.stopPropagation(), { passive: true });
+    confirmBtn.addEventListener("touchend", onConfirmTap);
+    confirmBtn.addEventListener("click", onConfirmTap);
+
     const onConfirm = (ev: TouchEvent) => {
       if ((ev.target as HTMLElement).closest(".dl-edit-handle")) return;
       // The trash is not a "commit this edit" tap. Without this the touchend
       // below preventDefault()s the synthetic click away and closes the mode,
       // so the button appeared to do nothing at all.
       if ((ev.target as HTMLElement).closest(".dl-event-delete-btn")) return;
+      if ((ev.target as HTMLElement).closest(".dl-event-confirm-btn")) return;
       if (didMoveInMoveMode) return;
       ev.preventDefault();
       ev.stopPropagation();
