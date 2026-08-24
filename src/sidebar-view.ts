@@ -55,7 +55,7 @@ interface EntityEntry {
   logo?: string;
   /** Right-hand chips: upcoming meetings for a customer, todo count for a project. */
   chips: string[];
-  /** Customers whose status is not "aktiv" are dimmed and sorted last. */
+  /** Customers not "aktiv" and projects marked `done` are dimmed and sorted last. */
   inactive: boolean;
 }
 type EntityKind = "customers" | "projects";
@@ -556,7 +556,7 @@ export class DeskleafSidebarView extends ItemView {
           file: this.fileFor(project.path),
           title: project.name,
           chips: this.openTodoChip(project),
-          inactive: false,
+          inactive: project.done,
         }));
 
     const present = raw.filter((entry): entry is EntityEntry => entry.file != null);
@@ -567,7 +567,8 @@ export class DeskleafSidebarView extends ItemView {
       if (entry) { ordered.push(entry); byPath.delete(path); }
     }
     ordered.push(...byPath.values());
-    // Inactive customers keep their relative order but sink below the active ones.
+    // Finished projects and inactive customers keep their relative order but
+    // sink below the live ones.
     return [...ordered.filter((entry) => !entry.inactive), ...ordered.filter((entry) => entry.inactive)];
   }
 

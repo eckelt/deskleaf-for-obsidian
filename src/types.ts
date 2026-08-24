@@ -89,6 +89,8 @@ export interface PersonRef {
 export interface ProjectRef {
   name: string;
   path: string;
+  /** `done: true` in the note's frontmatter — the project is finished. */
+  done: boolean;
 }
 
 // 6 Monokai Pro calendar hues: pink · orange · yellow · green · cyan · purple

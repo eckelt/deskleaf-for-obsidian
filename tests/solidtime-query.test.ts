@@ -183,26 +183,19 @@ describe("Aufbereitung", () => {
 
 describe("solidtime table styling", () => {
   const styles = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
-  const cssRule = (selector: string): string => {
-    const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const match = new RegExp(`${escaped}\\s*\\{([^}]*)\\}`).exec(styles);
-    if (!match) throw new Error(`CSS rule ${selector} was not found`);
-    return match[1];
-  };
 
-  it("keeps only the horizontal rules", () => {
-    // Obsidian draws full cell borders on rendered tables, so resetting the
-    // shorthand is what actually removes the vertical grid lines.
-    const cells = cssRule(".dl-solidtime-table th,\n.dl-solidtime-table td");
-    expect(cells).toContain("border: none");
-    expect(cells).toContain("border-bottom: 1px solid var(--background-modifier-border)");
-    expect(cssRule(".dl-solidtime-table")).toContain("border: none");
+  it("paints no table chrome of its own", () => {
+    // The table wears Dataview's classes so the theme styles it exactly like the
+    // Dataview tables beside it. Anything this file painted would break that.
+    const block = styles.slice(styles.indexOf("/* ── SolidTime-Blöcke"), styles.indexOf(".dl-solidtime-notice {"));
+    expect(block).not.toContain("border");
+    expect(block).not.toContain("background");
   });
 
-  it("reads as rows: plain headers, no closing rule under the last one", () => {
-    const header = cssRule(".dl-solidtime-table th");
-    expect(header).not.toContain("text-transform");
-    expect(header).toContain("color: var(--text-normal)");
-    expect(cssRule(".dl-solidtime-table tbody tr:last-child td")).toContain("border-bottom: none");
+  it("keeps the numeric columns aligned", () => {
+    const block = styles.slice(styles.indexOf("/* ── SolidTime-Blöcke"), styles.indexOf(".dl-solidtime-notice {"));
+    expect(block).toContain(".dl-solidtime-table .dl-num");
+    expect(block).toContain("text-align: right");
+    expect(block).toContain("font-variant-numeric: tabular-nums");
   });
 });

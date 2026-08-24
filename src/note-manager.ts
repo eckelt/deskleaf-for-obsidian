@@ -16,6 +16,13 @@ import {
  * (`calendar_event_id` / `calendar_uid`) the MCP resolves notes by. Pre-Brain
  * notes carrying `event-id` are still found, so nothing existing goes dark.
  */
+/** A frontmatter flag is done when it says so — as a boolean or as plain text. */
+function isDoneFlag(value: unknown): boolean {
+  if (typeof value === "boolean") return value;
+  if (typeof value !== "string") return false;
+  return ["true", "yes", "ja", "done", "abgeschlossen"].includes(value.trim().toLowerCase());
+}
+
 export class NoteManager {
   constructor(
     private app: App,
@@ -60,8 +67,12 @@ export class NoteManager {
   }
 
   getProjects(): ProjectRef[] {
-    return this.notesIn(this.settings.vault.projectsFolder, "project")
-      .map((file) => ({ name: file.basename, path: file.path }));
+    return this.notesIn(this.settings.vault.projectsFolder, "project").map((file) => {
+      const fm = this.app.metadataCache.getFileCache(file)?.frontmatter ?? {};
+      // YAML gives `done: true` as a boolean, but a hand-typed "true" or "yes"
+      // means the same thing to whoever wrote it.
+      return { name: file.basename, path: file.path, done: isDoneFlag(fm.done) };
+    });
   }
 
   /** The customer a calendar event belongs to, or null. */

@@ -3112,51 +3112,9 @@
 
 /* ── SolidTime-Blöcke ───────────────────────────────────────────────── */
 
-/* Obsidian zeichnet auf gerenderten Tabellen volle Zellrahmen. Hier bleiben
-   nur die waagerechten: die Tabelle soll als Zeilen gelesen werden, nicht als
-   Gitter — so wie die Dataview-Tabellen daneben. */
-.dl-solidtime-table {
-    width: 100%;
-    border: none;
-    border-collapse: collapse;
-    font-size: 0.9em;
-}
-
-.dl-solidtime-table th,
-.dl-solidtime-table td {
-    border: none;
-    border-bottom: 1px solid var(--background-modifier-border);
-    padding: 5px 16px 5px 0;
-    text-align: left;
-    vertical-align: top;
-    background: transparent;
-}
-
-.dl-solidtime-table th:last-child,
-.dl-solidtime-table td:last-child {
-    padding-right: 0;
-}
-
-.dl-solidtime-table th {
-    font-weight: 600;
-    color: var(--text-normal);
-    white-space: nowrap;
-}
-
-/* Kein Abschlussstrich unter der letzten Zeile — die Tabelle endet, wo der
-   Inhalt endet. Die Summe setzt sich mit ihrer eigenen Linie ab. */
-.dl-solidtime-table tbody tr:last-child td {
-    border-bottom: none;
-}
-
-.dl-solidtime-table tfoot td {
-    font-weight: 600;
-    border-bottom: none;
-    border-top: 1px solid var(--background-modifier-border);
-    padding-top: 7px;
-}
-
-/* Zahlen rechtsbündig und in Tabellenziffern, damit die Spalten fluchten */
+/* Die Tabelle traegt Dataviews eigene Klassen und uebernimmt damit alles, was
+   das Theme Dataview-Tabellen antut. Hier steht nur, was Dataview nicht kennt:
+   Zahlenspalten und die Summenzeile. Keine Rahmen, keine Flaechen. */
 .dl-solidtime-table .dl-num {
     text-align: right;
     font-variant-numeric: tabular-nums;
@@ -3166,8 +3124,11 @@
 /* Ein Datum, das umbricht, kostet drei Zeilen für elf Zeichen. */
 .dl-solidtime-table .dl-st-date {
     white-space: nowrap;
-    color: var(--text-muted);
     font-variant-numeric: tabular-nums;
+}
+
+.dl-solidtime-table .dl-solidtime-total td {
+    font-weight: 600;
 }
 
 .dl-solidtime-notice {
