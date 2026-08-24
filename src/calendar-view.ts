@@ -1662,18 +1662,29 @@ export class DeskleafCalendarView extends ItemView {
     const stopFromHandles = (ev: Event) => ev.stopPropagation();
     deleteBtn.addEventListener("touchstart", stopFromHandles, { passive: true });
     deleteBtn.addEventListener("pointerdown", stopFromHandles);
-    deleteBtn.addEventListener("click", async (ev) => {
+    let deleting = false;
+    const requestDelete = async (ev: Event) => {
       ev.stopPropagation();
       ev.preventDefault();
-      const span = event.isRecurring ? await this.askRecurringEditSpan() : "this";
-      if (!span) return;
+      if (deleting) return;
+      deleting = true;
+      // A recurring event is asked about anyway — that dialog is the
+      // confirmation, and asking twice for one tap is noise.
+      const span = event.isRecurring
+        ? await this.askRecurringEditSpan()
+        : (await this.askDeleteConfirmation(event) ? "this" : null);
+      if (!span) { deleting = false; return; }
       this.exitMobileEditMode();
       try {
         await this.plugin.calendarReader.cancelEvent(event.id, span === "series" ? "future" : "this");
       } catch (err: any) {
         new Notice(`Fehler: ${err?.message ?? err}`);
       }
-    });
+    };
+    // Touch first: the preview only exists on mobile, and a synthetic click is
+    // not something to rely on inside a gesture-driven mode.
+    deleteBtn.addEventListener("touchend", requestDelete);
+    deleteBtn.addEventListener("click", requestDelete);
 
     const topHandle    = previewEl.createDiv("dl-edit-handle dl-edit-handle--top");
     const bottomHandle = previewEl.createDiv("dl-edit-handle dl-edit-handle--bottom");
@@ -1830,6 +1841,10 @@ export class DeskleafCalendarView extends ItemView {
 
     const onConfirm = (ev: TouchEvent) => {
       if ((ev.target as HTMLElement).closest(".dl-edit-handle")) return;
+      // The trash is not a "commit this edit" tap. Without this the touchend
+      // below preventDefault()s the synthetic click away and closes the mode,
+      // so the button appeared to do nothing at all.
+      if ((ev.target as HTMLElement).closest(".dl-event-delete-btn")) return;
       if (didMoveInMoveMode) return;
       ev.preventDefault();
       ev.stopPropagation();
@@ -2608,6 +2623,33 @@ export class DeskleafCalendarView extends ItemView {
     this.activeEventEditCleanup?.();
     this.activeEventEditCleanup = null;
     document.querySelector(".dl-edit-overlay")?.remove();
+  }
+
+  private askDeleteConfirmation(event: CalendarEvent): Promise<boolean> {
+    const isInvitation = event.isOrganizer === false;
+    return new Promise((resolve) => {
+      const modal = document.body.createDiv("dl-create-popover dl-edit-scope-popover");
+      modal.createDiv({
+        cls: "dl-hover-title",
+        text: isInvitation ? "Einladung ablehnen?" : "Termin löschen?",
+      });
+      modal.createDiv({ cls: "setting-item-description", text: event.title });
+      const actions = modal.createDiv("dl-create-actions");
+      const cancel = actions.createEl("button", { cls: "dl-create-btn", text: "Abbrechen" });
+      const confirm = actions.createEl("button", {
+        cls: "dl-create-btn dl-create-btn--danger",
+        text: isInvitation ? "Ablehnen" : "Löschen",
+      });
+      modal.style.left = "50%";
+      modal.style.top = "18%";
+      modal.style.transform = "translateX(-50%)";
+      const finish = (ok: boolean) => {
+        modal.remove();
+        resolve(ok);
+      };
+      cancel.addEventListener("click", () => finish(false));
+      confirm.addEventListener("click", () => finish(true));
+    });
   }
 
   private askRecurringEditSpan(): Promise<"this" | "series" | null> {
