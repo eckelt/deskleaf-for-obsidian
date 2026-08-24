@@ -1651,6 +1651,30 @@ export class DeskleafCalendarView extends ItemView {
     previewEl.style.width = cardEl.style.width;
     previewEl.createDiv({ cls: "dl-event-title", text: event.title });
 
+    // Deleting belongs to the marked event, not to a form: once a long press has
+    // singled the card out, the trash sits on it.
+    const isInvitation = event.isOrganizer === false;
+    const deleteLabel = isInvitation ? "Einladung ablehnen" : "Termin löschen";
+    const deleteBtn = previewEl.createEl("button", { cls: "dl-event-delete-btn" });
+    setIcon(deleteBtn, "trash-2");
+    deleteBtn.setAttribute("aria-label", deleteLabel);
+    deleteBtn.setAttribute("title", deleteLabel);
+    const stopFromHandles = (ev: Event) => ev.stopPropagation();
+    deleteBtn.addEventListener("touchstart", stopFromHandles, { passive: true });
+    deleteBtn.addEventListener("pointerdown", stopFromHandles);
+    deleteBtn.addEventListener("click", async (ev) => {
+      ev.stopPropagation();
+      ev.preventDefault();
+      const span = event.isRecurring ? await this.askRecurringEditSpan() : "this";
+      if (!span) return;
+      this.exitMobileEditMode();
+      try {
+        await this.plugin.calendarReader.cancelEvent(event.id, span === "series" ? "future" : "this");
+      } catch (err: any) {
+        new Notice(`Fehler: ${err?.message ?? err}`);
+      }
+    });
+
     const topHandle    = previewEl.createDiv("dl-edit-handle dl-edit-handle--top");
     const bottomHandle = previewEl.createDiv("dl-edit-handle dl-edit-handle--bottom");
     const startTimeLabel = topHandle.createDiv("dl-edit-time-label dl-edit-time-label--start");
@@ -2443,14 +2467,9 @@ export class DeskleafCalendarView extends ItemView {
       descInput = descField;
     }
 
-    // The editor commits on close, so it needs no save and no cancel button:
-    // clicking outside writes the changes, Escape discards them. Delete has no
-    // such gesture and stays.
-    const actions = readOnly ? null : popover.createDiv("dl-create-actions dl-edit-actions");
-    const deleteBtn = actions?.createEl("button", {
-      cls: "dl-create-btn dl-create-btn--danger dl-edit-delete-btn",
-      text: event.isOrganizer === false ? "Ablehnen" : "Löschen",
-    }) ?? null;
+    // The editor has no buttons left: clicking outside writes the changes,
+    // Escape discards them, and deleting lives where the event does — the
+    // trash button on a long-pressed card, or the context menu on desktop.
 
     const clearErrors = () => {
       titleInput?.removeClass("dl-create-input--invalid");
@@ -2537,18 +2556,6 @@ export class DeskleafCalendarView extends ItemView {
       return true;
     };
 
-    deleteBtn?.addEventListener("mousedown", (ev) => ev.preventDefault());
-    deleteBtn?.addEventListener("click", async () => {
-      committing = true;
-      const span = event.isRecurring ? await this.askRecurringEditSpan() : "this";
-      if (!span) { committing = false; return; }
-      close();
-      try {
-        await this.plugin.calendarReader.cancelEvent(event.id, span === "series" ? "future" : "this");
-      } catch (err: any) {
-        new Notice(`Fehler: ${err?.message ?? err}`);
-      }
-    });
     titleInput?.addEventListener("keydown", (ev) => {
       if (ev.key === "Enter" && !readOnly) { ev.preventDefault(); void commit(); }
       if (ev.key === "Escape") close();

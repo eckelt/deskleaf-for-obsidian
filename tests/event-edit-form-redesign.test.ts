@@ -404,16 +404,14 @@ describe("event edit form redesign", () => {
     expect(editor.querySelector(".dl-edit-form-scroll")).not.toBeNull();
     // Nothing needs saying above the form on a writable event.
     expect(editor.querySelector(".dl-edit-header")).toBeNull();
-    const actions = editor.querySelector(".dl-edit-actions");
-    expect(actions).not.toBeNull();
     expect(editor.querySelector<HTMLInputElement>(".dl-edit-title-input")?.value).toBe("Design Review");
     expect(editor.querySelector<HTMLInputElement>(".dl-edit-location-input")?.value).toBe("Hamburg Office");
     expect(editor.querySelector<HTMLTextAreaElement>("textarea")?.value).toBe("Discuss the redesigned edit form.");
     expect(editor.querySelector(".dl-edit-cal-btn")?.getAttribute("aria-label")).toContain("Work");
-    // Committing happens on close, so only the destructive action needs a button.
-    expect(actions?.textContent).toBe("Löschen");
-    expect(editor.querySelector(".dl-edit-cancel-btn")).toBeNull();
-    expect(editor.querySelector(".dl-edit-save-btn")).toBeNull();
+    // The editor has no buttons at all: committing happens on close, and
+    // deleting lives on the card the long press marked.
+    expect(editor.querySelector(".dl-edit-actions")).toBeNull();
+    expect(editor.querySelector("button:not(.dl-edit-cal-btn)")).toBeNull();
   });
 
   it("moves the event to another calendar through the title-row calendar menu", async () => {
@@ -455,7 +453,6 @@ describe("event edit form redesign", () => {
     const body = editor.querySelector(".dl-edit-form-scroll");
     expect(body).not.toBeNull();
     expect(body?.contains(editor.querySelector("textarea"))).toBe(true);
-    expect(editor.querySelector(".dl-edit-actions")).not.toBeNull();
   });
 
   it("dismisses the mobile sheet only after a clear downward handle drag", async () => {
@@ -528,9 +525,9 @@ describe("event edit form redesign", () => {
     await vi.runAllTimersAsync();
     expect(document.querySelector(".dl-edit-surface")).not.toBeNull();
 
-    const deleteButton = editor.querySelector<HTMLButtonElement>(".dl-edit-delete-btn");
-    expect(deleteButton).not.toBeNull();
-    deleteButton?.dispatchEvent(new TouchEvent("touchstart", { clientY: 100, bubbles: true }));
+    const calButton = editor.querySelector<HTMLButtonElement>(".dl-edit-cal-btn");
+    expect(calButton).not.toBeNull();
+    calButton?.dispatchEvent(new TouchEvent("touchstart", { clientY: 100, bubbles: true }));
     document.body.dispatchEvent(new TouchEvent("touchmove", { clientY: 190, bubbles: true }));
     document.body.dispatchEvent(new TouchEvent("touchend", { clientY: 190, bubbles: true }));
     await vi.runAllTimersAsync();
@@ -550,7 +547,6 @@ describe("event edit form redesign", () => {
     expect(editor.classList.contains("dl-create-popover--mobile")).toBe(false);
     expect(editor.querySelector(".dl-edit-section")).not.toBeNull();
     expect(editor.querySelector(".dl-edit-form-scroll")).not.toBeNull();
-    expect(editor.querySelector(".dl-edit-actions")).not.toBeNull();
     expect(editor.querySelector<HTMLInputElement>(".dl-edit-title-input")?.value).toBe("Design Review");
   });
 
@@ -562,7 +558,6 @@ describe("event edit form redesign", () => {
 
     expect(editor.classList.contains("dl-edit-surface")).toBe(true);
     expect(editor.classList.contains("dl-create-popover")).toBe(false);
-    expect(editor.querySelector(".dl-edit-actions")).not.toBeNull();
 
     // The uppercase field labels are gone — the values name themselves and the
     // placeholders carry what an empty field would have been called.
@@ -589,10 +584,6 @@ describe("event edit form redesign", () => {
     const sectionRule = cssRule(".dl-edit-section");
     expect(sectionRule).toContain("background: var(--background-secondary)");
     expect(sectionRule).toContain("border-radius: 10px");
-
-    const actionsRule = cssRule(".dl-edit-actions");
-    expect(actionsRule).toContain("border-top: 1px solid var(--background-modifier-border)");
-    expect(actionsRule).toContain("background: var(--background-secondary)");
   });
 
   it("keeps edit form and sidebar roots horizontally contained", () => {
@@ -603,9 +594,8 @@ describe("event edit form redesign", () => {
     const formRule = cssRule(".dl-edit-form-scroll");
     expect(formRule).toContain("overflow-x: hidden");
 
-    const actionsRule = cssRule(".dl-edit-actions");
-    expect(actionsRule).toContain("flex-wrap: wrap");
-    expect(actionsRule).toContain("min-width: 0");
+    const sectionRule = cssRule(".dl-edit-section");
+    expect(sectionRule).toContain("min-width: 0");
 
     const sidebarRootRule = cssRule(".dl-sidebar-root");
     expect(sidebarRootRule).toContain("overflow-x: hidden");
@@ -757,40 +747,20 @@ describe("event edit form redesign", () => {
     expect(plugin.calendarReader.updateEvent).not.toHaveBeenCalled();
   });
 
-  it("keeps the writable edit delete action on the existing cancelEvent path", async () => {
+  it("offers no way to delete from the editor — that lives on the card", async () => {
     const plugin = makePlugin();
     const view = makeView(plugin);
-    const editor = openEditor(view, makeEvent());
-    const actions = editor.querySelector(".dl-edit-actions");
 
-    expect(actions?.textContent).toContain("Löschen");
-
-    actions?.querySelectorAll<HTMLButtonElement>("button").forEach((button) => {
-      if (button.textContent === "Löschen") button.click();
-    });
-    await vi.runAllTimersAsync();
-
-    expect(plugin.calendarReader.cancelEvent).toHaveBeenCalledWith("event-1", "this");
-    expect(plugin.calendarReader.updateEvent).not.toHaveBeenCalled();
-    expect(plugin.noteManager.syncEventNote).not.toHaveBeenCalled();
-  });
-
-  it("keeps the writable edit decline action on the existing cancelEvent path", async () => {
-    const plugin = makePlugin();
-    const view = makeView(plugin);
-    const editor = openEditor(view, makeEvent({ isOrganizer: false }), false);
-    const actions = editor.querySelector(".dl-edit-actions");
-
-    expect(actions?.textContent).toContain("Ablehnen");
-
-    actions?.querySelectorAll<HTMLButtonElement>("button").forEach((button) => {
-      if (button.textContent === "Ablehnen") button.click();
-    });
-    await vi.runAllTimersAsync();
-
-    expect(plugin.calendarReader.cancelEvent).toHaveBeenCalledWith("event-1", "this");
-    expect(plugin.calendarReader.updateEvent).not.toHaveBeenCalled();
-    expect(plugin.noteManager.syncEventNote).not.toHaveBeenCalled();
+    for (const event of [makeEvent(), makeEvent({ isOrganizer: false })]) {
+      const editor = openEditor(view, event);
+      expect(editor.textContent).not.toContain("Löschen");
+      expect(editor.textContent).not.toContain("Ablehnen");
+      editor.querySelectorAll<HTMLButtonElement>("button").forEach((button) => button.click());
+      await vi.runAllTimersAsync();
+      expect(plugin.calendarReader.cancelEvent).not.toHaveBeenCalled();
+      view.removeEventEditOverlay?.();
+      document.querySelector(".dl-edit-overlay")?.remove();
+    }
   });
 
   it("opens location URLs externally without event update or note sync", async () => {

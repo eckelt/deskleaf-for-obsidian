@@ -1318,7 +1318,7 @@ describe("event edit interactions", () => {
       expect(popover.querySelector(".dl-edit-header")).toBeNull();
       expect(popover.querySelector(".dl-edit-cal-btn")?.closest(".dl-edit-title-row")).not.toBeNull();
       expect(popover.querySelector(".dl-edit-form-scroll")).not.toBeNull();
-      expect(popover.querySelector(".dl-edit-actions")).not.toBeNull();
+      expect(popover.querySelector(".dl-edit-actions")).toBeNull();
       expect(textInputs.map((input) => input.value)).toEqual([
         "Planning review",
         "Room 1",
@@ -1384,17 +1384,17 @@ describe("event edit interactions", () => {
       expect(sheet.querySelector(".dl-edit-sheet-handle")).not.toBeNull();
       expect(sheet.querySelector(".dl-edit-header")).toBeNull();
       expect(sheet.querySelector(".dl-edit-form-scroll")).not.toBeNull();
-      expect(sheet.querySelector(".dl-edit-actions")).not.toBeNull();
+      expect(sheet.querySelector(".dl-edit-actions")).toBeNull();
       expect(sheet.querySelector(".dl-edit-title-input")?.value).toBe("Planning review");
       expect(sheet.querySelector(".dl-edit-start-input")?.value).toBe("10:15");
       expect(sheet.querySelector(".dl-edit-end-input")?.value).toBe("11:45");
       expect(sheet.querySelector(".dl-edit-location-input")?.value).toBe("Room 1");
       expect(sheet.querySelector(".dl-edit-desc-input")?.value).toBe("Review current milestones");
-      // The editor commits on close, so the only button left is the destructive one.
+      // The editor has no buttons: it commits on close, and deleting lives on
+      // the card that a long press marked.
       expect(sheet.querySelector(".dl-edit-save-btn")).toBeNull();
       expect(sheet.querySelector(".dl-edit-cancel-btn")).toBeNull();
-      expect(sheet.querySelector(".dl-edit-delete-btn")).not.toBeNull();
-      expect(renderText(sheet.querySelector(".dl-edit-actions"))).toBe("Löschen");
+      expect(sheet.querySelector(".dl-edit-delete-btn")).toBeNull();
     } finally {
       Platform.isMobile = wasMobile;
       Platform.isDesktop = wasDesktop;
@@ -1452,7 +1452,9 @@ describe("event edit interactions", () => {
       formScroll.dispatchEvent(new Event("scroll"));
 
       expect(sheet.querySelector(".dl-edit-desc-input")?.value).toBe(longDescription);
-      expect(sheet.children.indexOf(formScroll)).toBeLessThan(sheet.children.length - 1);
+      // The handle stays outside the scrolling region, so it never scrolls away.
+      expect(sheet.children.indexOf(formScroll)).toBeGreaterThan(0);
+      expect(sheet.children[0].classList.contains("dl-edit-sheet-handle")).toBe(true);
       expect(formScroll.scrollTop).toBe(320);
       expect(bodyScroll.scrollTop).toBe(240);
       expect(cssRule(".dl-edit-form-scroll")).toContain("overflow-y: auto");
@@ -1465,10 +1467,65 @@ describe("event edit interactions", () => {
     }
   });
 
+  it("puts the trash on the long-pressed card and cancels through the existing path", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback): number => {
+      callback(0);
+      return 1;
+    });
+    vi.stubGlobal("window", { clearTimeout, innerHeight: 720, innerWidth: 390, setTimeout });
+    const testDocument = new TestDocument();
+    vi.stubGlobal("document", testDocument);
+    const wasMobile = Platform.isMobile;
+    const wasDesktop = Platform.isDesktop;
+    Platform.isMobile = true;
+    Platform.isDesktop = false;
+    try {
+      const event: CalendarEvent = {
+        id: "event-1",
+        title: "Planning review",
+        start: "2026-05-04T10:15:00Z",
+        end: "2026-05-04T11:45:00Z",
+        location: "Room 1",
+        body: "Review current milestones",
+        calendar: "Work",
+      };
+      const view = createCalendarViewHarnessWithEvents([event]);
+      const calendarReader = Reflect.get(Reflect.get(view, "plugin"), "calendarReader");
+      const cancelEvent = vi.fn(async (): Promise<void> => {});
+      Reflect.set(calendarReader, "cancelEvent", cancelEvent);
+
+      callViewMethod(view, "render");
+      const card = renderedGrid(view).querySelector(".dl-event-card");
+      if (!card) throw new Error("event card was not rendered");
+      // No trash until a long press has singled the card out.
+      expect(testDocument.body.querySelector(".dl-event-delete-btn")).toBeNull();
+
+      card.dispatchEvent(makeTouchEvent("touchstart", [{ clientX: 100, clientY: 200 }]));
+      vi.advanceTimersByTime(400);
+
+      const preview = renderedGrid(view).querySelector(".dl-event-card--editing");
+      if (!preview) throw new Error("long press did not mark the card");
+      const trash = preview.querySelector(".dl-event-delete-btn");
+      if (!trash) throw new Error("trash button was not rendered");
+
+      trash.dispatchEvent(makeMouseEvent("click"));
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(cancelEvent).toHaveBeenCalledWith("event-1", "this");
+    } finally {
+      Platform.isMobile = wasMobile;
+      Platform.isDesktop = wasDesktop;
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("keeps the mobile edit sheet anchored inside the viewport and safe area", () => {
     const mobileOverlayRule = cssRule(".dl-edit-overlay--mobile");
     const mobileSheetRule = cssRule(".dl-edit-sheet");
-    const mobileSheetActionsRule = cssRule(".dl-edit-sheet .dl-edit-actions");
+    const trashRule = cssRule(".dl-event-delete-btn");
 
     expect(mobileOverlayRule).toContain("align-items: flex-end");
     expect(mobileOverlayRule).toContain("padding: 0 8px");
@@ -1477,7 +1534,10 @@ describe("event edit interactions", () => {
     expect(mobileSheetRule).toContain("max-height: min(82vh, 640px)");
     expect(mobileSheetRule).toContain("margin-top: auto");
     expect(mobileSheetRule).toContain("margin-bottom: max(8px, env(safe-area-inset-bottom))");
-    expect(mobileSheetActionsRule).toContain("padding-bottom: max(10px, env(safe-area-inset-bottom))");
+    // The trash rides on the marked card, clear of the centred time label.
+    expect(trashRule).toContain("position: absolute");
+    expect(trashRule).toContain("border-radius: 50%");
+    expect(trashRule).toContain("color: var(--text-error)");
   });
 
   it("dismisses the mobile edit sheet only after a clear downward handle drag", () => {
