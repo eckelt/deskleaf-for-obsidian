@@ -1651,17 +1651,38 @@ export class DeskleafCalendarView extends ItemView {
     previewEl.style.width = cardEl.style.width;
     previewEl.createDiv({ cls: "dl-event-title", text: event.title });
 
-    // Deleting belongs to the marked event, not to a form: once a long press has
-    // singled the card out, the trash sits on it.
+    const topHandle    = previewEl.createDiv("dl-edit-handle dl-edit-handle--top");
+    const bottomHandle = previewEl.createDiv("dl-edit-handle dl-edit-handle--bottom");
+    const startTimeLabel = topHandle.createDiv("dl-edit-time-label dl-edit-time-label--start");
+    const endTimeLabel = bottomHandle.createDiv("dl-edit-time-label dl-edit-time-label--end");
+
+    // Both buttons are created after the handles so they are the last siblings:
+    // the handles span the full card, and a touch that lands where they overlap
+    // must go to the button, not to a resize drag.
     const isInvitation = event.isOrganizer === false;
     const deleteLabel = isInvitation ? "Einladung ablehnen" : "Termin löschen";
     const deleteBtn = previewEl.createEl("button", { cls: "dl-event-delete-btn" });
     setIcon(deleteBtn, "trash-2");
     deleteBtn.setAttribute("aria-label", deleteLabel);
     deleteBtn.setAttribute("title", deleteLabel);
-    const stopFromHandles = (ev: Event) => ev.stopPropagation();
-    deleteBtn.addEventListener("touchstart", stopFromHandles, { passive: true });
-    deleteBtn.addEventListener("pointerdown", stopFromHandles);
+
+    // The check only appears once there is something to confirm, so the resting
+    // state of a long press stays quiet.
+    const confirmBtn = previewEl.createEl("button", { cls: "dl-event-confirm-btn" });
+    setIcon(confirmBtn, "check");
+    confirmBtn.setAttribute("aria-label", "Änderung übernehmen");
+    confirmBtn.setAttribute("title", "Änderung übernehmen");
+
+    const swallow = (ev: Event) => { ev.stopPropagation(); ev.preventDefault(); };
+    // Every phase of the gesture is claimed, so nothing below can interpret a
+    // tap on a button as a drag, a resize or a commit.
+    for (const button of [deleteBtn, confirmBtn]) {
+      button.addEventListener("touchstart", (ev) => ev.stopPropagation(), { passive: true });
+      button.addEventListener("touchmove", (ev) => ev.stopPropagation(), { passive: true });
+      button.addEventListener("pointerdown", swallow);
+      button.addEventListener("mousedown", swallow);
+    }
+
     let deleting = false;
     const requestDelete = async (ev: Event) => {
       ev.stopPropagation();
@@ -1681,22 +1702,10 @@ export class DeskleafCalendarView extends ItemView {
         new Notice(`Fehler: ${err?.message ?? err}`);
       }
     };
-    // Touch first: the preview only exists on mobile, and a synthetic click is
-    // not something to rely on inside a gesture-driven mode.
     deleteBtn.addEventListener("touchend", requestDelete);
+    deleteBtn.addEventListener("pointerup", requestDelete);
     deleteBtn.addEventListener("click", requestDelete);
 
-    const topHandle    = previewEl.createDiv("dl-edit-handle dl-edit-handle--top");
-    const bottomHandle = previewEl.createDiv("dl-edit-handle dl-edit-handle--bottom");
-    const startTimeLabel = topHandle.createDiv("dl-edit-time-label dl-edit-time-label--start");
-    const endTimeLabel = bottomHandle.createDiv("dl-edit-time-label dl-edit-time-label--end");
-
-    // The check only appears once there is something to confirm, so the resting
-    // state of a long press stays quiet.
-    const confirmBtn = previewEl.createEl("button", { cls: "dl-event-confirm-btn" });
-    setIcon(confirmBtn, "check");
-    confirmBtn.setAttribute("aria-label", "Änderung übernehmen");
-    confirmBtn.setAttribute("title", "Änderung übernehmen");
     const isChanged = () => curStart !== startMin || curEnd !== endMin || curDate !== date;
 
     const updateBar = () => {
@@ -1854,8 +1863,8 @@ export class DeskleafCalendarView extends ItemView {
       ev.preventDefault();
       void commitAndClose();
     };
-    confirmBtn.addEventListener("touchstart", (ev) => ev.stopPropagation(), { passive: true });
     confirmBtn.addEventListener("touchend", onConfirmTap);
+    confirmBtn.addEventListener("pointerup", onConfirmTap);
     confirmBtn.addEventListener("click", onConfirmTap);
 
     const onConfirm = (ev: TouchEvent) => {

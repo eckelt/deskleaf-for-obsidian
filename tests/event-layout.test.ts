@@ -1550,6 +1550,10 @@ describe("event edit interactions", () => {
     // Handles and their labels wear the event's own colour, not the accent.
     expect(cssRule(".dl-edit-time-label")).toContain("color: hsl(var(--cal-h, var(--accent-h)) 100% var(--cal-bd-l, 45%))");
     expect(cssRule(".dl-event-card--editing")).toContain("outline: 2px solid hsl(var(--cal-h, var(--accent-h)) 100% var(--cal-bd-l, 45%))");
+    // The resize bands stop short of the button column: a handle stretched over
+    // the buttons is what swallowed the taps.
+    expect(cssRule(".dl-edit-handle")).toContain("right: 46px");
+    expect(trashRule).toContain("z-index: 40");
     // The check stays hidden until something actually changed.
     expect(cssRule(".dl-event-confirm-btn")).toContain("display: none");
     expect(cssRule(".dl-event-card--dirty .dl-event-confirm-btn")).toContain("display: flex");
@@ -2459,6 +2463,16 @@ describe("event edit interactions", () => {
       // Nothing has moved yet, so there is nothing to confirm.
       expect(ghost.classList.contains("dl-event-card--dirty")).toBe(false);
       expect(ghost.querySelector(".dl-event-confirm-btn")).not.toBeNull();
+
+      // Where handle and button overlap, the later sibling takes the touch.
+      const has = (child: RenderElement, cls: string): boolean => child.classList.contains(cls);
+      const lastHandle = ghost.children
+        .map((child, i) => (has(child, "dl-edit-handle") ? i : -1))
+        .reduce((a, b) => Math.max(a, b), -1);
+      const firstButton = ghost.children
+        .findIndex((child) => has(child, "dl-event-delete-btn") || has(child, "dl-event-confirm-btn"));
+      expect(lastHandle).toBeGreaterThan(-1);
+      expect(firstButton).toBeGreaterThan(lastHandle);
 
       topHandle.dispatchEvent(makeTouchEvent("touchstart", [{ clientX: 120, clientY: 640 }]));
       topHandle.dispatchEvent(makeTouchEvent("touchmove", [{ clientX: 120, clientY: 608 }]));
