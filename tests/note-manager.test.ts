@@ -275,6 +275,31 @@ describe("NoteManager vault index", () => {
     expect(new NoteManager(fixture.app as any, settings).getCustomers()[0].status).toBe("aktiv");
   });
 
+  it("reads a project's done flag so the sidebar can sink finished ones", () => {
+    const fixture = brainApp([
+      { path: "projects/Laeuft.md", frontmatter: { type: "project" } },
+      { path: "projects/Fertig.md", frontmatter: { type: "project", done: true } },
+    ]);
+    const byName = new Map(new NoteManager(fixture.app as any, settings).getProjects().map((p) => [p.name, p.done]));
+
+    expect(byName.get("Fertig")).toBe(true);
+    // A project without the flag is simply still running.
+    expect(byName.get("Laeuft")).toBe(false);
+  });
+
+  it("accepts a hand-typed done flag as well as the YAML boolean", () => {
+    const written = ["true", "yes", "ja", "done", "abgeschlossen", " True "];
+    for (const value of written) {
+      const fixture = brainApp([{ path: "projects/P.md", frontmatter: { type: "project", done: value } }]);
+      expect(new NoteManager(fixture.app as any, settings).getProjects()[0].done).toBe(true);
+    }
+    // Anything else is not a claim that the project is finished.
+    for (const value of ["false", "nein", "", "fast"]) {
+      const fixture = brainApp([{ path: "projects/P.md", frontmatter: { type: "project", done: value } }]);
+      expect(new NoteManager(fixture.app as any, settings).getProjects()[0].done).toBe(false);
+    }
+  });
+
   it("collects a person's mail addresses from both email and emails", () => {
     const fixture = brainApp([{
       path: "people/X.md",

@@ -132,17 +132,32 @@ async function runQuery(api: SolidTimeApi, query: SolidTimeQuery): Promise<{ row
   return { columns: "label", rows };
 }
 
+/**
+ * Renders the result as a Dataview table.
+ *
+ * The class names are Dataview's own (`dataview table-view-table`, `table-view-th`,
+ * …). Whatever the theme does to a Dataview table then happens to this one too —
+ * which is the only way a hand-built table stays in step with the ones beside it
+ * in the same note. Nothing here paints borders or backgrounds of its own.
+ */
 function renderTable(el: HTMLElement, rows: SolidTimeRow[], columns: Columns): void {
-  const table = el.createEl("table", { cls: "dl-solidtime-table" });
-  const head = table.createEl("thead").createEl("tr");
+  const table = el.createEl("table", { cls: "dataview table-view-table dl-solidtime-table" });
+  const head = table.createEl("thead", { cls: "table-view-thead" })
+    .createEl("tr", { cls: "table-view-tr-header" });
   const headers = columns === "entries"
     ? ["Datum", "Projekt", "Beschreibung", "Stunden"]
     : ["", "Stunden", "Betrag"];
+  const numericFrom = headers.length - (columns === "entries" ? 1 : 2);
   for (const [i, label] of headers.entries()) {
-    head.createEl("th", { text: label, cls: i >= headers.length - (columns === "entries" ? 1 : 2) ? "dl-num" : "" });
+    const th = head.createEl("th", {
+      cls: i >= numericFrom ? "table-view-th dl-num" : "table-view-th",
+    });
+    th.appendText(label);
+    // Dataview puts the row count on the first heading; so does this.
+    if (i === 0) th.createSpan({ cls: "dataview small-text", text: String(rows.length) });
   }
 
-  const body = table.createEl("tbody");
+  const body = table.createEl("tbody", { cls: "table-view-tbody" });
   for (const row of rows) {
     const tr = body.createEl("tr");
     if (columns === "entries") {
@@ -160,7 +175,9 @@ function renderTable(el: HTMLElement, rows: SolidTimeRow[], columns: Columns): v
   // A single row is its own total; repeating it adds noise, not information.
   if (rows.length < 2) return;
   const total = totalRow(rows);
-  const foot = table.createEl("tfoot").createEl("tr");
+  // The total is the last row of the body, not a tfoot: Dataview has no footer,
+  // and a row the theme already styles beats one this file has to style itself.
+  const foot = body.createEl("tr", { cls: "dl-solidtime-total" });
   if (columns === "entries") {
     foot.createEl("td", { text: "Summe", attr: { colspan: "3" } });
     foot.createEl("td", { text: formatHours(total.hours), cls: "dl-num" });
