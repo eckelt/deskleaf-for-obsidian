@@ -1547,6 +1547,13 @@ describe("event edit interactions", () => {
     expect(mobileSheetRule).toContain("max-height: min(82vh, 640px)");
     expect(mobileSheetRule).toContain("margin-top: auto");
     expect(mobileSheetRule).toContain("margin-bottom: max(8px, env(safe-area-inset-bottom))");
+    // Handles and their labels wear the event's own colour, not the accent.
+    expect(cssRule(".dl-edit-time-label")).toContain("color: hsl(var(--cal-h, var(--accent-h)) 100% var(--cal-bd-l, 45%))");
+    expect(cssRule(".dl-event-card--editing")).toContain("outline: 2px solid hsl(var(--cal-h, var(--accent-h)) 100% var(--cal-bd-l, 45%))");
+    // The check stays hidden until something actually changed.
+    expect(cssRule(".dl-event-confirm-btn")).toContain("display: none");
+    expect(cssRule(".dl-event-card--dirty .dl-event-confirm-btn")).toContain("display: flex");
+
     // The trash rides on the marked card: red, and big enough for a thumb.
     expect(trashRule).toContain("position: absolute");
     expect(trashRule).toContain("border-radius: 50%");
@@ -2449,6 +2456,10 @@ describe("event edit interactions", () => {
       if (!topHandle) throw new Error("top edit handle was not rendered");
       if (!bottomHandle) throw new Error("bottom edit handle was not rendered");
 
+      // Nothing has moved yet, so there is nothing to confirm.
+      expect(ghost.classList.contains("dl-event-card--dirty")).toBe(false);
+      expect(ghost.querySelector(".dl-event-confirm-btn")).not.toBeNull();
+
       topHandle.dispatchEvent(makeTouchEvent("touchstart", [{ clientX: 120, clientY: 640 }]));
       topHandle.dispatchEvent(makeTouchEvent("touchmove", [{ clientX: 120, clientY: 608 }]));
       topHandle.dispatchEvent(makeTouchEvent("touchend", [{ clientX: 120, clientY: 608 }]));
@@ -2461,7 +2472,11 @@ describe("event edit interactions", () => {
       expect(card.style.getPropertyValue("--f-event-top")).toBe("641px");
       expect(card.style.getPropertyValue("--f-event-height")).toBe("62px");
 
-      ghost.dispatchEvent(makeTouchEvent("touchend", [{ clientX: 120, clientY: 640 }]));
+      // Both ends moved, so the check is now offered — and it commits.
+      expect(ghost.classList.contains("dl-event-card--dirty")).toBe(true);
+      const confirmBtn = ghost.querySelector(".dl-event-confirm-btn");
+      if (!confirmBtn) throw new Error("confirm button was not rendered");
+      confirmBtn.dispatchEvent(makeTouchEvent("touchend", [{ clientX: 120, clientY: 640 }]));
       await Promise.resolve();
 
       expect(moveEvent).toHaveBeenCalledWith(

@@ -1648,9 +1648,13 @@
 /* ── Mobile edit mode ────────────────────────────────────────────── */
 
 .dl-event-card--editing {
-    outline: 2px solid var(--interactive-accent);
+    outline: 2px solid hsl(var(--cal-h, var(--accent-h)) 100% var(--cal-bd-l, 45%));
     z-index: 30;
     overflow: visible;
+}
+
+.theme-dark .dl-event-card--editing {
+    outline-color: hsl(var(--cal-h, var(--accent-h)) 100% var(--cal-d-bd-l, 55%));
 }
 
 /* Trash on the long-pressed card: sits over the top handle at the right edge,
@@ -1681,10 +1685,53 @@
 }
 
 .dl-event-edit-ghost {
-    background: color-mix(in srgb, var(--interactive-accent) 18%, var(--background-primary) 82%);
-    border-color: var(--interactive-accent);
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--interactive-accent) 60%, transparent), 0 8px 18px rgba(0, 0, 0, 0.22);
-    color: var(--text-normal);
+    background: hsl(var(--cal-h, var(--accent-h)) var(--cal-bg-s, 100%) var(--cal-bg-l, 88%));
+    border-color: hsl(var(--cal-h, var(--accent-h)) 100% var(--cal-bd-l, 45%));
+    box-shadow: 0 0 0 1px hsl(var(--cal-h, var(--accent-h)) 100% var(--cal-bd-l, 45%) / 0.6), 0 8px 18px rgba(0, 0, 0, 0.22);
+    color: hsl(var(--cal-h, var(--accent-h)) 100% var(--cal-tx-l, 27%));
+}
+
+.theme-dark .dl-event-edit-ghost {
+    background: hsl(var(--cal-h, var(--accent-h)) var(--cal-d-bg-s, 55%) var(--cal-d-bg-l, 16%));
+    border-color: hsl(var(--cal-h, var(--accent-h)) 100% var(--cal-d-bd-l, 55%));
+    box-shadow: 0 0 0 1px hsl(var(--cal-h, var(--accent-h)) 100% var(--cal-d-bd-l, 55%) / 0.6), 0 8px 18px rgba(0, 0, 0, 0.22);
+    color: hsl(var(--cal-h, var(--accent-h)) 95% var(--cal-d-tx-l, 70%));
+}
+
+/* Nothing to confirm until start or end actually moved. */
+.dl-event-confirm-btn {
+    display: none;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 12;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: hsl(var(--cal-h, var(--accent-h)) 100% var(--cal-bd-l, 45%));
+    box-shadow: 0 0 0 2px var(--background-primary), 0 2px 8px rgba(0, 0, 0, 0.35);
+    color: #fff;
+    cursor: pointer;
+    touch-action: manipulation;
+}
+
+.theme-dark .dl-event-confirm-btn {
+    background: hsl(var(--cal-h, var(--accent-h)) 100% var(--cal-d-bd-l, 55%));
+    color: #1b191c;
+}
+
+.dl-event-card--dirty .dl-event-confirm-btn {
+    display: flex;
+}
+
+.dl-event-confirm-btn svg {
+    width: 18px;
+    height: 18px;
 }
 
 .dl-edit-handle {
@@ -1719,7 +1766,7 @@
     left: 50%;
     transform: translateX(-50%);
     z-index: 11;
-    color: var(--interactive-accent);
+    color: hsl(var(--cal-h, var(--accent-h)) 100% var(--cal-bd-l, 45%));
     font-size: 0.78em;
     font-weight: 700;
     font-variant-numeric: tabular-nums;
@@ -1727,6 +1774,10 @@
     white-space: nowrap;
     text-shadow: 0 1px 2px var(--background-primary), 0 -1px 2px var(--background-primary);
     pointer-events: none;
+}
+
+.theme-dark .dl-edit-time-label {
+    color: hsl(var(--cal-h, var(--accent-h)) 100% var(--cal-d-bd-l, 55%));
 }
 
 .dl-edit-time-label--start {
