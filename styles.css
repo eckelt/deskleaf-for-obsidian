@@ -1661,9 +1661,10 @@
    clear of the centred time label, and never starts a resize drag. */
 .dl-event-delete-btn {
     position: absolute;
-    top: -16px;
-    right: 2px;
-    z-index: 12;
+    top: 50%;
+    right: 4px;
+    transform: translateY(-50%);
+    z-index: 40;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1677,6 +1678,11 @@
     color: #fff;
     cursor: pointer;
     touch-action: manipulation;
+}
+
+/* A tap answers before the dialog does. */
+.dl-event-delete-btn:active {
+    transform: translateY(-50%) scale(0.88);
 }
 
 .dl-event-delete-btn svg {
@@ -1703,9 +1709,9 @@
     display: none;
     position: absolute;
     top: 50%;
-    left: 50%;
+    left: calc(50% - 23px);
     transform: translate(-50%, -50%);
-    z-index: 12;
+    z-index: 40;
     align-items: center;
     justify-content: center;
     width: 34px;
@@ -1718,6 +1724,10 @@
     color: #fff;
     cursor: pointer;
     touch-action: manipulation;
+}
+
+.dl-event-confirm-btn:active {
+    transform: translate(-50%, -50%) scale(0.88);
 }
 
 .theme-dark .dl-event-confirm-btn {
@@ -1737,7 +1747,9 @@
 .dl-edit-handle {
     position: absolute;
     left: 0;
-    right: 0;
+    /* The right column belongs to the buttons — a resize band stretched over
+       them is what made the trash unreachable by touch. */
+    right: 46px;
     height: 28px;
     z-index: 10;
     display: flex;
