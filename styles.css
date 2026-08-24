@@ -1657,27 +1657,27 @@
    clear of the centred time label, and never starts a resize drag. */
 .dl-event-delete-btn {
     position: absolute;
-    top: -13px;
-    right: 4px;
+    top: -16px;
+    right: 2px;
     z-index: 12;
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 26px;
-    height: 26px;
+    width: 34px;
+    height: 34px;
     padding: 0;
     border: none;
     border-radius: 50%;
-    background: var(--background-primary);
-    box-shadow: 0 0 0 1px var(--background-modifier-border), 0 2px 6px rgba(0, 0, 0, 0.28);
-    color: var(--text-error);
+    background: var(--color-red);
+    box-shadow: 0 0 0 2px var(--background-primary), 0 2px 8px rgba(0, 0, 0, 0.35);
+    color: #fff;
     cursor: pointer;
     touch-action: manipulation;
 }
 
 .dl-event-delete-btn svg {
-    width: 14px;
-    height: 14px;
+    width: 18px;
+    height: 18px;
 }
 
 .dl-event-edit-ghost {

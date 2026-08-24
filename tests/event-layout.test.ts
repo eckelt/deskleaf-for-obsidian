@@ -1509,7 +1509,20 @@ describe("event edit interactions", () => {
       const trash = preview.querySelector(".dl-event-delete-btn");
       if (!trash) throw new Error("trash button was not rendered");
 
-      trash.dispatchEvent(makeMouseEvent("click"));
+      // Touch is the path that matters here — the preview only exists on mobile.
+      trash.dispatchEvent(makeTouchEvent("touchend", [{ clientX: 100, clientY: 200 }]));
+      await Promise.resolve();
+
+      // It asks once before deleting.
+      const confirmPopover = testDocument.body.querySelector(".dl-edit-scope-popover");
+      if (!confirmPopover) throw new Error("delete confirmation was not shown");
+      expect(cancelEvent).not.toHaveBeenCalled();
+
+      const confirmButton = confirmPopover
+        .querySelectorAll(".dl-create-btn")
+        .find((button) => renderText(button) === "Löschen");
+      if (!confirmButton) throw new Error("confirm button was not rendered");
+      confirmButton.dispatchEvent(makeMouseEvent("click"));
       await Promise.resolve();
       await Promise.resolve();
 
@@ -1534,10 +1547,12 @@ describe("event edit interactions", () => {
     expect(mobileSheetRule).toContain("max-height: min(82vh, 640px)");
     expect(mobileSheetRule).toContain("margin-top: auto");
     expect(mobileSheetRule).toContain("margin-bottom: max(8px, env(safe-area-inset-bottom))");
-    // The trash rides on the marked card, clear of the centred time label.
+    // The trash rides on the marked card: red, and big enough for a thumb.
     expect(trashRule).toContain("position: absolute");
     expect(trashRule).toContain("border-radius: 50%");
-    expect(trashRule).toContain("color: var(--text-error)");
+    expect(trashRule).toContain("background: var(--color-red)");
+    expect(trashRule).toContain("width: 34px");
+    expect(trashRule).toContain("height: 34px");
   });
 
   it("dismisses the mobile edit sheet only after a clear downward handle drag", () => {
