@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   extractDueDate, cleanTodoText, parseTodoLines, resolveTodoDate,
-  completeTodoLine, reopenTodoLine, groupForDate,
+  completeTodoLine, reopenTodoLine, groupForDate, groupForTodo, classifyStatus,
 } from "../src/todo-parser";
 
 describe("extractDueDate", () => {
@@ -24,6 +24,50 @@ describe("extractDueDate", () => {
   it("returns null when the line carries no date", () => {
     expect(extractDueDate("Mail rausschicken")).toBeNull();
     expect(extractDueDate("Version 2026-13-45 bauen")).toBeNull();
+  });
+
+  it("reads the Tasks-plugin scheduled emoji", () => {
+    expect(extractDueDate("Mail rausschicken ⏳ 2026-08-21")).toBe("2026-08-21");
+  });
+
+  it("reads the Tasks-plugin start emoji", () => {
+    expect(extractDueDate("Mail rausschicken 🛫 2026-08-21")).toBe("2026-08-21");
+  });
+
+  it("prefers 📅 over ⏳ and 🛫 when several are present", () => {
+    expect(extractDueDate("x 📅 2026-08-21 ⏳ 2026-08-22 🛫 2026-08-23")).toBe("2026-08-21");
+  });
+
+  it("prefers ⏳ over 🛫 when 📅 is absent", () => {
+    expect(extractDueDate("x ⏳ 2026-08-22 🛫 2026-08-23")).toBe("2026-08-22");
+  });
+
+  it("ignores ➕/✅/❌ metadata for grouping purposes", () => {
+    expect(extractDueDate("x ➕ 2026-08-01 ✅ 2026-08-02 ❌ 2026-08-03")).toBeNull();
+  });
+});
+
+describe("classifyStatus", () => {
+  it("treats a space as open", () => {
+    expect(classifyStatus(" ")).toBe("open");
+  });
+
+  it("treats x/X as closed", () => {
+    expect(classifyStatus("x")).toBe("closed");
+    expect(classifyStatus("X")).toBe("closed");
+  });
+
+  it("treats - as closed (cancelled)", () => {
+    expect(classifyStatus("-")).toBe("closed");
+  });
+
+  it("treats ! as important", () => {
+    expect(classifyStatus("!")).toBe("important");
+  });
+
+  it("treats any other status character as open", () => {
+    expect(classifyStatus("/")).toBe("open");
+    expect(classifyStatus("?")).toBe("open");
   });
 });
 
@@ -93,6 +137,37 @@ describe("parseTodoLines", () => {
   });
 });
 
+describe("parseTodoLines — Tasks-plugin status characters", () => {
+  it("recognises ! as important and open (not checked)", () => {
+    const [todo] = parseTodoLines("- [!] Vertrag unterschreiben");
+    expect(todo.important).toBe(true);
+    expect(todo.checked).toBe(false);
+  });
+
+  it("recognises / (in progress) as open, not important", () => {
+    const [todo] = parseTodoLines("- [/] Entwurf schreiben");
+    expect(todo.checked).toBe(false);
+    expect(todo.important).toBe(false);
+  });
+
+  it("recognises - (cancelled) as closed", () => {
+    const [todo] = parseTodoLines("- [-] Alten Plan verwerfen");
+    expect(todo.checked).toBe(true);
+    expect(todo.important).toBe(false);
+  });
+
+  it("recognises an unknown status character (e.g. ?) as open", () => {
+    const [todo] = parseTodoLines("- [?] Klären ob nötig");
+    expect(todo.checked).toBe(false);
+    expect(todo.important).toBe(false);
+  });
+
+  it("recognises ➕/❌ inline metadata without letting it affect the due date", () => {
+    const [todo] = parseTodoLines("- [ ] Rechnung stellen ➕ 2026-08-01 ❌ 2026-08-03");
+    expect(todo.due).toBeNull();
+  });
+});
+
 describe("resolveTodoDate", () => {
   const [dated, undated] = parseTodoLines("- [ ] a due:: 2026-08-21\n- [ ] b");
 
@@ -126,6 +201,19 @@ describe("completeTodoLine", () => {
 
   it("preserves indentation and the bullet character", () => {
     expect(completeTodoLine("  * [ ] Mail raus", "2026-08-23")).toBe("  * [x] Mail raus ✅ 2026-08-23");
+  });
+
+  it("ticks the box regardless of the original open status character", () => {
+    expect(completeTodoLine("- [!] Vertrag unterschreiben", "2026-08-25"))
+      .toBe("- [x] Vertrag unterschreiben ✅ 2026-08-25");
+    expect(completeTodoLine("- [/] Entwurf schreiben", "2026-08-25"))
+      .toBe("- [x] Entwurf schreiben ✅ 2026-08-25");
+    expect(completeTodoLine("- [?] Klären ob nötig", "2026-08-25"))
+      .toBe("- [x] Klären ob nötig ✅ 2026-08-25");
+  });
+
+  it("leaves an already-closed line (done or cancelled) untouched", () => {
+    expect(completeTodoLine("- [-] Alten Plan verwerfen", "2026-08-25")).toBe("- [-] Alten Plan verwerfen");
   });
 
   it("leaves a line that is not an open todo untouched", () => {
@@ -165,5 +253,20 @@ describe("groupForDate", () => {
     expect(groupForDate(weekEnd, today, weekEnd)).toBe("week");
     expect(groupForDate("2026-09-15", today, weekEnd)).toBe("later");
     expect(groupForDate(null, today, weekEnd)).toBe("undated");
+  });
+});
+
+describe("groupForTodo", () => {
+  const today = "2026-08-23";
+  const weekEnd = "2026-08-30";
+
+  it("puts an important todo in the important group, not its date group", () => {
+    expect(groupForTodo(true, today, today, weekEnd)).toBe("important");
+    expect(groupForTodo(true, null, today, weekEnd)).toBe("important");
+  });
+
+  it("falls back to date-based grouping when not important", () => {
+    expect(groupForTodo(false, today, today, weekEnd)).toBe("today");
+    expect(groupForTodo(false, null, today, weekEnd)).toBe("undated");
   });
 });

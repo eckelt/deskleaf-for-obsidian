@@ -7,7 +7,7 @@ import { matchCustomer } from "./brain-vault";
 import { parseLogo } from "./note-logo";
 import {
   parseTodoLines, resolveTodoDate, completeTodoLine, reopenTodoLine,
-  groupForDate, type TodoGroup,
+  groupForTodo, type TodoGroup,
 } from "./todo-parser";
 
 function getSectionIconName(section: SectionName): string {
@@ -61,7 +61,7 @@ interface EntityEntry {
 type EntityKind = "customers" | "projects";
 
 interface TodoItem {
-  text: string; checked: boolean; file: TFile;
+  text: string; checked: boolean; important: boolean; file: TFile;
   lineIndex: number; date: string | null; noteTitle: string;
 }
 
@@ -759,10 +759,10 @@ export class DeskleafSidebarView extends ItemView {
     header.createSpan({ cls: "dl-sidebar-count", text: String(openCount) });
 
     const labels: Record<TodoGroup, string> = {
-      today: "Heute", week: "Diese Woche", later: "Später", undated: "Ohne Datum", past: "Früher",
+      important: "Wichtig", today: "Heute", week: "Diese Woche", later: "Später", undated: "Ohne Datum", past: "Früher",
     };
     const sections: HTMLElement[] = [];
-    for (const key of (["today", "week", "later", "undated", "past"] as TodoGroup[])) {
+    for (const key of (["important", "today", "week", "later", "undated", "past"] as TodoGroup[])) {
       const items = groups[key];
       if (items.length === 0) continue;
       const section = container.createDiv("dl-board-section");
@@ -819,6 +819,7 @@ export class DeskleafSidebarView extends ItemView {
     return parseTodoLines(content).map((todo) => ({
       text: todo.text,
       checked: todo.checked,
+      important: todo.important,
       file,
       lineIndex: todo.lineIndex,
       date: resolveTodoDate(todo, noteDate),
@@ -848,10 +849,10 @@ export class DeskleafSidebarView extends ItemView {
   private groupTodos(todos: TodoItem[]): Record<TodoGroup, TodoItem[]> {
     const today = toDateStr(new Date());
     const weekEnd = toDateStr(addDays(new Date(), 7));
-    const groups: Record<TodoGroup, TodoItem[]> = { today: [], week: [], later: [], undated: [], past: [] };
+    const groups: Record<TodoGroup, TodoItem[]> = { important: [], today: [], week: [], later: [], undated: [], past: [] };
     for (const todo of todos) {
       if (todo.checked) continue;
-      groups[groupForDate(todo.date, today, weekEnd)].push(todo);
+      groups[groupForTodo(todo.important, todo.date, today, weekEnd)].push(todo);
     }
     return groups;
   }
