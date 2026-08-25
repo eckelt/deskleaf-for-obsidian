@@ -140,6 +140,17 @@ tests.
 - In `Test Expectations`, map scenarios to automated Vitest coverage or manual
   QA. Be explicit about which scenarios are intentionally manual.
 
+## Spec Status Field
+
+Every spec's `## Status` field (`draft → ux-reviewed → design-reviewed →
+approved → in-development → qa → done`) must reflect what you actually wrote.
+There is no separate UX/Design reviewer stage in this pipeline — you write and
+self-approve the `## UX Review` / `## Design Review` sections yourself. When
+you emit a `SPEC:` verdict, set `## Status` to `approved` in the same commit
+(not `draft`) — the Validator rejects any spec still at `draft` regardless of
+test coverage, so a spec left at `draft` blocks the Builder/Validator on every
+attempt with a confusing, unrelated-looking failure.
+
 ## Output Format
 
 Respond with **exactly one line**:
