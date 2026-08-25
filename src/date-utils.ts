@@ -134,6 +134,18 @@ export function weekHeaderLabel(anchor: Date): string {
   return `KW ${kw} · ${MONTHS[mon.getMonth()]}${yearStr}`;
 }
 
+/** Format a "YYYY-MM-DD" release date as "TT.MM.JJJJ" */
+export function formatReleaseDate(iso: string): string {
+  const [y, m, d] = iso.split("-");
+  return `${d}.${m}.${y}`;
+}
+
+/** Compose the settings-tab footer text, e.g. "Version 1.2.109 · 25.08.2026" */
+export function formatVersionFooter(version: string, releaseDate: string | null): string {
+  if (!releaseDate) return `Version ${version}`;
+  return `Version ${version} · ${formatReleaseDate(releaseDate)}`;
+}
+
 export function getWeekNumber(d: Date): number {
   const tmp = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
   const dayNum = tmp.getUTCDay() || 7;

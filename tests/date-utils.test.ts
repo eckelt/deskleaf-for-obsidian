@@ -13,6 +13,8 @@ import {
   dayHeaderLabel,
   weekHeaderLabel,
   getWeekNumber,
+  formatReleaseDate,
+  formatVersionFooter,
 } from "../src/date-utils";
 
 // All tests run with TZ=UTC (set in package.json test script)
@@ -208,5 +210,25 @@ describe("weekHeaderLabel", () => {
 describe("shortDayLabel", () => {
   it("formats as weekday + dash + day. Month", () => {
     expect(shortDayLabel(parseDate("2026-05-04"))).toBe("Mo – 4. Mai");
+  });
+});
+
+describe("formatReleaseDate", () => {
+  it("formats a regular ISO date as TT.MM.JJJJ", () => {
+    expect(formatReleaseDate("2026-08-25")).toBe("25.08.2026");
+  });
+
+  it("keeps leading zeros for single-digit day and month", () => {
+    expect(formatReleaseDate("2026-01-05")).toBe("05.01.2026");
+  });
+});
+
+describe("formatVersionFooter", () => {
+  it("appends the release date when present", () => {
+    expect(formatVersionFooter("1.2.109", "2026-08-25")).toBe("Version 1.2.109 · 25.08.2026");
+  });
+
+  it("shows only the version when the release date is missing", () => {
+    expect(formatVersionFooter("1.2.0", null)).toBe("Version 1.2.0");
   });
 });

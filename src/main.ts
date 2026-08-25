@@ -17,6 +17,7 @@ export default class DeskleafPlugin extends Plugin {
   calendarReader!: CalendarReader | CalDAVReader;
   noteManager!: NoteManager;
   icalFeedManager!: ICalFeedManager;
+  releaseDate: string | null = null;
 
   private makeReader(): CalendarReader | CalDAVReader {
     const { caldav } = this.settings;
@@ -58,6 +59,10 @@ export default class DeskleafPlugin extends Plugin {
         <path d="M4.4 19.6 15.9 8.1" stroke-width="1.9"/>
       </g>
     `);
+
+    this.releaseDate = typeof __DESKLEAF_RELEASE_DATE__ !== "undefined" && __DESKLEAF_RELEASE_DATE__
+      ? __DESKLEAF_RELEASE_DATE__
+      : null;
 
     await this.loadSettings();
     await this.restoreCalendarColors();

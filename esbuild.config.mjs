@@ -14,6 +14,9 @@ const context = await esbuild.context({
   banner: { js: banner },
   entryPoints: ["src/main.ts"],
   bundle: true,
+  define: {
+    __DESKLEAF_RELEASE_DATE__: JSON.stringify(process.env.DESKLEAF_RELEASE_DATE ?? ""),
+  },
   external: [
     "obsidian",
     "electron",

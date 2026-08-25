@@ -52,6 +52,11 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      # Stamped into main.js at build time via esbuild's `define` (see
+      # esbuild.config.mjs) so the running plugin can show it without any
+      # extra file — BRAT only delivers main.js, styles.css and manifest.json.
+      - name: Set release date
+        run: echo "DESKLEAF_RELEASE_DATE=$(date -u +%Y-%m-%d)" >> "$GITHUB_ENV"
       - run: npm run build
       - uses: actions/download-artifact@v7
         with:
