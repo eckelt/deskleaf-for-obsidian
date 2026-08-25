@@ -2,12 +2,12 @@ import { ItemView, WorkspaceLeaf, TFile, MarkdownRenderer, setIcon } from "obsid
 import type DeskleafPlugin from "./main";
 import { toDateStr, addDays, parseDate, weekStart, getWeekNumber } from "./date-utils";
 import { openFile } from "./open-file";
-import type { CustomerRef, ProjectRef } from "./types";
+import type { CustomerRef, ProjectRef, TodoGroup, TodoStatus } from "./types";
 import { matchCustomer } from "./brain-vault";
 import { parseLogo } from "./note-logo";
 import {
   parseTodoLines, resolveTodoDate, completeTodoLine, reopenTodoLine,
-  todoGroupFor, type TodoGroup, type TodoStatus,
+  todoGroupFor,
 } from "./todo-parser";
 
 function getSectionIconName(section: SectionName): string {

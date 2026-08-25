@@ -65,6 +65,12 @@ export interface EventNoteFrontmatter {
 
 export type NoteType = "termin" | "interview" | "recurring" | "task" | "focus";
 
+/** A todo line's checkbox state, per the Tasks community plugin's status characters. */
+export type TodoStatus = "open" | "closed" | "important";
+
+/** The sidebar bucket an open/important todo is filed under. */
+export type TodoGroup = "important" | "past" | "today" | "week" | "later" | "undated";
+
 /** A customers/ note, reduced to what event matching and linking need. */
 export interface CustomerRef {
   name: string;

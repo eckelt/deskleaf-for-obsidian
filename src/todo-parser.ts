@@ -6,10 +6,10 @@
 //
 // Status characters follow the Tasks community plugin: any character between the brackets is valid, and anything but x/X/-/! is treated as open.
 
+import type { TodoStatus, TodoGroup } from "./types";
+
 export const TODO_LINE_PATTERN = /^(\s*[-*]\s+)\[(.)\]\s+(.*\S)\s*$/;
 export const TODO_DONE_PATTERN = /^(\s*[-*]\s+)\[[xX]\]\s+(.*\S)\s*$/;
-
-export type TodoStatus = "open" | "closed" | "important";
 
 export function classifyStatus(char: string): TodoStatus {
   if (char === "x" || char === "X" || char === "-") return "closed";
@@ -95,8 +95,6 @@ export function reopenTodoLine(line: string): string {
   const text = match[2].replace(/\s*✅\s*\d{4}-\d{2}-\d{2}/g, "").trimEnd();
   return `${match[1]}[ ] ${text}`;
 }
-
-export type TodoGroup = "important" | "past" | "today" | "week" | "later" | "undated";
 
 export function groupForDate(date: string | null, today: string, weekEnd: string): TodoGroup {
   if (!date) return "undated";
