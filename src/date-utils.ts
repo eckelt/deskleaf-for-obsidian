@@ -134,6 +134,16 @@ export function weekHeaderLabel(anchor: Date): string {
   return `KW ${kw} · ${MONTHS[mon.getMonth()]}${yearStr}`;
 }
 
+export function formatReleaseDate(iso: string): string {
+  const [y, m, d] = iso.split("-");
+  return `${d}.${m}.${y}`;
+}
+
+export function formatVersionFooter(version: string, releaseDate: string | null): string {
+  if (!releaseDate) return `Version ${version}`;
+  return `Version ${version} · ${formatReleaseDate(releaseDate)}`;
+}
+
 export function getWeekNumber(d: Date): number {
   const tmp = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
   const dayNum = tmp.getUTCDay() || 7;
