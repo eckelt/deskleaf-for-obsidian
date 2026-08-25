@@ -108,7 +108,15 @@ Scenario: Findings are informative, never a merge gate
 
 ## Affected Areas
 - `package.json` (new `devDependencies`: `eslint`, `@typescript-eslint/parser`,
-  `eslint-plugin-sonarjs`; new scripts `lint:quality` and `quality:summary`)
+  `eslint-plugin-sonarjs`; new scripts `lint:quality` and `quality:summary`).
+  `@typescript-eslint/eslint-plugin` is also required alongside the parser: two
+  pre-existing `// eslint-disable-next-line @typescript-eslint/<rule>` comments
+  in `src/` (unrelated to this feature, out of scope to touch) reference rules
+  from that plugin's namespace. Without registering the plugin, ESLint's flat
+  config reports "Definition for rule '@typescript-eslint/<rule>' was not
+  found" as an error and `eslint` exits 1 — violating AC3/AC7's exit-0
+  guarantee. No rules from the plugin are enabled; it is registered solely so
+  those pre-existing disable comments resolve.
 - `eslint.config.mjs` (new)
 - `scripts/quality-summary.mjs` (new)
 - `.github/workflows/code-quality-baseline.yml` (new)
