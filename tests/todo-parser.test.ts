@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   extractDueDate, cleanTodoText, parseTodoLines, resolveTodoDate,
-  completeTodoLine, reopenTodoLine, groupForDate,
+  completeTodoLine, reopenTodoLine, groupForDate, classifyTodoStatus,
 } from "../src/todo-parser";
 
 describe("extractDueDate", () => {
@@ -17,13 +17,44 @@ describe("extractDueDate", () => {
     expect(extractDueDate("Mail rausschicken [[2026-08-21]]")).toBe("2026-08-21");
   });
 
+  it("reads the Tasks-plugin scheduled emoji", () => {
+    expect(extractDueDate("Mail rausschicken ⏳ 2026-08-21")).toBe("2026-08-21");
+  });
+
+  it("reads the Tasks-plugin start emoji", () => {
+    expect(extractDueDate("Mail rausschicken 🛫 2026-08-21")).toBe("2026-08-21");
+  });
+
   it("prefers due:: when several are present", () => {
     expect(extractDueDate("x due:: 2026-08-21 📅 2026-09-01")).toBe("2026-08-21");
+  });
+
+  it("prefers 📅 over ⏳ over 🛫", () => {
+    expect(extractDueDate("x 📅 2026-08-21 ⏳ 2026-08-22 🛫 2026-08-23")).toBe("2026-08-21");
+    expect(extractDueDate("x ⏳ 2026-08-22 🛫 2026-08-23")).toBe("2026-08-22");
   });
 
   it("returns null when the line carries no date", () => {
     expect(extractDueDate("Mail rausschicken")).toBeNull();
     expect(extractDueDate("Version 2026-13-45 bauen")).toBeNull();
+  });
+});
+
+describe("classifyTodoStatus", () => {
+  it("treats done and cancelled as closed", () => {
+    expect(classifyTodoStatus("x")).toBe("closed");
+    expect(classifyTodoStatus("X")).toBe("closed");
+    expect(classifyTodoStatus("-")).toBe("closed");
+  });
+
+  it("treats ! as important", () => {
+    expect(classifyTodoStatus("!")).toBe("important");
+  });
+
+  it("treats space and any unknown character as open", () => {
+    expect(classifyTodoStatus(" ")).toBe("open");
+    expect(classifyTodoStatus("/")).toBe("open");
+    expect(classifyTodoStatus("?")).toBe("open");
   });
 });
 
@@ -75,8 +106,8 @@ describe("parseTodoLines", () => {
     ]);
   });
 
-  it("marks the done item as checked and the rest as open", () => {
-    expect(todos.filter((todo) => todo.checked).map((todo) => todo.text)).toEqual(["Sandbox einbauen"]);
+  it("marks the done item as closed and the rest as open", () => {
+    expect(todos.filter((todo) => todo.status === "closed").map((todo) => todo.text)).toEqual(["Sandbox einbauen"]);
   });
 
   it("reads the per-line due date", () => {
@@ -90,6 +121,25 @@ describe("parseTodoLines", () => {
 
   it("ignores an empty checkbox and a checkbox mid-sentence", () => {
     expect(todos).toHaveLength(5);
+  });
+});
+
+describe("parseTodoLines with Tasks-plugin status characters", () => {
+  const content = [
+    "- [!] Vertrag unterschreiben",
+    "- [/] Entwurf schreiben",
+    "- [-] Alten Plan verwerfen",
+    "- [?] Klären ob nötig",
+  ].join("\n");
+
+  const todos = parseTodoLines(content);
+
+  it("matches any single status character between the brackets", () => {
+    expect(todos).toHaveLength(4);
+  });
+
+  it("classifies ! as important, - as closed, and any other character as open", () => {
+    expect(todos.map((todo) => todo.status)).toEqual(["important", "open", "closed", "open"]);
   });
 });
 
@@ -128,9 +178,17 @@ describe("completeTodoLine", () => {
     expect(completeTodoLine("  * [ ] Mail raus", "2026-08-23")).toBe("  * [x] Mail raus ✅ 2026-08-23");
   });
 
-  it("leaves a line that is not an open todo untouched", () => {
+  it("leaves a closed todo untouched", () => {
     expect(completeTodoLine("- [x] schon fertig", "2026-08-23")).toBe("- [x] schon fertig");
+    expect(completeTodoLine("- [-] abgebrochen", "2026-08-23")).toBe("- [-] abgebrochen");
     expect(completeTodoLine("Fließtext", "2026-08-23")).toBe("Fließtext");
+  });
+
+  it("ticks any other open status character, regardless of the original character", () => {
+    expect(completeTodoLine("- [!] Vertrag unterschreiben", "2026-08-23"))
+      .toBe("- [x] Vertrag unterschreiben ✅ 2026-08-23");
+    expect(completeTodoLine("- [/] Entwurf schreiben", "2026-08-23"))
+      .toBe("- [x] Entwurf schreiben ✅ 2026-08-23");
   });
 });
 
@@ -158,12 +216,17 @@ describe("groupForDate", () => {
   const today = "2026-08-23";
   const weekEnd = "2026-08-30";
 
-  it("buckets by due date", () => {
-    expect(groupForDate("2026-08-19", today, weekEnd)).toBe("past");
-    expect(groupForDate(today, today, weekEnd)).toBe("today");
-    expect(groupForDate("2026-08-27", today, weekEnd)).toBe("week");
-    expect(groupForDate(weekEnd, today, weekEnd)).toBe("week");
-    expect(groupForDate("2026-09-15", today, weekEnd)).toBe("later");
-    expect(groupForDate(null, today, weekEnd)).toBe("undated");
+  it("buckets an open todo by due date", () => {
+    expect(groupForDate("open", "2026-08-19", today, weekEnd)).toBe("past");
+    expect(groupForDate("open", today, today, weekEnd)).toBe("today");
+    expect(groupForDate("open", "2026-08-27", today, weekEnd)).toBe("week");
+    expect(groupForDate("open", weekEnd, today, weekEnd)).toBe("week");
+    expect(groupForDate("open", "2026-09-15", today, weekEnd)).toBe("later");
+    expect(groupForDate("open", null, today, weekEnd)).toBe("undated");
+  });
+
+  it("puts an important todo in its own group regardless of due date", () => {
+    expect(groupForDate("important", "2026-08-19", today, weekEnd)).toBe("important");
+    expect(groupForDate("important", null, today, weekEnd)).toBe("important");
   });
 });
