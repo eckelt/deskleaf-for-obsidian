@@ -1,0 +1,40 @@
+name: Mutation Testing
+
+# Nightly, informational-only mutation-test run (issue #58). Completely
+# decoupled from the build lane: its own trigger set, its own concurrency
+# group, no dispatch relationship with build-lane.yml in either direction,
+# and no branch-protection status check depends on it. A red or failed run
+# here must never block a PR merge.
+
+on:
+  schedule:
+    # 03:17 UTC daily — off the hour to avoid the top-of-hour scheduling rush.
+    - cron: "17 3 * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: mutation-testing
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  mutation-test:
+    name: Mutation test (pure utility modules)
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Run Stryker mutation tests
+        run: npm run test:mutation
+      - name: Write job summary
+        if: always()
+        run: node scripts/mutation-summary.mjs >> "$GITHUB_STEP_SUMMARY"
