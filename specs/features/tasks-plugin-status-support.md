@@ -1,8 +1,9 @@
 # Feature: Tasks Plugin Status Support
 
 ## Status
-`draft`
+`approved`
 <!-- draft → ux-reviewed → design-reviewed → approved → in-development → qa → done -->
+<!-- ux-reviewed and design-reviewed were skipped for this spec: approved directly by the author after the Validator confirmed content/tests, not via the UX/Design skills. -->
 
 ## Source
 - GitHub issue: https://github.com/eckelt/deskleaf-for-obsidian/issues/33
@@ -129,12 +130,12 @@ _None_
 ---
 
 ## UX Review
-_Pending_
+Skipped by author decision — content and acceptance criteria were already validated end-to-end (tests + manual confirmation), a separate UX pass was judged to add no value here.
 
 ---
 
 ## Design Review
-_Pending_
+Skipped by author decision — same reasoning as UX Review; no new UI surface beyond the existing sidebar todo list.
 
 ---
 
