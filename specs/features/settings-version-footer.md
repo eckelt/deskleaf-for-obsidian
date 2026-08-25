@@ -1,7 +1,7 @@
 # Feature: Versionsnummer + Release-Datum im Settings-Tab
 
 ## Status
-`draft`
+`approved`
 <!-- draft → ux-reviewed → design-reviewed → approved → in-development → qa → done -->
 
 ## Source
@@ -129,3 +129,29 @@ Formatierung in `settings.ts`.
     (Szenario 2) — das vollständige "Version · Datum"-Bild (Szenario 1) ist
     erst nach dem nächsten echten Merge/Release sichtbar und nicht Teil der
     lokalen QA-Verifikation dieser Iteration.
+
+---
+
+## UX Review
+Rein informative Fußzeile ohne Interaktion (AC4): kein Link, kein Button, kein
+Klick-Handler, keine neue Einstellung. Einziges Element, einziger Ort (Ende
+des Settings-Tabs), einziger Zustand mit sauberem Fallback ohne Datum (AC3).
+Kein Interaktionsfluss zu prüfen.
+
+Freigabe für `ux-reviewed`.
+
+---
+
+## Design Review
+Verwendet ausschließlich bestehende „muted"-Design-Sprache
+(`var(--text-muted)` / `--f-muted`, wie bei `.setting-item-description`
+bereits im Projekt etabliert) — kein neuer Farbwert, keine neue Komponente,
+keine Abweichung vom Monokai-Pro-System (AC5). Platzierung als letztes
+Element in `display()` verschiebt keine bestehenden Abschnitte.
+
+Freigabe für `design-reviewed`.
+
+---
+
+## QA Report
+_Pending_
