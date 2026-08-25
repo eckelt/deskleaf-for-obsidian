@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const REPORT_PATH = "reports/mutation/mutation.json";
 const TOP_N_SURVIVED = 20;
@@ -8,7 +10,7 @@ function loadReport(path) {
   return JSON.parse(readFileSync(path, "utf8"));
 }
 
-function summarize(report) {
+export function summarize(report) {
   const mutants = Object.entries(report.files).flatMap(([file, data]) =>
     data.mutants.map((mutant) => ({ ...mutant, file })),
   );
@@ -30,7 +32,7 @@ function summarize(report) {
   return { counts, score, survived };
 }
 
-function renderMarkdown({ counts, score, survived }) {
+export function renderMarkdown({ counts, score, survived }) {
   const lines = [];
   lines.push("## Mutation Testing Report");
   lines.push("");
@@ -55,5 +57,11 @@ function renderMarkdown({ counts, score, survived }) {
   return lines.join("\n");
 }
 
-const report = loadReport(REPORT_PATH);
-process.stdout.write(renderMarkdown(summarize(report)));
+function main() {
+  const report = loadReport(REPORT_PATH);
+  process.stdout.write(renderMarkdown(summarize(report)));
+}
+
+if (fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+  main();
+}
