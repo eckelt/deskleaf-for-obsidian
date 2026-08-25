@@ -63,13 +63,31 @@ jobs:
           name: deskleaf-calendar-sync
       - run: chmod +x deskleaf-calendar-sync
       # BRAT needs a strictly increasing version in manifest.json that matches
-      # the release tag. Patch level = run number, so every merge to main
-      # becomes an installable pre-release; stable releases stay manual.
+      # the release tag. Patch level increments off the last ACTUALLY
+      # PUBLISHED release (source of truth = GitHub Releases), not off
+      # github.run_number: a workflow re-registration or any other run_number
+      # discontinuity previously produced a version that BRAT-installed users
+      # got permanently stuck behind (e.g. 1.3.6 outliving every subsequent
+      # 1.2.x release). Only resets to .0 when manifest.json's own committed
+      # major.minor is deliberately bumped ahead of the latest release's.
       - name: Stamp build version
         id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          base=$(jq -r '.version' manifest.json | cut -d. -f1,2)
-          version="${base}.${{ github.run_number }}"
+          committed_base=$(jq -r '.version' manifest.json | cut -d. -f1,2)
+          latest_tag=$(gh release list --limit 1 --json tagName --jq '.[0].tagName // empty' --repo "${{ github.repository }}")
+          latest_base=""
+          latest_patch=0
+          if [[ -n "$latest_tag" ]]; then
+            latest_base=$(echo "$latest_tag" | cut -d. -f1,2)
+            latest_patch=$(echo "$latest_tag" | cut -d. -f3)
+          fi
+          if [[ "$committed_base" == "$latest_base" ]]; then
+            version="${committed_base}.$(( latest_patch + 1 ))"
+          else
+            version="${committed_base}.0"
+          fi
           jq --arg v "$version" '.version = $v' manifest.json > manifest.json.tmp
           mv manifest.json.tmp manifest.json
           echo "version=${version}" >> "$GITHUB_OUTPUT"
