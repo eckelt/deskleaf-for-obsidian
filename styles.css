@@ -3144,3 +3144,12 @@
 .dl-solidtime-notice--hint {
     font-style: italic;
 }
+
+/* ── Settings-Fußzeile ───────────────────────────────────────── */
+
+.dl-version-footer {
+    color: var(--f-muted);
+    font-size: 0.75em;
+    margin-top: 24px;
+    text-align: center;
+}

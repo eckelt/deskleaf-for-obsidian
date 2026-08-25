@@ -12,6 +12,8 @@ import { registerSolidTimeBlock } from "./solidtime-block";
 
 export default class DeskleafPlugin extends Plugin {
   settings!: DeskleafSettings;
+  // "" for local/dev builds (bash deploy.sh); stamped by the release workflow otherwise.
+  releaseDate: string | null = __DESKLEAF_RELEASE_DATE__ || null;
   private calendarCache: CalendarEvent[] = [];
   private calendarCacheDate: string | null = null;
   calendarReader!: CalendarReader | CalDAVReader;

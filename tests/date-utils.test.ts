@@ -13,9 +13,39 @@ import {
   dayHeaderLabel,
   weekHeaderLabel,
   getWeekNumber,
+  formatDMYDate,
+  formatVersionFooter,
 } from "../src/date-utils";
 
 // All tests run with TZ=UTC (set in package.json test script)
+
+describe("formatDMYDate", () => {
+  it("formats a regular date", () => {
+    expect(formatDMYDate("2026-08-25")).toBe("25.08.2026");
+  });
+
+  it("keeps leading zeros for single-digit day/month", () => {
+    expect(formatDMYDate("2026-01-05")).toBe("05.01.2026");
+  });
+});
+
+describe("formatVersionFooter", () => {
+  it("appends the release date when known", () => {
+    expect(formatVersionFooter("1.2.109", "2026-08-25")).toBe("Version 1.2.109 · 25.08.2026");
+  });
+
+  it("omits date and separator when the release date is undefined", () => {
+    expect(formatVersionFooter("1.2.0", undefined)).toBe("Version 1.2.0");
+  });
+
+  it("omits date and separator when the release date is null", () => {
+    expect(formatVersionFooter("1.2.0", null)).toBe("Version 1.2.0");
+  });
+
+  it("omits date and separator when the release date is an empty string", () => {
+    expect(formatVersionFooter("1.2.0", "")).toBe("Version 1.2.0");
+  });
+});
 
 describe("toDateStr", () => {
   it("formats a date correctly", () => {

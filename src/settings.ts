@@ -2,6 +2,7 @@ import { App, PluginSettingTab, Setting } from "obsidian";
 import type DeskleafPlugin from "./main";
 import { CalDAVClient } from "./caldav-client";
 import { CAL_COLOR_PALETTE, calSwatchColor, type DeskleafSettings, type ICalFeedSubscription } from "./types";
+import { formatVersionFooter } from "./date-utils";
 
 function trashIconSvg(size: number): string {
   return (
@@ -269,6 +270,12 @@ export class DeskleafSettingTab extends PluginSettingTab {
             await this.plugin.saveSettings();
           })
       );
+
+    // ── Fußzeile ─────────────────────────────────────────────────
+    containerEl.createEl("p", {
+      cls: "dl-version-footer",
+      text: formatVersionFooter(this.plugin.manifest.version, this.plugin.releaseDate),
+    });
   }
 
   private refreshCalendarViews(): void {

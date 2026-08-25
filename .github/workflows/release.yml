@@ -52,6 +52,10 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      # Stamped into main.js at build time (see esbuild.config.mjs) so the
+      # plugin can show it in the settings footer without a manual step.
+      - name: Compute release date
+        run: echo "DESKLEAF_RELEASE_DATE=$(date -u +%F)" >> "$GITHUB_ENV"
       - run: npm run build
       - uses: actions/download-artifact@v7
         with:

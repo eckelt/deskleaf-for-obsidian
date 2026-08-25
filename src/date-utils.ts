@@ -1,6 +1,18 @@
 const DAYS   = ["So","Mo","Di","Mi","Do","Fr","Sa"] as const;
 const MONTHS = ["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"] as const;
 
+/** Format a YYYY-MM-DD string as TT.MM.JJJJ */
+export function formatDMYDate(iso: string): string {
+  const [y, m, d] = iso.split("-");
+  return `${d}.${m}.${y}`;
+}
+
+/** "Version 1.2.109" · appends " · TT.MM.JJJJ" when a release date is known */
+export function formatVersionFooter(version: string, releaseDate?: string | null): string {
+  if (!releaseDate) return `Version ${version}`;
+  return `Version ${version} · ${formatDMYDate(releaseDate)}`;
+}
+
 /** Format a Date as YYYY-MM-DD */
 export function toDateStr(d: Date): string {
   const y = d.getFullYear();

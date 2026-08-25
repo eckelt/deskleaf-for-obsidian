@@ -12,6 +12,9 @@ const prod = (process.argv[2] === "production");
 
 const context = await esbuild.context({
   banner: { js: banner },
+  define: {
+    __DESKLEAF_RELEASE_DATE__: JSON.stringify(process.env.DESKLEAF_RELEASE_DATE ?? ""),
+  },
   entryPoints: ["src/main.ts"],
   bundle: true,
   external: [

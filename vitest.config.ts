@@ -2,6 +2,10 @@ import { defineConfig } from "vitest/config";
 import { resolve } from "path";
 
 export default defineConfig({
+  // Mirrors esbuild.config.mjs's define — tests run as an unstamped dev build.
+  define: {
+    __DESKLEAF_RELEASE_DATE__: JSON.stringify(""),
+  },
   resolve: {
     alias: {
       // Point the type-only obsidian package to a minimal JS stub so that
