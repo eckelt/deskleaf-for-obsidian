@@ -65,6 +65,9 @@ export interface EventNoteFrontmatter {
 
 export type NoteType = "termin" | "interview" | "recurring" | "task" | "focus";
 
+/** A todo line's status character, classified by classifyTodoStatus in todo-parser.ts. */
+export type TodoStatus = "open" | "closed" | "important";
+
 /** A customers/ note, reduced to what event matching and linking need. */
 export interface CustomerRef {
   name: string;
