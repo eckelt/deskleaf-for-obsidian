@@ -31,11 +31,15 @@ jobs:
       issues: write
       pull-requests: write
       actions: write
-      workflows: write
     steps:
+      # GITHUB_TOKEN can never push changes under .github/workflows/* — no
+      # permissions entry lifts that, it's a hard GitHub-side restriction.
+      # Use PIPELINE_PAT for checkout so the Builder's own `git push` (before
+      # the merge step, which already used this PAT) carries a token that can.
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
+          token: ${{ secrets.PIPELINE_PAT }}
       - uses: actions/setup-node@v6
         with:
           node-version: 24
