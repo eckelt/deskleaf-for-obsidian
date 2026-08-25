@@ -3,6 +3,7 @@
 ## Status
 `approved`
 <!-- draft → ux-reviewed → design-reviewed → approved → in-development → qa → done -->
+<!-- ux-reviewed and design-reviewed were skipped for this spec: approved directly by the author, same as tasks-plugin-status-support.md. -->
 
 ## Source
 - GitHub issue: #64
