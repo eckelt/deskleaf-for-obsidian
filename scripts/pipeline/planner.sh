@@ -115,6 +115,7 @@ ${ff}"
             # Fix-forward: implementation-only change, spec stays. New build pass.
             push_planner_artifacts || true
             remove_label "$LABEL_PLANNING"
+            remove_label "$LABEL_AWAITING"
             add_label "$LABEL_READY_BUILD"
             state_set prNumber ""
             state_set fixForwardNote "${line#BUILD: }"
