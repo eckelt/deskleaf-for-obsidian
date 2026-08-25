@@ -3,7 +3,7 @@
 ## Status
 `approved`
 <!-- draft → ux-reviewed → design-reviewed → approved → in-development → qa → done -->
-<!-- ux-reviewed and design-reviewed were skipped for this spec: approved directly by the author, same as tasks-plugin-status-support.md. -->
+<!-- ux-reviewed and design-reviewed content below was already written and self-approved by the Planner; only this Status field had not been advanced to match. Bumped directly to approved by the author. -->
 
 ## Source
 - GitHub issue: #64
