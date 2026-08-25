@@ -135,7 +135,12 @@ run_lane() {
             # the builder changed nothing — almost always a spec that is already
             # implemented or wrongly assigned to this issue, NOT a git problem.
             if [[ -z "$(git log --oneline origin/main..HEAD 2>/dev/null)" ]]; then
-                send_pipeline_failure_to_planner "Builder hat keine Änderung produziert (Branch identisch mit origin/main). Die Spec \`${spec}\` ist vermutlich bereits umgesetzt oder diesem Issue falsch zugewiesen — bitte die Spec-Zuordnung prüfen, nicht den Branch-/Git-State."
+                send_pipeline_failure_to_planner "Builder hat keine Änderung produziert (Branch identisch mit origin/main). Die Spec \`${spec}\` ist vermutlich bereits umgesetzt oder diesem Issue falsch zugewiesen — bitte die Spec-Zuordnung prüfen, nicht den Branch-/Git-State.
+
+Builder-Rohausgabe (zur Diagnose, sonst nie sichtbar):
+\`\`\`
+${b:-<leer>}
+\`\`\`"
             else
                 send_pipeline_failure_to_planner "Builder konnte keinen PR liefern: $(echo "$b" | sed 's/^FAIL: *//')"
             fi
