@@ -40,8 +40,11 @@ Status-Zeichen nicht mehr komplett unsichtbar in der Seitenleiste bleiben.
   Reihenfolge `📅` > `⏳` > `🛫` die Datums-Gruppe des Todos anstelle des
   Frontmatter-Datums der Notiz. Fehlen alle drei, bleibt das bisherige
   Verhalten (Frontmatter-`date` der Notiz, sonst "Ohne Datum") unverändert.
-- AC8: `➕` (erstellt), `✅` (erledigt) und `❌` (storniert) Inline-Daten
-  werden erkannt, aber nicht für die Gruppierung verwendet.
+- AC8: `✅` (erledigt) Inline-Daten werden erkannt, aber nicht für die
+  Gruppierung verwendet. `➕` (erstellt) und `❌` (storniert) sind für diese
+  Iteration explizit optional (siehe Out of Scope) — es ist keine
+  gesonderte Erkennung oder Testabdeckung für diese beiden Zeichen
+  erforderlich.
 
 ## Acceptance Scenarios
 ```gherkin
@@ -92,6 +95,10 @@ Scenario: Klick auf Checkbox eines Prio-Todos hakt es ab
   Liste pflegen muss.
 - Schreiben zusätzlicher Tasks-Metadaten (z. B. `✅`-Datum) beim Abhaken über
   die Seitenleiste; es wird weiterhin nur das Status-Zeichen auf `x` gesetzt.
+- Explizite Erkennung oder Testabdeckung der Tasks-Emojis `➕` (erstellt) und
+  `❌` (storniert) — laut Autor für diese Iteration nicht erforderlich
+  ("let it be"). Sie bleiben als Rohtext im Todo-Text sichtbar wie jeder
+  andere Text auch, ohne dass Deskleaf sie gesondert parsen muss.
 
 ## Open Questions
 _None_
@@ -118,6 +125,8 @@ _None_
     nicht zusätzlich in einer Datums-Gruppe.
   - Toggle-Verhalten: Checken eines Todos mit beliebigem offenem
     Status-Zeichen schreibt `[x]` in die Quellzeile.
+  - AC8 ist mit dieser Testliste vollständig abgedeckt; `➕`/`❌` benötigen
+    laut Out-of-Scope-Abschnitt keine eigene Testabdeckung.
 - Manuelle QA:
   - Sichtprüfung, dass "Wichtig" oberhalb von "Heute" in einer echten
     Vault-Notiz mit `[!]`-Zeile erscheint.
