@@ -38,6 +38,13 @@ describe("extractDueDate", () => {
     expect(extractDueDate("Mail rausschicken")).toBeNull();
     expect(extractDueDate("Version 2026-13-45 bauen")).toBeNull();
   });
+
+  it("ignores ➕ created, ✅ done and ❌ cancelled dates — they never drive grouping", () => {
+    expect(extractDueDate("Mail rausschicken ➕ 2026-08-21")).toBeNull();
+    expect(extractDueDate("Mail rausschicken ✅ 2026-08-21")).toBeNull();
+    expect(extractDueDate("Mail rausschicken ❌ 2026-08-21")).toBeNull();
+    expect(extractDueDate("Mail rausschicken ➕ 2026-08-19 📅 2026-08-21")).toBe("2026-08-21");
+  });
 });
 
 describe("classifyTodoStatus", () => {
@@ -68,6 +75,12 @@ describe("cleanTodoText", () => {
 
   it("strips a done date too", () => {
     expect(cleanTodoText("Mail raus ✅ 2026-08-21")).toBe("Mail raus");
+  });
+
+  it("strips the Tasks-plugin created and cancelled dates", () => {
+    expect(cleanTodoText("Mail raus ➕ 2026-08-19")).toBe("Mail raus");
+    expect(cleanTodoText("Mail raus ❌ 2026-08-21")).toBe("Mail raus");
+    expect(cleanTodoText("Mail raus ➕ 2026-08-19 ✅ 2026-08-20 ❌ 2026-08-21")).toBe("Mail raus");
   });
 
   it("collapses the gap the removal leaves behind", () => {
@@ -140,6 +153,20 @@ describe("parseTodoLines with Tasks-plugin status characters", () => {
 
   it("classifies ! as important, - as closed, and any other character as open", () => {
     expect(todos.map((todo) => todo.status)).toEqual(["important", "open", "closed", "open"]);
+  });
+});
+
+describe("parseTodoLines with ➕/✅/❌ inline dates", () => {
+  it("recognizes and strips them from the displayed text without using them for grouping", () => {
+    const [todo] = parseTodoLines("- [ ] Rechnung stellen ➕ 2026-08-19 📅 2026-08-25");
+    expect(todo.text).toBe("Rechnung stellen");
+    expect(todo.due).toBe("2026-08-25");
+  });
+
+  it("leaves a todo undated when only ➕/✅/❌ markers are present", () => {
+    const [todo] = parseTodoLines("- [ ] Rechnung stellen ➕ 2026-08-19");
+    expect(todo.text).toBe("Rechnung stellen");
+    expect(todo.due).toBeNull();
   });
 });
 

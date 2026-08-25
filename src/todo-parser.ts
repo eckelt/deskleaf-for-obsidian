@@ -28,6 +28,7 @@ export function classifyTodoStatus(char: string): TodoStatus {
   return "open";
 }
 
+/** Grouping-relevant dates only — ➕/✅/❌ are recognised (see cleanTodoText) but deliberately excluded here. */
 export function extractDueDate(text: string): string | null {
   return (
     text.match(/due::\s*(\d{4}-\d{2}-\d{2})/)?.[1] ??
@@ -44,10 +45,17 @@ export function cleanTodoText(text: string): string {
   // whitespace on both sides, so removing a mid-line `due::` outright would
   // weld the surrounding words together. The collapse and trim below undo the
   // extra space, leaving the common trailing case unchanged.
+  //
+  // ➕ (created), ✅ (done) and ❌ (cancelled) are Tasks-plugin bookkeeping
+  // dates, not due dates: they are recognised and stripped here so they don't
+  // clutter the displayed text, but — unlike 📅/⏳/🛫 — never feed extractDueDate,
+  // so they never affect grouping.
   return text
     .replace(/[[(]?\s*due::\s*\d{4}-\d{2}-\d{2}\s*[\])]?/g, " ")
     .replace(/\s*📅\s*\d{4}-\d{2}-\d{2}/g, " ")
+    .replace(/\s*➕\s*\d{4}-\d{2}-\d{2}/g, " ")
     .replace(/\s*✅\s*\d{4}-\d{2}-\d{2}/g, " ")
+    .replace(/\s*❌\s*\d{4}-\d{2}-\d{2}/g, " ")
     .replace(/\s*\[\[\d{4}-\d{2}-\d{2}\]\]/g, " ")
     .replace(/\s{2,}/g, " ")
     .trim();
