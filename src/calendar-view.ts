@@ -396,7 +396,7 @@ export class DeskleafCalendarView extends ItemView {
    */
   private applyCalendarTone(el: HTMLElement, calendar: string): void {
     const hue = this.calendarHue(calendar);
-    const { light, dark } = calTone(hue);
+    const { light, dark, sel } = calTone(hue);
     el.style.setProperty("--cal-h", String(hue));
     el.style.setProperty("--cal-bg-s", `${light.bgS}%`);
     el.style.setProperty("--cal-bg-l", `${light.bgL}%`);
@@ -406,7 +406,8 @@ export class DeskleafCalendarView extends ItemView {
     el.style.setProperty("--cal-d-bg-l", `${dark.bgL}%`);
     el.style.setProperty("--cal-d-bd-l", `${dark.bdL}%`);
     el.style.setProperty("--cal-d-tx-l", `${dark.txL}%`);
-    el.style.setProperty("--cal-sel-l", `${calTone(hue).selL}%`);
+    el.style.setProperty("--cal-sel-bg-l", `${sel.bgL}%`);
+    el.style.setProperty("--cal-sel-tx-l", `${sel.txL}%`);
   }
 
   private calendarHue(name: string): number {

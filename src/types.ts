@@ -121,31 +121,37 @@ export interface CalToneMode {
   txL: number;
 }
 
+export interface CalToneSelected {
+  /** Full-saturation surface — as bright as the hue allows at ≥4.5:1 contrast. */
+  bgL: number;
+  /** Text sits 10° warmer than the card hue (set via calc() on --cal-h), dark
+   * enough against `bgL` to clear 4.5:1. Replaces the old shared white text,
+   * which read at 2.1–2.7:1 on several hues once the surface got this bold. */
+  txL: number;
+}
+
 export interface CalTone {
   light: CalToneMode;
   dark: CalToneMode;
-  /**
-   * Surface of the selected card. It carries near-white text in both themes, so
-   * one value serves both — and it has to be dark enough for that text. The
-   * previous shared 38 % left yellow at 2.7:1 and green at 2.4:1.
-   */
-  selL: number;
+  /** Surface of the selected card — same in both themes since it no longer
+   * depends on the resting-state tone. */
+  sel: CalToneSelected;
 }
 
 export const CAL_TONES: Record<number, CalTone> = {
-  346: { light: { bgS: 95, bgL: 88, bdL: 42, txL: 30 }, dark: { bgS: 55, bgL: 16, bdL: 58, txL: 76 }, selL: 40 },
-  21: { light: { bgS: 100, bgL: 88, bdL: 48, txL: 28 }, dark: { bgS: 55, bgL: 16, bdL: 55, txL: 72 }, selL: 38 },
-  48: { light: { bgS: 100, bgL: 88, bdL: 50, txL: 25 }, dark: { bgS: 55, bgL: 16, bdL: 52, txL: 66 }, selL: 26 },
-  96: { light: { bgS: 100, bgL: 88, bdL: 38, txL: 22 }, dark: { bgS: 55, bgL: 16, bdL: 48, txL: 62 }, selL: 25 },
-  188: { light: { bgS: 100, bgL: 88, bdL: 40, txL: 24 }, dark: { bgS: 55, bgL: 16, bdL: 50, txL: 64 }, selL: 28 },
-  252: { light: { bgS: 100, bgL: 88, bdL: 48, txL: 32 }, dark: { bgS: 55, bgL: 16, bdL: 68, txL: 78 }, selL: 45 },
+  346: { light: { bgS: 95, bgL: 88, bdL: 42, txL: 30 }, dark: { bgS: 55, bgL: 16, bdL: 58, txL: 76 }, sel: { bgL: 50, txL: 11 } },
+  21: { light: { bgS: 100, bgL: 88, bdL: 48, txL: 28 }, dark: { bgS: 55, bgL: 16, bdL: 55, txL: 72 }, sel: { bgL: 50, txL: 17 } },
+  48: { light: { bgS: 100, bgL: 88, bdL: 50, txL: 25 }, dark: { bgS: 55, bgL: 16, bdL: 52, txL: 66 }, sel: { bgL: 50, txL: 25 } },
+  96: { light: { bgS: 100, bgL: 88, bdL: 38, txL: 22 }, dark: { bgS: 55, bgL: 16, bdL: 48, txL: 62 }, sel: { bgL: 50, txL: 21 } },
+  188: { light: { bgS: 100, bgL: 88, bdL: 40, txL: 24 }, dark: { bgS: 55, bgL: 16, bdL: 50, txL: 64 }, sel: { bgL: 50, txL: 18 } },
+  252: { light: { bgS: 100, bgL: 88, bdL: 48, txL: 32 }, dark: { bgS: 55, bgL: 16, bdL: 68, txL: 78 }, sel: { bgL: 67, txL: 6 } },
 };
 
 /** Tones for a hue outside the palette — a custom colour or Obsidian's accent. */
 export const CAL_TONE_FALLBACK: CalTone = {
   light: { bgS: 95, bgL: 88, bdL: 45, txL: 27 },
   dark: { bgS: 55, bgL: 16, bdL: 55, txL: 70 },
-  selL: 34,
+  sel: { bgL: 50, txL: 20 },
 };
 
 export function calTone(hue: number): CalTone {

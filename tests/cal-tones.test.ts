@@ -82,19 +82,23 @@ describe("CAL_TONES", () => {
     }
   });
 
-  it("keeps near-white text on the selected card readable", () => {
-    // Der Auswahl-Zustand trug in beiden Themes weiße Schrift auf einer
-    // gemeinsamen Fläche von 38 % — bei Gelb 2.7:1, bei Grün 2.4:1.
+  it("keeps the selected card's warm-shifted text readable against its bold surface", () => {
+    // The selected surface moved from a muted, per-hue-tuned lightness with
+    // shared white text (2.1–2.7:1 on several hues) to a bold, full-saturation
+    // surface with darker text 10° warmer than the card hue (set via calc() on
+    // --cal-h in styles.css) — verify that shift still clears WCAG AA.
     for (const hue of CAL_COLOR_PALETTE) {
-      const ratio = contrast([hue, 95, calTone(hue).selL], [0, 0, 100]);
+      const { sel } = calTone(hue);
+      const txHue = ((hue - 10) % 360 + 360) % 360;
+      const ratio = contrast([hue, 100, sel.bgL], [txHue, 100, sel.txL]);
       expect(ratio, `Hue ${hue} ausgewählt: ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(4.5);
     }
   });
 
-  it("keeps the selected card darker than the resting one in light mode", () => {
+  it("keeps the selected card's surface bold — full saturation, no darker than the resting one in light mode", () => {
     for (const hue of CAL_COLOR_PALETTE) {
       const tone = calTone(hue);
-      expect(tone.selL, `Hue ${hue}`).toBeLessThan(tone.light.bgL);
+      expect(tone.sel.bgL, `Hue ${hue}`).toBeLessThan(tone.light.bgL);
     }
   });
 
