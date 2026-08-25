@@ -4,11 +4,7 @@
 // emoji and a trailing date link are accepted because both already occur in the
 // vault. Completion stamps `✅ yyyy-mm-dd`, which is what complete_todo writes.
 //
-// Status characters follow the Tasks community plugin: any single character
-// between the brackets is a valid status. `x`/`X` (done) and `-` (cancelled)
-// are "closed" and hidden the same way a completed todo always was; `!`
-// (important) is its own group; every other character — including the plain
-// `[ ]` — is treated as open.
+// Status characters follow the Tasks community plugin: any character between the brackets is valid, and anything but x/X/-/! is treated as open.
 
 export const TODO_LINE_PATTERN = /^(\s*[-*]\s+)\[(.)\]\s+(.*\S)\s*$/;
 export const TODO_DONE_PATTERN = /^(\s*[-*]\s+)\[[xX]\]\s+(.*\S)\s*$/;
@@ -84,11 +80,7 @@ export function resolveTodoDate(todo: ParsedTodo, noteDate: string | null): stri
   return todo.due ?? noteDate;
 }
 
-/**
- * `- [ ] x` → `- [x] x ✅ 2026-08-23`, without ever stamping a second date.
- * Any open status character (not just the plain space) is accepted, so
- * checking off a `[!]` or `[/]` todo in the sidebar closes it the same way.
- */
+/** `- [ ] x` → `- [x] x ✅ 2026-08-23`; any non-closed status char is accepted, not just the plain space. */
 export function completeTodoLine(line: string, today: string): string {
   const match = TODO_LINE_PATTERN.exec(line);
   if (!match || classifyStatus(match[2]) === "closed") return line;
@@ -114,11 +106,7 @@ export function groupForDate(date: string | null, today: string, weekEnd: string
   return "later";
 }
 
-/**
- * The group an open/important todo is filed under. `important` wins over
- * date grouping — a `[!]` todo appears only there, never additionally in
- * its date group.
- */
+/** The group an open/important todo is filed under; `important` wins over date grouping. */
 export function todoGroupFor(status: TodoStatus, date: string | null, today: string, weekEnd: string): TodoGroup {
   if (status === "important") return "important";
   return groupForDate(date, today, weekEnd);
