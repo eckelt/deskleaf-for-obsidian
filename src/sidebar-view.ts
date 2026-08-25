@@ -7,7 +7,7 @@ import { matchCustomer } from "./brain-vault";
 import { parseLogo } from "./note-logo";
 import {
   parseTodoLines, resolveTodoDate, completeTodoLine, reopenTodoLine,
-  groupForDate, type TodoGroup,
+  todoGroupFor, type TodoGroup, type TodoStatus,
 } from "./todo-parser";
 
 function getSectionIconName(section: SectionName): string {
@@ -61,7 +61,7 @@ interface EntityEntry {
 type EntityKind = "customers" | "projects";
 
 interface TodoItem {
-  text: string; checked: boolean; file: TFile;
+  text: string; status: TodoStatus; file: TFile;
   lineIndex: number; date: string | null; noteTitle: string;
 }
 
@@ -759,10 +759,10 @@ export class DeskleafSidebarView extends ItemView {
     header.createSpan({ cls: "dl-sidebar-count", text: String(openCount) });
 
     const labels: Record<TodoGroup, string> = {
-      today: "Heute", week: "Diese Woche", later: "Später", undated: "Ohne Datum", past: "Früher",
+      important: "Wichtig", today: "Heute", week: "Diese Woche", later: "Später", undated: "Ohne Datum", past: "Früher",
     };
     const sections: HTMLElement[] = [];
-    for (const key of (["today", "week", "later", "undated", "past"] as TodoGroup[])) {
+    for (const key of (["important", "today", "week", "later", "undated", "past"] as TodoGroup[])) {
       const items = groups[key];
       if (items.length === 0) continue;
       const section = container.createDiv("dl-board-section");
@@ -792,7 +792,7 @@ export class DeskleafSidebarView extends ItemView {
     const row = container.createDiv("dl-todo-row");
     row.dataset.filter = `${todo.text} ${todo.noteTitle}`.toLowerCase();
     const checkbox = row.createEl("input", { type: "checkbox" } as any) as HTMLInputElement;
-    checkbox.checked = todo.checked;
+    checkbox.checked = false; // groupTodos already filtered out closed todos
     checkbox.addEventListener("change", async () => {
       await this.toggleTodo(todo, checkbox.checked);
       await this.render();
@@ -818,7 +818,7 @@ export class DeskleafSidebarView extends ItemView {
     const noteTitle: string = fm?.title ?? file.basename;
     return parseTodoLines(content).map((todo) => ({
       text: todo.text,
-      checked: todo.checked,
+      status: todo.status,
       file,
       lineIndex: todo.lineIndex,
       date: resolveTodoDate(todo, noteDate),
@@ -848,10 +848,10 @@ export class DeskleafSidebarView extends ItemView {
   private groupTodos(todos: TodoItem[]): Record<TodoGroup, TodoItem[]> {
     const today = toDateStr(new Date());
     const weekEnd = toDateStr(addDays(new Date(), 7));
-    const groups: Record<TodoGroup, TodoItem[]> = { today: [], week: [], later: [], undated: [], past: [] };
+    const groups: Record<TodoGroup, TodoItem[]> = { important: [], today: [], week: [], later: [], undated: [], past: [] };
     for (const todo of todos) {
-      if (todo.checked) continue;
-      groups[groupForDate(todo.date, today, weekEnd)].push(todo);
+      if (todo.status === "closed") continue;
+      groups[todoGroupFor(todo.status, todo.date, today, weekEnd)].push(todo);
     }
     return groups;
   }
