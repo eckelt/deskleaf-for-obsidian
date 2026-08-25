@@ -8,6 +8,8 @@ swift/.build/
 scripts/.issue-watch-state.json
 scripts/.factory-review-state.json
 scripts/.factory-metrics.json
+.stryker-tmp/
+reports/mutation/
 
 # BEGIN swamp managed section - DO NOT EDIT
 
