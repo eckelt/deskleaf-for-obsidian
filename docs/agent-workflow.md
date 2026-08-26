@@ -59,7 +59,10 @@ Reviews real completed pipeline runs after builds have merged.
   If not, it updates the audit timestamp and exits without invoking an agent.
 - Uses Factory Metrics from `scripts/factory-metrics.mjs`, including PR counts,
   Validator failures, Reviewer failures, Planner returns, human fix-forward
-  signals, wrong-spec signals, loop counts, and a `notable` flag per issue.
+  signals, wrong-spec signals, loop counts, and a `notable` flag per issue, plus
+  time-to-done, GitHub Actions minutes, and aggregated agent cost/tokens/duration
+  as an objective comparison against manual work — informational only, no gate
+  or threshold is based on them.
 - Proposes measurable pipeline or prompt improvements only. It does not edit
   specs, code, tests, or ADRs directly.
 
