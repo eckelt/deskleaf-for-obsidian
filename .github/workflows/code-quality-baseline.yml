@@ -1,0 +1,38 @@
+name: Code Quality Baseline
+
+# Nightly code-smell health check (issue #71) using eslint-plugin-sonarjs
+# against src/**/*.ts. Fully decoupled from the build lane and from
+# mutation-testing.yml: its own trigger set and concurrency group, never
+# dispatched by or dispatching either of them, and not a required status
+# check on any PR — a red or growing finding count here cannot block a
+# merge. Visibility is the Job Summary alone (no break threshold, no issue
+# comment, no other reporting channel).
+
+on:
+  schedule:
+    - cron: "43 4 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: code-quality-baseline
+  cancel-in-progress: false
+
+jobs:
+  code-quality:
+    name: Run code quality baseline
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Run ESLint quality baseline
+        run: npm run lint:quality
+      - name: Write quality summary
+        if: always()
+        run: npm run quality:summary
