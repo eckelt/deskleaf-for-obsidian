@@ -37,9 +37,6 @@ function countMatching(comments, pattern) {
   return comments.filter((comment) => pattern.test(comment)).length;
 }
 
-// AC1: closed issues use closedAt; still-open issues that have reached
-// ready-for-acceptance at least once fall back to that label event; anything
-// else (open, never ready) has no known "done" timestamp.
 function timeToDoneMsFor(timestamps) {
   if (!timestamps) {
     return null;
@@ -51,17 +48,13 @@ function timeToDoneMsFor(timestamps) {
   return Date.parse(endpoint) - Date.parse(timestamps.createdAt);
 }
 
-// AC2: a cost proxy, not a timestamp difference — issues without associated
-// runs get 0, not null.
 function actionsMinutesFor(actionsRuns) {
   return actionsRuns
     .filter((run) => ACTIONS_WORKFLOW_NAMES.has(run.workflowName))
     .reduce((total, run) => total + run.durationMinutes, 0);
 }
 
-// AC3: each sum only counts runs that actually reported that field; a field
-// no run reported sums to null instead of 0, so a missing metric never looks
-// like a real zero.
+// null distinguishes "no run reported this field" from a real zero total.
 function sumNumericField(agentRuns, field) {
   const values = agentRuns.map((run) => run[field]).filter((value) => typeof value === "number");
   return values.length === 0 ? null : values.reduce((total, value) => total + value, 0);
@@ -185,7 +178,7 @@ function loadIssueComments(issueNumbers) {
 // The pipeline-state comment (scripts/pipeline/lib.sh: STATE_MARKER) is a
 // normal issue comment; agentRuns lives in its fenced ```json block. Missing
 // marker, fence, or agentRuns array all resolve to null so the caller can
-// fall back to an empty list instead of aborting (AC3).
+// fall back to an empty list instead of aborting.
 const STATE_COMMENT_MARKER = "<!-- deskleaf-pipeline-state -->";
 
 function extractAgentRunsFromComment(comment) {
