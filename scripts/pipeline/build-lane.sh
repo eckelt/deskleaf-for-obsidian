@@ -22,7 +22,7 @@ BRANCH="feature/issue-${ISSUE_NUMBER}"
 # ── Stage steps (ported 1:1, dir = the runner checkout) ───────────────────────
 
 build_step() {
-    local pr="$1" feedback="$2" spec="$3"
+    local pr="$1" feedback="$2" spec="$3" attempt="$4"
     local instr="You are in a disposable CI checkout on branch ${BRANCH}. Implement the spec with TDD.
 Run npm test and npm run build; both must pass.
 Then commit, push: git push -u origin ${BRANCH}, and open the PR:
@@ -38,25 +38,25 @@ ${feedback}"
 Respond with exactly one line: \"PR: <number>\" or \"FAIL: <reason>\"."
 
     build_prompt "${AGENTS_DIR}/feature-builder.md" "Feature spec: ${spec}" "$instr"
-    run_agent "$BUILDER_BACKEND" "$BUILDER_MODEL" "$(pwd)" "$CLAUDE_PROMPT"
+    run_agent "$BUILDER_BACKEND" "$BUILDER_MODEL" "$(pwd)" "$CLAUDE_PROMPT" builder "$attempt"
 }
 
 validate_step() {
-    local spec="$1"
+    local spec="$1" attempt="$2"
     build_prompt "${AGENTS_DIR}/feature-validator.md" "Feature spec: ${spec}
 Repository: $(pwd)" \
         'Run npm test. Verify each AC is covered by a test. Respond with exactly one line: "PASS" or "FAIL: AC-<n> <gap>".'
-    run_agent "$VALIDATOR_BACKEND" "$VALIDATOR_MODEL" "$(pwd)" "$CLAUDE_PROMPT"
+    run_agent "$VALIDATOR_BACKEND" "$VALIDATOR_MODEL" "$(pwd)" "$CLAUDE_PROMPT" validator "$attempt"
 }
 
 review_step() {
-    local pr="$1"
+    local pr="$1" attempt="$2"
     local diff; diff=$(gh pr diff "$pr" --repo "$REPO" 2>/dev/null || echo "(PR diff not available)")
     build_prompt "${AGENTS_DIR}/feature-reviewer.md" "PR #${pr} diff:
 
 ${diff}" \
         'Respond with exactly one line: "PASS" or "FAIL: <violated standard and offending line>".'
-    run_agent "$REVIEWER_BACKEND" "$REVIEWER_MODEL" "$(pwd)" "$CLAUDE_PROMPT"
+    run_agent "$REVIEWER_BACKEND" "$REVIEWER_MODEL" "$(pwd)" "$CLAUDE_PROMPT" reviewer "$attempt"
 }
 
 # ── Failure routing (ported; re-plans run via workflow_dispatch) ──────────────
@@ -126,7 +126,8 @@ run_lane() {
         attempt=$(( attempt + 1 ))
         echo "   Attempt ${attempt}/${MAX_BUILD_ATTEMPTS}"
 
-        local b; b=$(build_step "$pr" "$feedback" "$spec")
+        capture_stdout build_step "$pr" "$feedback" "$spec" "$attempt"
+        local b="$reply"
         if echo "$b" | grep -q "^PR:"; then
             pr=$(echo "$b" | sed 's/^PR: *//')
             state_set prNumber "$pr"
@@ -147,7 +148,8 @@ ${b:-<leer>}
             return 0
         fi
 
-        local val; val=$(validate_step "$spec")
+        capture_stdout validate_step "$spec" "$attempt"
+        local val="$reply"
         if ! echo "$val" | grep -q "^PASS"; then
             local ac; ac=$(echo "$val" | sed -n 's/^FAIL: *\(AC-[0-9]*\).*/\1/p')
             local last; last=$(state_get lastFailedAc "")
@@ -171,7 +173,8 @@ ${b:-<leer>}
             continue
         fi
 
-        local rev; rev=$(review_step "$pr")
+        capture_stdout review_step "$pr" "$attempt"
+        local rev="$reply"
         if ! echo "$rev" | grep -q "^PASS"; then
             feedback="Code-Review: $(echo "$rev" | sed 's/^FAIL: *//')"
             post_comment "**Code Reviewer**: Nicht bestanden — ${feedback#Code-Review: } (Versuch ${attempt})."

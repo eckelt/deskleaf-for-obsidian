@@ -58,7 +58,7 @@ state_load() {
             | sed -n '/^```json$/,/^```$/p' | sed '1d;$d')
     fi
     if [[ -z "$STATE_JSON" ]] || ! jq -e . >/dev/null 2>&1 <<<"$STATE_JSON"; then
-        STATE_JSON='{"stage":"new","specPath":"","prNumber":"","fixForwardNote":"","lastFailedAc":"","acFailStreak":0,"plannerReturnCount":0}'
+        STATE_JSON='{"stage":"new","specPath":"","prNumber":"","fixForwardNote":"","lastFailedAc":"","acFailStreak":0,"plannerReturnCount":0,"agentRuns":[]}'
     fi
 }
 
@@ -93,6 +93,30 @@ state_set_num() {
     local field="$1" value="$2"
     STATE_JSON=$(jq --arg f "$field" --argjson v "$value" '.[$f] = $v' <<<"$STATE_JSON")
     state_save
+}
+
+# Appends a JSON value to an array field, accumulating instead of overwriting
+# like state_set/state_set_num do. Defaults a missing/pre-feature field to []
+# first, so issues that already ran the pipeline before this field existed
+# still end up with a well-formed array.
+state_append() {
+    local field="$1" json_value="$2"
+    STATE_JSON=$(jq --arg f "$field" --argjson v "$json_value" \
+        '.[$f] = ((.[$f] // []) + [$v])' <<<"$STATE_JSON")
+    state_save
+}
+
+# Runs "$@" with its stdout captured into $reply, without the subshell a plain
+# x=$(...) command substitution would fork. run_agent mutates the global
+# STATE_JSON (via state_append) as a side effect of recording agent-run
+# metrics; if it ran inside a subshell, that mutation would be invisible to
+# the caller's own STATE_JSON copy, and a later state_set/state_set_num call
+# would overwrite the freshly-appended entry with the stale pre-call state.
+capture_stdout() {
+    local tmp; tmp=$(mktemp)
+    "$@" >"$tmp"
+    reply=$(cat "$tmp")
+    rm -f "$tmp"
 }
 
 # ── GitHub helpers ─────────────────────────────────────────────────────────────
@@ -159,32 +183,77 @@ ensure_codex_auth() {
     codex login --with-api-key <<<"$OPENAI_API_KEY" >/dev/null 2>&1 || true
 }
 
+# Builds one agentRuns entry and appends it to the pipeline state. A missing
+# numeric field (older CLI without cost info, a failed turn without usage,
+# ...) is recorded as JSON null rather than blocking the run — see ADR/AC4.
+record_agent_run() {
+    local role="$1" backend="$2" model="$3" attempt="$4"
+    local cost="$5" input_tokens="$6" output_tokens="$7" duration_ms="$8"
+    local model_field="$model"; is_default_model "$model_field" && model_field="default"
+    local entry; entry=$(jq -n \
+        --arg role "$role" --arg backend "$backend" --arg model "$model_field" \
+        --argjson attempt "$attempt" --argjson costUsd "$cost" \
+        --argjson inputTokens "$input_tokens" --argjson outputTokens "$output_tokens" \
+        --argjson durationMs "$duration_ms" \
+        '{role: $role, backend: $backend, model: $model, attempt: $attempt,
+          costUsd: $costUsd, inputTokens: $inputTokens, outputTokens: $outputTokens,
+          durationMs: $durationMs}')
+    state_append agentRuns "$entry"
+}
+
 # Runs one agent in the chosen backend. Stdout = agent answer; callers grep the
-# single line-protocol line out of it. run_agent <backend> <model> <dir> <prompt>
+# single line-protocol line out of it. Also records cost/token/duration
+# metrics for the run into the pipeline state (see ADR, AC3/AC4).
+# run_agent <backend> <model> <dir> <prompt> <role> <attempt>
 run_agent() {
-    local backend="$1" model="$2" dir="$3" prompt="$4"
+    local backend="$1" model="$2" dir="$3" prompt="$4" role="$5" attempt="$6"
+    local start_ms; start_ms=$(date +%s%3N)
+    local verdict="" cost="null" input_tokens="null" output_tokens="null"
     case "$backend" in
         claude)
             # Headless CI on a disposable runner: skip the permission system.
             # Auth comes from ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN.
-            local args=(--dangerously-skip-permissions)
+            # --output-format json gives us cost/token metrics; .result carries
+            # the exact same verdict text plain -p used to print directly.
+            local args=(--dangerously-skip-permissions --output-format json)
             is_default_model "$model" || args+=(--model "$model")
-            ( cd "$dir" && claude "${args[@]}" -p "$prompt" ) ;;
+            local raw; raw=$(cd "$dir" && claude "${args[@]}" -p "$prompt")
+            verdict=$(jq -r '.result // empty' <<<"$raw")
+            cost=$(jq -r '.total_cost_usd // "null"' <<<"$raw")
+            input_tokens=$(jq -r '.usage.input_tokens // "null"' <<<"$raw")
+            output_tokens=$(jq -r '.usage.output_tokens // "null"' <<<"$raw") ;;
         codex)
             ensure_codex_auth
-            # -o writes ONLY the final answer (reasoning log goes to stderr).
+            # -o still writes ONLY the final answer, unchanged from before.
+            # --json additionally streams JSONL turn/usage events on stdout,
+            # which we capture separately for metrics — never mixed into the
+            # verdict text (that still comes only from the -o file).
             local last; last=$(mktemp)
-            local args=(exec "${CODEX_PERM_ARGS[@]}" --cd "$dir" -o "$last")
+            local events; events=$(mktemp)
+            local args=(exec "${CODEX_PERM_ARGS[@]}" --cd "$dir" --json -o "$last")
             local git_dir; git_dir=$(git -C "$dir" rev-parse --path-format=absolute --git-dir 2>/dev/null || true)
             local git_common_dir; git_common_dir=$(git -C "$dir" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)
             [[ -n "$git_dir" ]] && args+=(--add-dir "$git_dir")
             [[ -n "$git_common_dir" && "$git_common_dir" != "$git_dir" ]] && args+=(--add-dir "$git_common_dir")
             is_default_model "$model" || args+=(--model "$model")
-            codex "${args[@]}" "$prompt" 1>&2 || true
-            cat "$last" 2>/dev/null; rm -f "$last" ;;
+            codex "${args[@]}" "$prompt" >"$events" 2>/dev/null || true
+            verdict=$(cat "$last" 2>/dev/null)
+            # codex reports cumulative usage per turn.completed, no cost field
+            # at all (OpenAI CLI does not compute one) — costUsd stays null.
+            local last_turn; last_turn=$(grep -F '"type":"turn.completed"' "$events" | tail -1) || true
+            if [[ -n "$last_turn" ]]; then
+                input_tokens=$(jq -r '.usage.input_tokens // "null"' <<<"$last_turn")
+                output_tokens=$(jq -r '.usage.output_tokens // "null"' <<<"$last_turn")
+            fi
+            rm -f "$last" "$events" ;;
         *)
-            echo "FAIL: unknown agent backend '${backend}'" ;;
+            echo "FAIL: unknown agent backend '${backend}'"
+            return 0 ;;
     esac
+    local end_ms; end_ms=$(date +%s%3N)
+    echo "$verdict"
+    record_agent_run "$role" "$backend" "$model" "$attempt" \
+        "$cost" "$input_tokens" "$output_tokens" "$(( end_ms - start_ms ))"
 }
 
 # Posts a failure note with a link to the Actions run when a pipeline script

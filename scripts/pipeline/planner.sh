@@ -64,7 +64,8 @@ ${ff}"
         'Follow your output contract. Respond with exactly one line:
 "SKIP: <reason>" | "QUESTIONS" | "SPLIT: #<n> #<n> ..." | "SPEC: specs/features/<file>.md" | "BUILD: <note>"'
 
-    local result; result=$(run_agent "$PLANNER_BACKEND" "$PLANNER_MODEL" "$(pwd)" "$CLAUDE_PROMPT")
+    capture_stdout run_agent "$PLANNER_BACKEND" "$PLANNER_MODEL" "$(pwd)" "$CLAUDE_PROMPT" planner 1
+    local result="$reply"
     local line; line=$(echo "$result" | grep -E '^(SKIP|QUESTIONS|SPLIT|SPEC|BUILD)' | head -1 || true)
 
     state_set fixForwardNote ""
