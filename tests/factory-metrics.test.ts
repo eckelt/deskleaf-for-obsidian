@@ -87,6 +87,9 @@ describe("factory metrics", () => {
         loopCount: 5,
         notable: true,
         pullRequests: [12],
+        timeToDoneMs: null,
+        actionsMinutes: 0,
+        agentCost: { runCount: 0, totalCostUsd: null, totalInputTokens: null, totalOutputTokens: null, totalDurationMs: null },
       },
     ]);
   });
@@ -241,6 +244,169 @@ describe("factory metrics", () => {
   });
 });
 
+describe("factory metrics: time-to-done (AC1)", () => {
+  it("uses the close timestamp for a closed issue", async () => {
+    const { createFactoryMetrics } = await loadFactoryMetrics();
+
+    const metrics = createFactoryMetrics({
+      lastAuditAt: "2026-07-01T00:00:00Z",
+      pullRequests: [{ number: 40, mergedAt: "2026-07-04T00:00:00Z", headRefName: "feature/issue-40", title: "t", body: "" }],
+      issueComments: new Map(),
+      issueTimestamps: new Map([[40, { createdAt: "2026-07-01T00:00:00Z", closedAt: "2026-07-03T00:00:00Z", readyForAcceptanceAt: null }]]),
+    });
+
+    expect(metrics.issues[0].timeToDoneMs).toBe(Date.parse("2026-07-03T00:00:00Z") - Date.parse("2026-07-01T00:00:00Z"));
+  });
+
+  it("falls back to the last ready-for-acceptance label event for a still-open issue", async () => {
+    const { createFactoryMetrics } = await loadFactoryMetrics();
+
+    const metrics = createFactoryMetrics({
+      lastAuditAt: "2026-07-01T00:00:00Z",
+      pullRequests: [{ number: 41, mergedAt: "2026-07-04T00:00:00Z", headRefName: "feature/issue-41", title: "t", body: "" }],
+      issueComments: new Map(),
+      issueTimestamps: new Map([[41, { createdAt: "2026-07-01T00:00:00Z", closedAt: null, readyForAcceptanceAt: "2026-07-04T00:00:00Z" }]]),
+    });
+
+    expect(metrics.issues[0].timeToDoneMs).toBe(Date.parse("2026-07-04T00:00:00Z") - Date.parse("2026-07-01T00:00:00Z"));
+  });
+
+  it("is null for an issue that is still open and never reached ready-for-acceptance", async () => {
+    const { createFactoryMetrics } = await loadFactoryMetrics();
+
+    const metrics = createFactoryMetrics({
+      lastAuditAt: "2026-07-01T00:00:00Z",
+      pullRequests: [{ number: 42, mergedAt: "2026-07-04T00:00:00Z", headRefName: "feature/issue-42", title: "t", body: "" }],
+      issueComments: new Map(),
+      issueTimestamps: new Map([[42, { createdAt: "2026-07-01T00:00:00Z", closedAt: null, readyForAcceptanceAt: null }]]),
+    });
+
+    expect(metrics.issues[0].timeToDoneMs).toBeNull();
+  });
+
+  it("is null when no timestamps were resolved for the issue at all", async () => {
+    const { createFactoryMetrics } = await loadFactoryMetrics();
+
+    const metrics = createFactoryMetrics({
+      lastAuditAt: "2026-07-01T00:00:00Z",
+      pullRequests: [{ number: 43, mergedAt: "2026-07-04T00:00:00Z", headRefName: "feature/issue-43", title: "t", body: "" }],
+      issueComments: new Map(),
+    });
+
+    expect(metrics.issues[0].timeToDoneMs).toBeNull();
+  });
+});
+
+describe("factory metrics: GitHub Actions minutes (AC2)", () => {
+  it("sums Issue Pipeline and Build Lane run minutes for the issue, ignoring unrelated workflows", async () => {
+    const { createFactoryMetrics } = await loadFactoryMetrics();
+
+    const metrics = createFactoryMetrics({
+      lastAuditAt: "2026-07-01T00:00:00Z",
+      pullRequests: [{ number: 44, mergedAt: "2026-07-04T00:00:00Z", headRefName: "feature/issue-44", title: "t", body: "" }],
+      issueComments: new Map(),
+      actionsRunsByIssue: new Map([
+        [
+          44,
+          [
+            { workflowName: "Issue Pipeline", durationMinutes: 4 },
+            { workflowName: "Issue Pipeline", durationMinutes: 6 },
+            { workflowName: "Build Lane", durationMinutes: 20 },
+            { workflowName: "Release", durationMinutes: 100 },
+          ],
+        ],
+      ]),
+    });
+
+    expect(metrics.issues[0].actionsMinutes).toBe(30);
+  });
+
+  it("is 0 for an issue with no associated runs", async () => {
+    const { createFactoryMetrics } = await loadFactoryMetrics();
+
+    const metrics = createFactoryMetrics({
+      lastAuditAt: "2026-07-01T00:00:00Z",
+      pullRequests: [{ number: 45, mergedAt: "2026-07-04T00:00:00Z", headRefName: "feature/issue-45", title: "t", body: "" }],
+      issueComments: new Map(),
+      actionsRunsByIssue: new Map([[45, []]]),
+    });
+
+    expect(metrics.issues[0].actionsMinutes).toBe(0);
+  });
+});
+
+describe("factory metrics: aggregated agent cost (AC3)", () => {
+  it("sums cost, tokens, and duration across all agent runs", async () => {
+    const { createFactoryMetrics } = await loadFactoryMetrics();
+
+    const metrics = createFactoryMetrics({
+      lastAuditAt: "2026-07-01T00:00:00Z",
+      pullRequests: [{ number: 46, mergedAt: "2026-07-04T00:00:00Z", headRefName: "feature/issue-46", title: "t", body: "" }],
+      issueComments: new Map(),
+      agentRunsByIssue: new Map([
+        [
+          46,
+          [
+            { costUsd: 0.12, inputTokens: 1000, outputTokens: 500, durationMs: 4000 },
+            { costUsd: 0.08, inputTokens: 2000, outputTokens: 300, durationMs: 6000 },
+          ],
+        ],
+      ]),
+    });
+
+    expect(metrics.issues[0].agentCost).toEqual({
+      runCount: 2,
+      totalCostUsd: 0.2,
+      totalInputTokens: 3000,
+      totalOutputTokens: 800,
+      totalDurationMs: 10000,
+    });
+  });
+
+  it("only sums fields that are actually present across runs, per the acceptance scenario", async () => {
+    const { createFactoryMetrics } = await loadFactoryMetrics();
+
+    const metrics = createFactoryMetrics({
+      lastAuditAt: "2026-07-01T00:00:00Z",
+      pullRequests: [{ number: 47, mergedAt: "2026-07-04T00:00:00Z", headRefName: "feature/issue-47", title: "t", body: "" }],
+      issueComments: new Map(),
+      agentRunsByIssue: new Map([
+        [
+          47,
+          [
+            { costUsd: 0.12, inputTokens: 1000 },
+            { costUsd: 0.08 },
+          ],
+        ],
+      ]),
+    });
+
+    expect(metrics.issues[0].agentCost.runCount).toBe(2);
+    expect(metrics.issues[0].agentCost.totalCostUsd).toBe(0.2);
+    expect(metrics.issues[0].agentCost.totalInputTokens).toBe(1000);
+    expect(metrics.issues[0].agentCost.totalOutputTokens).toBeNull();
+    expect(metrics.issues[0].agentCost.totalDurationMs).toBeNull();
+  });
+
+  it("does not abort the report and defaults every total to null when agentRuns is missing or empty", async () => {
+    const { createFactoryMetrics } = await loadFactoryMetrics();
+
+    const metrics = createFactoryMetrics({
+      lastAuditAt: "2026-07-01T00:00:00Z",
+      pullRequests: [
+        { number: 48, mergedAt: "2026-07-04T00:00:00Z", headRefName: "feature/issue-48", title: "t", body: "" },
+        { number: 49, mergedAt: "2026-07-04T00:00:00Z", headRefName: "feature/issue-49", title: "t", body: "" },
+      ],
+      issueComments: new Map(),
+      agentRunsByIssue: new Map([[48, []]]),
+    });
+
+    const expectedDefault = { runCount: 0, totalCostUsd: null, totalInputTokens: null, totalOutputTokens: null, totalDurationMs: null };
+    expect(metrics.issues[0].agentCost).toEqual(expectedDefault);
+    expect(metrics.issues[1].agentCost).toEqual(expectedDefault);
+  });
+});
+
 describe("guarded factory review command", () => {
   it("can be started through both manual and daily package scripts", async () => {
     const commands = [
@@ -338,6 +504,8 @@ describe("guarded factory review command", () => {
         FACTORY_REVIEW_OFFLINE_ISSUE_COMMENTS: JSON.stringify({
           28: ["🤖 **Validator**: Nicht bestanden - AC-1 fehlt."],
         }),
+        FACTORY_REVIEW_OFFLINE_ISSUE_TIMESTAMPS: JSON.stringify({}),
+        FACTORY_REVIEW_OFFLINE_ACTIONS_RUNS: JSON.stringify({}),
       },
     });
 
