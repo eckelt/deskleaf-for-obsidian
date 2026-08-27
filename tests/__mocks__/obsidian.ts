@@ -56,7 +56,10 @@ export class ItemView {
 }
 export class WorkspaceLeaf {}
 export class TFile { path = ""; basename = ""; extension = ""; }
-export class Notice { constructor(_msg: string) {} }
+export class Notice {
+  static instances: string[] = [];
+  constructor(msg: string) { Notice.instances.push(msg); }
+}
 export class Menu {
   addItem(_cb: (item: MenuItem) => void) { return this; }
   showAtMouseEvent(_e: MouseEvent) {}

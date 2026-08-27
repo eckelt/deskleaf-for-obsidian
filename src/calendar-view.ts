@@ -45,6 +45,7 @@ import {
 import type { EventLayout } from "./event-layout";
 import { getBusinessHoursSegment } from "./business-hours";
 import { isEventReadOnly, parseClockTime, validateEventEditInput } from "./event-edit";
+import { buildObsidianDeeplink } from "./note-utils";
 
 export const VIEW_TYPE_CALENDAR = "deskleaf-calendar";
 
@@ -3133,6 +3134,7 @@ export class DeskleafCalendarView extends ItemView {
     this.applySelection(event);
     this.render();
     const { file, isNew } = await this.plugin.noteManager.openOrCreate(event);
+    if (isNew && !(event.location ?? "").trim()) await this.linkNoteLocation(event, file);
     if (Platform.isMobile) modifier = false;
     await openFile(this.app, file, modifier);
     if (isNew)
@@ -3141,5 +3143,25 @@ export class DeskleafCalendarView extends ItemView {
           ?.editor as any;
         editor?.fold?.({ line: 0, ch: 0 });
       }, 100);
+  }
+
+  /**
+   * Points meeting-bar-style menu apps at the note instead of leaving the
+   * location field empty — never overwrites an existing value (AC3).
+   */
+  private async linkNoteLocation(event: CalendarEvent, file: TFile): Promise<void> {
+    const location = buildObsidianDeeplink(this.app.vault.getName(), file.path);
+    try {
+      await this.plugin.calendarReader.updateEvent(event.id, {
+        title: event.title,
+        start: event.start,
+        end: event.end,
+        notes: event.body ?? undefined,
+        calendar: event.calendar,
+        location,
+      });
+    } catch (err: any) {
+      new Notice(`Fehler beim Verknüpfen der Notiz: ${err?.message ?? err}`);
+    }
   }
 }

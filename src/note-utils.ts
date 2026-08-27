@@ -11,6 +11,15 @@ export function normalizeAttendee(name: string): string {
   return first ? `${first} ${last}` : last;
 }
 
+/**
+ * Same format as Obsidian's own "Copy Obsidian URL" command: both parts
+ * `encodeURIComponent`-ed, `file` is the vault-relative path without `.md`.
+ */
+export function buildObsidianDeeplink(vaultName: string, filePath: string): string {
+  const path = filePath.endsWith(".md") ? filePath.slice(0, -3) : filePath;
+  return `obsidian://open?vault=${encodeURIComponent(vaultName)}&file=${encodeURIComponent(path)}`;
+}
+
 export function sanitizeFilename(s: string): string {
   return s
     .replace(/[\\/:*?"<>|#^[\]]/g, "")
