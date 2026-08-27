@@ -3145,10 +3145,6 @@ export class DeskleafCalendarView extends ItemView {
       }, 100);
   }
 
-  /**
-   * Points meeting-bar-style menu apps at the note instead of leaving the
-   * location field empty — never overwrites an existing value (AC3).
-   */
   private async linkNoteLocation(event: CalendarEvent, file: TFile): Promise<void> {
     const location = buildObsidianDeeplink(this.app.vault.getName(), file.path);
     try {
