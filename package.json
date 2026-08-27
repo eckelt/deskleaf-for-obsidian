@@ -8,6 +8,8 @@
     "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
     "test": "TZ=UTC vitest run",
     "test:mutation": "stryker run",
+    "lint:quality": "eslint --format json --output-file reports/quality/eslint.json \"src/**/*.ts\"",
+    "quality:summary": "node scripts/quality-summary.mjs",
     "check:issue": "node scripts/check-issue-comments.mjs",
     "factory:metrics": "node scripts/factory-metrics.mjs",
     "factory:review": "bash scripts/factory-review.sh",

@@ -10,6 +10,7 @@ scripts/.factory-review-state.json
 scripts/.factory-metrics.json
 .stryker-tmp/
 reports/mutation/
+reports/quality/
 
 # BEGIN swamp managed section - DO NOT EDIT
 
