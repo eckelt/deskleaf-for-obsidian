@@ -62,6 +62,19 @@ ${diff}" \
 # ── Failure routing (ported; re-plans run via workflow_dispatch) ──────────────
 
 drop_remote_branch() {
+    # Never delete a branch that is still the head branch of an open PR —
+    # GitHub auto-closes the PR when its head branch disappears, with no
+    # trash/retention period (root-cause on issue #71/PR #73). Skip and warn
+    # instead of silently destroying a green, mergeable PR.
+    local pr_json pr_state pr_number
+    pr_json=$(gh pr view "$BRANCH" --repo "$REPO" --json number,state 2>/dev/null || echo "")
+    pr_state=$(jq -r '.state // empty' <<<"$pr_json" 2>/dev/null || echo "")
+    if [[ "$pr_state" == "OPEN" ]]; then
+        pr_number=$(jq -r '.number' <<<"$pr_json")
+        echo "WARN: not deleting ${BRANCH} — still the head branch of open PR #${pr_number}" >&2
+        post_comment "⚠️ Branch \`${BRANCH}\` wurde **nicht** gelöscht — er ist Head-Branch des noch offenen PR #${pr_number}."
+        return 0
+    fi
     git push origin --delete "$BRANCH" 2>/dev/null || true
 }
 
@@ -128,8 +141,12 @@ run_lane() {
 
         capture_stdout build_step "$pr" "$feedback" "$spec" "$attempt"
         local b="$reply"
-        if echo "$b" | grep -q "^PR:"; then
-            pr=$(echo "$b" | sed 's/^PR: *//')
+        # Strict match against the WHOLE reply — a multi-line or otherwise
+        # malformed reply that merely starts with "PR:" (see root-cause on
+        # issue #71/PR #73) must NOT be accepted as a PR number; it falls
+        # through to the same failure path as a "FAIL:" reply below.
+        if [[ "$b" =~ ^PR:\ *([0-9]+)$ ]]; then
+            pr="${BASH_REMATCH[1]}"
             state_set prNumber "$pr"
         else
             # Guard: a branch without its own commit against origin/main means
