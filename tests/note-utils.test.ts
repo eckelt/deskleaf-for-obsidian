@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { toArray, normalizeAttendee, sanitizeFilename, cleanBody } from "../src/note-utils";
+import { toArray, normalizeAttendee, sanitizeFilename, cleanBody, buildObsidianDeeplink } from "../src/note-utils";
 
 describe("toArray", () => {
   it("returns empty array for null", () => {
@@ -77,6 +77,38 @@ describe("sanitizeFilename", () => {
 
   it("preserves German umlauts", () => {
     expect(sanitizeFilename("Rückblick März")).toBe("Rückblick März");
+  });
+});
+
+describe("buildObsidianDeeplink", () => {
+  it("builds a deeplink with vault and file params, stripping .md", () => {
+    expect(buildObsidianDeeplink("Brain", "meetings/Sync.md")).toBe(
+      "obsidian://open?vault=Brain&file=meetings%2FSync",
+    );
+  });
+
+  it("url-encodes spaces in vault and path", () => {
+    expect(buildObsidianDeeplink("My Vault", "meetings/2026-08-27 Finanzamt anrufen.md")).toBe(
+      "obsidian://open?vault=My%20Vault&file=meetings%2F2026-08-27%20Finanzamt%20anrufen",
+    );
+  });
+
+  it("url-encodes umlauts", () => {
+    expect(buildObsidianDeeplink("Brain", "meetings/Rückblick März.md")).toBe(
+      "obsidian://open?vault=Brain&file=meetings%2FR%C3%BCckblick%20M%C3%A4rz",
+    );
+  });
+
+  it("url-encodes special characters in the filename", () => {
+    expect(buildObsidianDeeplink("Brain", "meetings/Q1 & Q2 (Review).md")).toBe(
+      "obsidian://open?vault=Brain&file=meetings%2FQ1%20%26%20Q2%20(Review)",
+    );
+  });
+
+  it("leaves a path without a .md extension untouched", () => {
+    expect(buildObsidianDeeplink("Brain", "meetings/Sync")).toBe(
+      "obsidian://open?vault=Brain&file=meetings%2FSync",
+    );
   });
 });
 
