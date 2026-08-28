@@ -61,7 +61,7 @@ function makeView(openOrCreateResult: { file: TFile; isNew: boolean }): ViewHarn
   return { view, updateEvent, openOrCreate };
 }
 
-describe("automatic location deeplink on new note creation", () => {
+describe("automatic location deeplink when opening an event note", () => {
   beforeEach(() => {
     Platform.isMobile = false;
     Platform.isDesktop = true;
@@ -109,20 +109,20 @@ describe("automatic location deeplink on new note creation", () => {
     expect(updateEvent).not.toHaveBeenCalled();
   });
 
-  it("does not link retroactively when the note already existed", async () => {
+  it("links an existing note retroactively when the location is empty", async () => {
     const event = makeEvent({ location: "" });
     const file = makeFile("meetings/2026-08-27 Finanzamt anrufen.md");
     const { view, updateEvent } = makeView({ file, isNew: false });
 
     await (view as any).openEvent(event, false);
 
-    expect(updateEvent).not.toHaveBeenCalled();
+    expect(updateEvent).toHaveBeenCalledTimes(1);
   });
 
   it("does not set a span, so no this/series dialog appears even for a recurring event", async () => {
     const event = makeEvent({ location: "", isRecurring: true });
     const file = makeFile("meetings/2026-08-27 Finanzamt anrufen.md");
-    const { view, updateEvent } = makeView({ file, isNew: true });
+    const { view, updateEvent } = makeView({ file, isNew: false });
 
     await (view as any).openEvent(event, false);
 
