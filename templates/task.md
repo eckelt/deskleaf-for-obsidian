@@ -1,6 +1,2 @@
-## Kontext
-
-## Notizen
-
 ## Todos
 - [ ]

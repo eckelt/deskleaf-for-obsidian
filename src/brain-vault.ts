@@ -138,37 +138,19 @@ export function renderMeetingFrontmatter(input: MeetingNoteInput): string {
   ].join("\n");
 }
 
-/** The section skeleton both tools read. MCP appends "## MCP notes" after it. */
+/**
+ * Display-friendly meeting skeleton: agent and user todos use ordinary Markdown
+ * checkboxes under one stable heading, so another consumer need not understand
+ * Dataview or the wider Brain structure.
+ */
 export const DEFAULT_MEETING_TEMPLATE = [
-  "## Initial context",
+  "## Notizen",
   "",
   "{{context}}",
   "",
-  "## Mitgebracht",
-  "",
-  "<!-- Was beim Termin auf den Tisch soll — aus „Laufende Themen“ des Kunden",
-  "     und „Fürs nächste Treffen“ des letzten Termins der Serie. -->",
-  "",
-  "- ",
-  "",
-  "## Notizen",
-  "",
-  "- ",
-  "",
-  "## Todos bis nächstes Mal",
-  "",
-  "<!-- Als Checkboxen, damit Dataview sie beim Kunden einsammelt.",
-  "     Fälligkeit kanonisch als `due:: yyyy-mm-dd`. -->",
+  "## Todos",
   "",
   "- [ ] ",
-  "",
-  "## Fürs nächste Treffen",
-  "",
-  "- ",
-  "",
-  "## Sources",
-  "",
-  "{{sources}}",
   "",
   "## Related notes",
   "",
@@ -177,12 +159,10 @@ export const DEFAULT_MEETING_TEMPLATE = [
 ].join("\n");
 
 /**
- * Sections the MCP relies on: prepare_meeting reads the wiki-links under
- * "Related notes", append_meeting_note appends after them. A hand-written
- * template (the vault's own _templates/termin.md, say) carries none of them, so
- * whatever a template omits is appended rather than silently lost.
+ * The relation list remains compatible with Brain/MCP consumers. Everything
+ * else is intentionally optional: a minimal template should stay minimal.
  */
-export const REQUIRED_MEETING_SECTIONS = ["## Initial context", "## Sources", "## Related notes"] as const;
+export const REQUIRED_MEETING_SECTIONS = ["## Related notes"] as const;
 
 export function renderMeetingNote(input: MeetingNoteInput): string {
   const related = [...new Set([
@@ -213,7 +193,9 @@ export function renderMeetingNote(input: MeetingNoteInput): string {
     body = `${body.trimEnd()}\n\n${heading}\n\n${filler}\n`;
   }
 
-  return `${renderMeetingFrontmatter(input)}\n\n# ${input.title}\n\n${body.trimStart()}`;
+  // The filename already carries the event title. Keeping the body title-free
+  // makes the note compact and leaves the display a small, predictable shape.
+  return `${renderMeetingFrontmatter(input)}\n\n${body.trimStart()}`;
 }
 
 /**

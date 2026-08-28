@@ -1,16 +1,4 @@
-## Kandidat
-Name: {{title}}
-Position:
-Quelle:
-
-## Lebenslauf-Highlights
-
-## Fragen
-
-## Eindrücke
+## Notizen
 
 ## Todos
 - [ ]
-
-## Bewertung
-[ ] Weiterführen  [ ] Absage

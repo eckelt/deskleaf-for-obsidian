@@ -150,7 +150,7 @@ describe("NoteManager.syncEventNote", () => {
 });
 
 describe("NoteManager focus notes", () => {
-  it("creates focus notes for focus title patterns with the built-in Dataview template", async () => {
+  it("creates compact focus notes with an explicit todo list", async () => {
     const fixture = appForCreate();
     const manager = new NoteManager(fixture.app as any, settings);
 
@@ -164,12 +164,9 @@ describe("NoteManager focus notes", () => {
 
     expect(fixture.created.path).toBe("notes/Deep Work.md");
     expect(fixture.created.content).toContain("type: focus");
-    expect(fixture.created.content).toContain("## Fokus-Todos");
-    expect(fixture.created.content).toContain("```dataviewjs");
-    expect(fixture.created.content).toContain('folders.some(f => p.file.path.startsWith(f + "/"))');
-    expect(fixture.created.content).toContain('["meetings","projects","customers"]');
-    expect(fixture.created.content).toContain("const seed = dv.current().file.path;");
-    expect(fixture.created.content).toContain(".slice(0, 3);");
+    expect(fixture.created.content).toContain("## Todos");
+    expect(fixture.created.content).toContain("- [ ]");
+    expect(fixture.created.content).not.toContain("```dataviewjs");
   });
 
   it("loads templates/focus.md for focus notes", async () => {

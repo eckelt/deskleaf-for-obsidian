@@ -226,7 +226,7 @@ export class NoteManager {
     });
   }
 
-  /** "## Initial context": the calendar description plus the facts it omits. */
+  /** Compact calendar context shown at the top of `## Notizen`. */
   private buildContext(event: CalendarEvent): string {
     const lines: string[] = [];
     const when = `${toTimeStr(event.start)}–${toTimeStr(event.end)}`;
@@ -384,10 +384,10 @@ export class NoteManager {
   private defaultTemplate(type: NoteType): string {
     switch (type) {
       case "termin":     return DEFAULT_MEETING_TEMPLATE;
-      case "interview":  return `## Kandidat\nName: {{title}}\nPosition:\nQuelle:\n\n## Lebenslauf-Highlights\n\n## Fragen\n\n## Eindrücke\n\n## Todos\n- [ ]\n\n## Bewertung\n[ ] Weiterführen  [ ] Absage\n`;
-      case "recurring":  return `## Offene Todos (aus letzter Instanz)\n{{carried_todos}}\n\n## Status letztes Mal\n\n## Heute\n\n## Todos\n- [ ]\n`;
-      case "task":       return `## Kontext\n\n## Notizen\n\n## Todos\n- [ ]\n`;
-      case "focus":      return `{{body}}## Fokus-Todos\n{{focus_todos}}\n\n## Fokus\n\n## Notizen\n`;
+      case "interview":  return `## Notizen\n\n## Todos\n- [ ]\n`;
+      case "recurring":  return `## Notizen\n\n## Todos\n- [ ]\n`;
+      case "task":       return `## Todos\n- [ ]\n`;
+      case "focus":      return `{{body}}## Todos\n- [ ]\n`;
     }
   }
 

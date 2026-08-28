@@ -93,9 +93,9 @@ Template files are loaded from `<templateFolder>/<type>.md` (`termin.md` for
 meetings). If the file doesn't exist, a built-in default is used. A template's
 own frontmatter and H1 are stripped — the note's own are authoritative.
 
-Whatever a custom template omits of `## Initial context`, `## Sources` and
-`## Related notes` is appended: `prepare_meeting` in the MCP reads the wiki-links
-under Related notes, and `append_meeting_note` appends after them.
+Whatever a custom template omits of `## Related notes` is appended so the
+Brain relation list is retained. The working content deliberately stays small:
+`## Notizen` and one Markdown-checkbox block under `## Todos`.
 
 ### Substitution tokens
 
@@ -121,23 +121,11 @@ instead of silently eating content.
 
 **termin**
 ```
-## Initial context
+## Notizen
 {{context}}
 
-## Mitgebracht
--
-
-## Notizen
--
-
-## Todos bis nächstes Mal
+## Todos
 - [ ]
-
-## Fürs nächste Treffen
--
-
-## Sources
-{{sources}}
 
 ## Related notes
 {{related}}
@@ -145,16 +133,7 @@ instead of silently eating content.
 
 **interview**
 ```
-## Kandidat
-Name: {{title}}
-Position:
-Quelle:
-
-## Lebenslauf-Highlights
-
-## Fragen
-
-## Eindrücke
+## Notizen
 
 ## Todos
 - [ ]

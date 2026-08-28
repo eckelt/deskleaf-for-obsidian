@@ -183,10 +183,12 @@ describe("renderMeetingNote", () => {
     body: DEFAULT_MEETING_TEMPLATE,
   });
 
-  it("carries the sections both tools read", () => {
-    for (const heading of ["## Initial context", "## Mitgebracht", "## Notizen", "## Todos bis nächstes Mal", "## Fürs nächste Treffen", "## Sources", "## Related notes"]) {
+  it("keeps only the display-friendly working sections", () => {
+    for (const heading of ["## Notizen", "## Todos", "## Related notes"]) {
       expect(note).toContain(heading);
     }
+    expect(note).not.toContain("## Mitgebracht");
+    expect(note).not.toContain("## Sources");
   });
 
   it("puts the customer and the attendees under Related notes", () => {
@@ -200,8 +202,8 @@ describe("renderMeetingNote", () => {
     expect(note).toContain("Workshop Tag 1.");
   });
 
-  it("leaves an H1 with the event title right after the frontmatter", () => {
-    expect(note.split("\n---\n")[1].trimStart().split("\n")[0]).toBe("# Nordwind – Kick-off");
+  it("does not repeat the filename title as an H1", () => {
+    expect(note).not.toContain("# Nordwind – Kick-off");
   });
 
   it("does not leave placeholders behind", () => {
@@ -307,9 +309,7 @@ describe("renderMeetingNote with a hand-written template", () => {
     expect(note).toContain("## Todos bis nächstes Mal");
   });
 
-  it("appends the sections the MCP relies on rather than losing them", () => {
-    expect(note).toContain("## Initial context");
-    expect(note).toContain("## Sources");
+  it("appends the compact relation section rather than losing it", () => {
     expect(note).toContain("## Related notes");
     expect(note.slice(note.indexOf("## Related notes"))).toContain("- [[Nordwind]]");
   });
@@ -319,12 +319,11 @@ describe("renderMeetingNote with a hand-written template", () => {
     expect(custom).toContain("{{eigenes_feld}}");
   });
 
-  it("does not append a section the template already provides", () => {
-    const withSources = renderMeetingNote({
+  it("does not append the relation section a second time", () => {
+    const withRelated = renderMeetingNote({
       title: "X", date: "2026-08-21", calendarUid: "u",
-      body: "## Initial context\n\n{{context}}\n\n## Sources\n\neigene Quelle\n\n## Related notes\n\n{{related}}\n",
+      body: "## Notizen\n\n{{context}}\n\n## Related notes\n\n{{related}}\n",
     });
-    expect(withSources.split("## Sources").length - 1).toBe(1);
-    expect(withSources).toContain("eigene Quelle");
+    expect(withRelated.split("## Related notes").length - 1).toBe(1);
   });
 });
