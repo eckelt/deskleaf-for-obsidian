@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "product": "obsidian",
+  "repository": {
+    "workflow": "Release",
+    "release": {
+      "requiredAsset": "main.js",
+      "allowPrerelease": true
+    }
+  },
+  "runtime": {
+    "kind": "desktop-plugin",
+    "privacy": "The Factory receives release and CI metadata only. Vault paths, calendar content and local plugin telemetry stay on the device."
+  }
+}
