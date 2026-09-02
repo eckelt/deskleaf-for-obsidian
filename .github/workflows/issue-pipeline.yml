@@ -17,6 +17,11 @@ on:
         description: Issue number to (re)plan
         required: true
         type: string
+      plan_only:
+        description: Write or refine the spec, but never dispatch the build lane
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: plan-issue-${{ github.event.issue.number || inputs.issue }}
@@ -66,4 +71,5 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           PLANNER_BACKEND: ${{ vars.PLANNER_BACKEND || 'claude' }}
           PLANNER_MODEL: ${{ vars.PLANNER_MODEL || '' }}
+          PLAN_ONLY: ${{ inputs.plan_only || contains(github.event.issue.labels.*.name, 'factory:plan-only') }}
         run: bash scripts/pipeline/planner.sh

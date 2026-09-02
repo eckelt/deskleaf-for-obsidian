@@ -5,7 +5,7 @@
 # comments, and on explicit workflow_dispatch re-plans from the build lane.
 #
 # Env: REPO, ISSUE_NUMBER, EVENT_TYPE (issues|issue_comment|workflow_dispatch),
-#      COMMENT_BODY (only for issue_comment events).
+#      COMMENT_BODY (only for issue_comment events), PLAN_ONLY (optional).
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -14,7 +14,9 @@ source "${SCRIPT_DIR}/lib.sh"
 
 EVENT_TYPE="${EVENT_TYPE:-workflow_dispatch}"
 COMMENT_BODY="${COMMENT_BODY:-}"
+PLAN_ONLY="${PLAN_ONLY:-false}"
 AGENTS_DIR=".github/agents"
+LABEL_FACTORY_REFINEMENT="factory:refinement-ready"
 
 # The planner writes spec files into this fresh CI checkout; they must land on
 # main or they evaporate with the runner. Push with rebase-retry because other
@@ -60,9 +62,17 @@ ${human}"
 Note from the pipeline (a fix-forward clarification or an escalation — address it):
 ${ff}"
 
-    build_prompt "${AGENTS_DIR}/feature-planner.md" "$context" \
-        'Follow your output contract. Respond with exactly one line:
+    local instruction='Follow your output contract. Respond with exactly one line:
 "SKIP: <reason>" | "QUESTIONS" | "SPLIT: #<n> #<n> ..." | "SPEC: specs/features/<file>.md" | "BUILD: <note>"'
+    if [[ "$PLAN_ONLY" == "true" ]]; then
+        instruction="${instruction}
+
+This issue was delegated by the cross-product Deskleaf Factory in PLAN_ONLY mode.
+Write or refine the Obsidian spec and ask clarification questions as usual, but do
+not create child issues and do not hand work to the Builder. Return only QUESTIONS,
+SPEC, or SKIP. The central Factory owns the next delivery decision."
+    fi
+    build_prompt "${AGENTS_DIR}/feature-planner.md" "$context" "$instruction"
 
     capture_stdout run_agent "$PLANNER_BACKEND" "$PLANNER_MODEL" "$(pwd)" "$CLAUDE_PROMPT" planner 1
     local result="$reply"
@@ -82,6 +92,13 @@ ${ff}"
             add_label "$LABEL_AWAITING"
             state_set stage "awaiting-author" ;;
         SPLIT:*)
+            if [[ "$PLAN_ONLY" == "true" ]]; then
+                remove_label "$LABEL_PLANNING"
+                add_label "$LABEL_AWAITING"
+                state_set stage "awaiting-author"
+                post_comment "**Feature Planner**: Der Plan-only-Auftrag wäre zu groß für eine einzelne Spec. Bitte den zentralen Factory-Auftrag in begrenzte Produktaufträge schneiden; es wurden keine Kind-Issues erzeugt."
+                return 0
+            fi
             # Child issues were created by the agent via gh — with the workflow
             # token, so their "opened" events do NOT trigger this workflow.
             # Dispatch each child into the planner lane explicitly.
@@ -105,6 +122,16 @@ ${ff}"
                 remove_label "$LABEL_PLANNING"
                 return 0
             fi
+            if [[ "$PLAN_ONLY" == "true" ]]; then
+                remove_label "$LABEL_PLANNING"
+                remove_label "$LABEL_AWAITING"
+                remove_label "$LABEL_READY_BUILD"
+                add_label "$LABEL_FACTORY_REFINEMENT"
+                state_set specPath "$spec"
+                state_set stage "factory-refinement-ready"
+                post_comment "**Feature Planner**: Spec bereit: \`${spec}\`. Plan-only-Auftrag beendet; die zentrale Factory entscheidet über weitere Produktarbeit."
+                return 0
+            fi
             remove_label "$LABEL_PLANNING"
             remove_label "$LABEL_AWAITING"
             add_label "$LABEL_READY_BUILD"
@@ -115,6 +142,16 @@ ${ff}"
         BUILD:*)
             # Fix-forward: implementation-only change, spec stays. New build pass.
             push_planner_artifacts || true
+            if [[ "$PLAN_ONLY" == "true" ]]; then
+                remove_label "$LABEL_PLANNING"
+                remove_label "$LABEL_AWAITING"
+                remove_label "$LABEL_READY_BUILD"
+                add_label "$LABEL_FACTORY_REFINEMENT"
+                state_set stage "factory-refinement-ready"
+                state_set fixForwardNote "${line#BUILD: }"
+                post_comment "**Feature Planner**: Plan-only-Fix-forward dokumentiert. Die zentrale Factory entscheidet über weitere Produktarbeit."
+                return 0
+            fi
             remove_label "$LABEL_PLANNING"
             remove_label "$LABEL_AWAITING"
             add_label "$LABEL_READY_BUILD"
@@ -152,6 +189,13 @@ main() {
                 run_planner "$COMMENT_BODY" ;;
             epic|skipped)
                 echo "stage=${stage} — human comment ignored (reopen/relabel to restart)." ;;
+            factory-refinement-ready)
+                # A human clarification can refine the delegated product spec,
+                # but PLAN_ONLY continues to prohibit builder dispatch.
+                state_set stage "planning"
+                remove_label "$LABEL_FACTORY_REFINEMENT"
+                add_label "$LABEL_PLANNING"
+                run_planner "$COMMENT_BODY" ;;
             *)
                 # Any human comment during build or acceptance is a fix-forward:
                 # back to the planner, which classifies and reroutes it.
