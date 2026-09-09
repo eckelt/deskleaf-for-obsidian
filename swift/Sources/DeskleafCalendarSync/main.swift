@@ -35,6 +35,7 @@ struct DeskleafEvent: Encodable {
     let meetingPlatform: String?
     let numAttendees: Int
     let organizer: String?
+    let isReminder: Bool
 
     init(from ev: EKEvent) {
         // Recurring instances share the same eventIdentifier → append date for a unique per-occurrence id
@@ -69,6 +70,47 @@ struct DeskleafEvent: Encodable {
         let haystack = [ev.notes, ev.url?.absoluteString, ev.location]
             .compactMap { $0 }.joined(separator: " ").lowercased()
         meetingPlatform = detectMeetingPlatform(haystack)
+        isReminder = false
+    }
+
+    // Reminders come from a single fixed EventKit list ("EK"); due-date-without-time
+    // reminders render all-day, due-date-with-time reminders render as a 30-min block,
+    // and completed/undated/other-list reminders are excluded entirely (mapReminderDueDate).
+    init?(reminder: EKReminder) {
+        let comps = reminder.dueDateComponents
+        let mapping = mapReminderDueDate(
+            listTitle: reminder.calendar?.title,
+            isCompleted: reminder.isCompleted,
+            year: comps?.year, month: comps?.month, day: comps?.day,
+            hour: comps?.hour, minute: comps?.minute
+        )
+
+        switch mapping {
+        case .excluded:
+            return nil
+        case .allDay(let date):
+            start = date
+            end = date
+            isAllDay = true
+        case .timed(let s, let e):
+            start = isoFull.string(from: s)
+            end = isoFull.string(from: e)
+            isAllDay = false
+        }
+
+        id = "reminder:\(reminder.calendarItemIdentifier)"
+        title = reminder.title ?? "(no title)"
+        location = nil
+        attendees = []
+        body = reminder.notes.flatMap { $0.isEmpty ? nil : $0 }
+        calendar = reminder.calendar?.title ?? ""
+        isRecurring = false
+        isCancelled = false
+        isOrganizer = true
+        meetingPlatform = nil
+        numAttendees = 0
+        organizer = nil
+        isReminder = true
     }
 }
 
@@ -92,6 +134,8 @@ func findEvent(_ eid: String) -> EKEvent? {
     return store.event(withIdentifier: eid)
 }
 
+let reminderListTitle = "EK"
+
 func requestAccess() async -> Bool {
     do {
         if #available(macOS 14, *) {
@@ -104,13 +148,40 @@ func requestAccess() async -> Bool {
     } catch { return false }
 }
 
-func fetchAndPrint(daysBack: Int, daysForward: Int) {
+// Reminder access is requested independently of event access — a denial here must
+// not block the existing event export path (see reminders-overlay spec, risk table).
+func requestReminderAccess() async -> Bool {
+    do {
+        if #available(macOS 14, *) {
+            return try await store.requestFullAccessToReminders()
+        } else {
+            return await withCheckedContinuation { c in
+                store.requestAccess(to: .reminder) { ok, _ in c.resume(returning: ok) }
+            }
+        }
+    } catch { return false }
+}
+
+func fetchReminders() async -> [EKReminder] {
+    guard let list = store.calendars(for: .reminder).first(where: { $0.title == reminderListTitle }) else {
+        return []
+    }
+    let pred = store.predicateForReminders(in: [list])
+    return await withCheckedContinuation { c in
+        store.fetchReminders(matching: pred) { reminders in
+            c.resume(returning: reminders ?? [])
+        }
+    }
+}
+
+func fetchAndPrint(daysBack: Int, daysForward: Int) async {
     let now  = Date()
     let cal  = Calendar.current
     let from = cal.date(byAdding: .day, value: -daysBack,   to: now)!
     let to   = cal.date(byAdding: .day, value: daysForward, to: now)!
     let pred = store.predicateForEvents(withStart: from, end: to, calendars: nil)
-    let evs  = store.events(matching: pred).map { DeskleafEvent(from: $0) }
+    var evs: [DeskleafEvent] = store.events(matching: pred).map { DeskleafEvent(from: $0) }
+    evs += await fetchReminders().compactMap { DeskleafEvent(reminder: $0) }
     guard let data = try? encoder.encode(evs) else { return }
     FileHandle.standardOutput.write(data)
     FileHandle.standardOutput.write(Data([UInt8(ascii: "\n")]))
@@ -136,22 +207,23 @@ Task {
         fputs("Calendar access denied\n", stderr)
         exit(1)
     }
+    _ = await requestReminderAccess() // best-effort: denial must not block event export
 
     switch command {
 
     // ── Read ─────────────────────────────────────────────────────────
 
     case "export":
-        fetchAndPrint(daysBack: daysBack, daysForward: daysForward)
+        await fetchAndPrint(daysBack: daysBack, daysForward: daysForward)
         exit(0)
 
     case "watch":
-        fetchAndPrint(daysBack: daysBack, daysForward: daysForward)
+        await fetchAndPrint(daysBack: daysBack, daysForward: daysForward)
         NotificationCenter.default.addObserver(
             forName: .EKEventStoreChanged, object: store, queue: .main
         ) { _ in
             store.reset()
-            fetchAndPrint(daysBack: daysBack, daysForward: daysForward)
+            Task { await fetchAndPrint(daysBack: daysBack, daysForward: daysForward) }
         }
         // process kept alive by RunLoop.main.run() below
 

@@ -1139,6 +1139,12 @@ describe("event edit rules", () => {
     expect(isEventReadOnly({ ...editable, isOrganizer: false })).toBe(true);
   });
 
+  // AC6/AC7 (reminders-overlay): EventKit reminders never accept edits, drag or resize.
+  it("treats reminder events as read-only", () => {
+    const editable = makeEvent("editable", "2026-05-04T10:00:00Z", "2026-05-04T11:00:00Z");
+    expect(isEventReadOnly({ ...editable, isReminder: true })).toBe(true);
+  });
+
   it("keeps normal CalDAV parsed events writable unless another read-only rule applies", () => {
     const events = parseICalendar([
       "BEGIN:VCALENDAR",
