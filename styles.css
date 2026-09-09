@@ -557,6 +557,20 @@
     border-left-color: hsl(var(--cal-h, var(--accent-h)) 100% var(--cal-bd-l, 45%));
 }
 
+/* Reminders (EventKit "EK" list) — fixed neutral tone outside CAL_COLOR_PALETTE, read-only */
+.dl-allday-chip--reminder {
+    background: hsl(0 0% 93%);
+    border-left-color: hsl(0 0% 45%);
+    color: hsl(0 0% 25%);
+    cursor: default;
+}
+
+.theme-dark .dl-allday-chip--reminder {
+    background: hsl(0 0% 20%);
+    border-left-color: hsl(0 0% 60%);
+    color: hsl(0 0% 78%);
+}
+
 /* Scrollable body */
 .dl-grid-body-scroll {
     flex: 1;
@@ -796,6 +810,20 @@
 .dl-event-card--continues-before {
     border-top: none;
     border-radius: 0 0 6px 6px;
+}
+
+/* Reminders (EventKit "EK" list) — fixed neutral tone outside CAL_COLOR_PALETTE, read-only */
+.dl-event-card--reminder {
+    background: hsl(0 0% 93%);
+    border-left-color: hsl(0 0% 45%);
+    color: hsl(0 0% 25%);
+    cursor: default;
+}
+
+.theme-dark .dl-event-card--reminder {
+    background: hsl(0 0% 20%);
+    border-left-color: hsl(0 0% 60%);
+    color: hsl(0 0% 78%);
 }
 
 /* ── Drag-to-create ghost ───────────────────────────────────────── */

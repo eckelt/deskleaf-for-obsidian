@@ -240,6 +240,15 @@ export function clockIconSvg(size: number): string {
   );
 }
 
+export function checkboxIconSvg(size: number): string {
+  return (
+    `<svg width="${size}" height="${size}" viewBox="0 0 20 20" style="display:inline-block;vertical-align:middle;flex-shrink:0;fill-rule:evenodd;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round">` +
+    `<rect x="3" y="3" width="14" height="14" rx="3" style="fill:none;stroke:currentColor;stroke-width:1.25px"/>` +
+    `<path d="M6.5,10.5L9,13L14,7" style="fill:none;stroke:currentColor;stroke-width:1.25px"/>` +
+    `</svg>`
+  );
+}
+
 export function isUrlLocation(location: string | null | undefined): boolean {
   return /\b(?:https?:\/\/|www\.)\S+/i.test(location?.trim() ?? "");
 }
@@ -1277,7 +1286,17 @@ export class DeskleafCalendarView extends ItemView {
       chip.style.left = `calc(${(fracStart / totalCols) * 100}% + 3px)`;
       chip.style.top = `${row * ROW_H + 2}px`;
       chip.style.width = `calc(${((fracEnd - fracStart) / totalCols) * 100}% - 6px)`;
-      chip.setText(ev.title);
+      if (ev.isReminder) {
+        chip.addClass("dl-allday-chip--reminder");
+        chip.setAttribute("aria-readonly", "true");
+        chip.setAttribute("aria-label", `Erinnerung, nicht bearbeitbar: ${ev.title}`);
+        const iconWrap = chip.createSpan({ cls: "dl-event-icon-wrap" });
+        iconWrap.setAttribute("aria-hidden", "true");
+        iconWrap.innerHTML = checkboxIconSvg(9);
+        chip.createSpan({ text: ev.title });
+      } else {
+        chip.setText(ev.title);
+      }
       chip.addEventListener("click", (e) => this.openEvent(ev, e.metaKey || e.ctrlKey));
       chip.addEventListener("contextmenu", (e) => this.showEventContextMenu(e, ev, ev.start.slice(0, 10)));
     }
@@ -1373,10 +1392,15 @@ export class DeskleafCalendarView extends ItemView {
       event.title === this.selectedSeriesTitle
     )
       card.addClass("dl-event-card--series");
-    const noteFile = this.plugin.noteManager.lookupInCache(this.noteCache, event);
+    const noteFile = event.isReminder ? null : this.plugin.noteManager.lookupInCache(this.noteCache, event);
     if (noteFile) card.addClass("dl-event-card--has-note");
     if (event.isRecurring) card.addClass("dl-event-card--recurring");
     if (event.isCancelled) card.addClass("dl-event-card--cancelled");
+    if (event.isReminder) {
+      card.addClass("dl-event-card--reminder");
+      card.setAttribute("aria-readonly", "true");
+      card.setAttribute("aria-label", `Erinnerung, nicht bearbeitbar: ${event.title}`);
+    }
     if ((event as any)._continuesBefore)
       card.addClass("dl-event-card--continues-before");
     if ((event as any)._continuesAfter)
@@ -1393,9 +1417,11 @@ export class DeskleafCalendarView extends ItemView {
     card.style.left = `calc(${pct(col / totalCols)} + 1px)`;
     card.style.width = `calc(${pct(1 / totalCols)} - 3px)`;
 
-    const noteIndicator = card.createDiv("dl-event-note-indicator");
-    noteIndicator.addClass(noteFile ? "dl-event-note-indicator--exists" : "dl-event-note-indicator--missing");
-    noteIndicator.setAttribute("aria-label", noteFile ? "Notiz vorhanden" : "Notiz fehlt");
+    if (!event.isReminder) {
+      const noteIndicator = card.createDiv("dl-event-note-indicator");
+      noteIndicator.addClass(noteFile ? "dl-event-note-indicator--exists" : "dl-event-note-indicator--missing");
+      noteIndicator.setAttribute("aria-label", noteFile ? "Notiz vorhanden" : "Notiz fehlt");
+    }
 
     // Check for Teams/Meet/Jitsi early (check Jitsi first to avoid "meet" in "Jitsi Meet")
     const isEckeCard =
@@ -1416,7 +1442,11 @@ export class DeskleafCalendarView extends ItemView {
 
     // 1. Title — always first
     const titleRow = card.createDiv({ cls: "dl-event-title-row" });
-    if (isEckeCard) {
+    if (event.isReminder) {
+      const iconWrap = titleRow.createSpan({ cls: "dl-event-icon-wrap" });
+      iconWrap.setAttribute("aria-hidden", "true");
+      iconWrap.innerHTML = checkboxIconSvg(9);
+    } else if (isEckeCard) {
       const iconWrap = titleRow.createSpan({ cls: "dl-event-icon-wrap" });
       iconWrap.innerHTML = neIconSvg(9);
     } else if (isTeamsCard) {
@@ -1473,7 +1503,9 @@ export class DeskleafCalendarView extends ItemView {
       this.showEventContextMenu(e, event, date);
     });
 
-    if (Platform.isMobile) {
+    if (event.isReminder) {
+      // AC6: fully read-only — no edit popover, no note open/create, no drag/resize.
+    } else if (Platform.isMobile) {
       let suppressTapUntil = 0;
       this.addEventLongPress(card, event, date, () => {
         suppressTapUntil = Date.now() + 500;
@@ -3082,6 +3114,7 @@ export class DeskleafCalendarView extends ItemView {
 
   private showEventContextMenu(e: MouseEvent, event: CalendarEvent, date: string) {
     e.preventDefault();
+    if (event.isReminder) return; // AC7: never offer to write back to EventKit for reminders
     const menu = new Menu();
     const label = event.isOrganizer ? "Termin löschen" : "Einladung ablehnen";
 
@@ -3131,6 +3164,7 @@ export class DeskleafCalendarView extends ItemView {
   // ── Note opening ────────────────────────────────────────────────
 
   private async openEvent(event: CalendarEvent, modifier = false) {
+    if (event.isReminder) return; // AC6: reminders never open or create a note
     this.applySelection(event);
     this.render();
     const { file, isNew } = await this.plugin.noteManager.openOrCreate(event);

@@ -8,7 +8,7 @@ export function parseClockTime(value: string): number {
 }
 
 export function isEventReadOnly(event: CalendarEvent): boolean {
-  return !!event.isCancelled || isFeedEvent(event) || !!event.isAllDay || event.isOrganizer === false;
+  return !!event.isCancelled || isFeedEvent(event) || !!event.isAllDay || event.isOrganizer === false || !!event.isReminder;
 }
 
 export function validateEventEditInput(input: EventEditInput): EventUpdate | null {
