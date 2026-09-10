@@ -1,4 +1,5 @@
 import { execFile, spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 import { copyFile, mkdtemp, mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -9,6 +10,11 @@ import DeskleafPlugin from "../src/main";
 import { DEFAULT_SETTINGS } from "../src/types";
 
 const execFileAsync = promisify(execFile);
+
+// The Swift build only produces this Mach-O binary on macOS (see swift/build.sh,
+// .github/workflows/release.yml); it's gitignored, so a fresh non-macOS checkout
+// (e.g. this repo's Linux CI checkouts) never has it at the repo root.
+const hasReleaseBinary = existsSync(join(process.cwd(), "deskleaf-calendar-sync"));
 
 type ShellResult = {
   stdout: string;
@@ -73,7 +79,7 @@ function manifestIdFromJson(json: string): string {
 }
 
 describe("early access release package", () => {
-  it("creates a zip with the complete local plugin bundle and executable binary", async () => {
+  it.skipIf(!hasReleaseBinary)("creates a zip with the complete local plugin bundle and executable binary", async () => {
     const packageRoot = await createReleasePackageRoot();
     const zipPath = join(packageRoot, "deskleaf-for-obsidian.zip");
 
