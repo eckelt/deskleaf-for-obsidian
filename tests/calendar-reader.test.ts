@@ -60,6 +60,53 @@ describe("CalendarReader.updateEvent", () => {
   });
 });
 
+describe("CalendarReader extraArgs (ADR 3 --reminders-only)", () => {
+  it("appends extraArgs to the export command", async () => {
+    const reader = new CalendarReader("/tmp/deskleaf-calendar-sync", ["--reminders-only"]);
+    const execFile = vi.fn((_: string, __: string[], ___: object, callback: (err: Error | null, stdout: string) => void) => {
+      callback(null, "[]");
+    });
+    Reflect.set(reader, "execFile", execFile);
+    Reflect.set(reader, "existsSync", () => true);
+
+    await reader.load();
+
+    expect(execFile.mock.calls[0][1]).toEqual([
+      "export", "--days-back", "90", "--days-forward", "365", "--reminders-only",
+    ]);
+  });
+
+  it("appends extraArgs to the watch command", () => {
+    const reader = new CalendarReader("/tmp/deskleaf-calendar-sync", ["--reminders-only"]);
+    const spawn = vi.fn(() => ({
+      stdout: { on: vi.fn() },
+      stderr: { on: vi.fn() },
+      on: vi.fn(),
+    }));
+    Reflect.set(reader, "spawn", spawn);
+    Reflect.set(reader, "existsSync", () => true);
+
+    reader.startWatching();
+
+    expect(spawn).toHaveBeenCalledWith("/tmp/deskleaf-calendar-sync", [
+      "watch", "--days-back", "90", "--days-forward", "365", "--reminders-only",
+    ]);
+  });
+
+  it("defaults to no extra args, matching the existing binary-only reader", async () => {
+    const reader = new CalendarReader("/tmp/deskleaf-calendar-sync");
+    const execFile = vi.fn((_: string, __: string[], ___: object, callback: (err: Error | null, stdout: string) => void) => {
+      callback(null, "[]");
+    });
+    Reflect.set(reader, "execFile", execFile);
+    Reflect.set(reader, "existsSync", () => true);
+
+    await reader.load();
+
+    expect(execFile.mock.calls[0][1]).toEqual(["export", "--days-back", "90", "--days-forward", "365"]);
+  });
+});
+
 describe("CalendarReader binary import", () => {
   it("cleans provider text from imported event bodies without changing other fields", async () => {
     const reader = new CalendarReader("/tmp/deskleaf-calendar-sync");

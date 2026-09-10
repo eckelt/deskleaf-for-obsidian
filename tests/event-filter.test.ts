@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { getEventsForDate, getAllDayEventsForDate } from "../src/event-filter";
+import { getEventsForDate, getAllDayEventsForDate, mergeReminderEvents } from "../src/event-filter";
 import type { CalendarEvent } from "../src/types";
 
 // Representative events as deskleaf-calendar-sync would produce them
@@ -212,5 +212,45 @@ describe("getAllDayEventsForDate", () => {
 
   it("returns empty array for a date with no all-day events", () => {
     expect(getAllDayEventsForDate(ALL_DAY, "2026-05-01")).toHaveLength(0);
+  });
+});
+
+// ── mergeReminderEvents — ADR 3 / AC8-AC9 composite-source merge ─────────────
+describe("mergeReminderEvents", () => {
+  const primary: CalendarEvent[] = [TIMED[0]];
+  const reminder: CalendarEvent = {
+    id: "reminder:abc-123",
+    title: "Rechnung stellen",
+    start: "2026-05-04T14:00:00Z",
+    end: "2026-05-04T14:30:00Z",
+    isAllDay: false,
+    isReminder: true,
+    calendar: "Erinnerungen",
+    attendees: [],
+    isRecurring: false,
+    isCancelled: false,
+    numAttendees: 0,
+  };
+
+  it("appends reminder-source events to the primary events (AC8)", () => {
+    const result = mergeReminderEvents(primary, [reminder]);
+    expect(result.map((e) => e.id)).toEqual(["ev1", "reminder:abc-123"]);
+  });
+
+  it("drops non-reminder objects from the second source (AC9 defensive filter)", () => {
+    const strayEvent: CalendarEvent = { ...TIMED[1], isReminder: false };
+    const result = mergeReminderEvents(primary, [strayEvent, reminder]);
+    expect(result.map((e) => e.id)).toEqual(["ev1", "reminder:abc-123"]);
+  });
+
+  it("primary events win on id collisions with the reminder source", () => {
+    const colliding: CalendarEvent = { ...reminder, id: "ev1" };
+    const result = mergeReminderEvents(primary, [colliding]);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toBe(primary[0]);
+  });
+
+  it("returns just the primary events when the reminder source is empty", () => {
+    expect(mergeReminderEvents(primary, [])).toEqual(primary);
   });
 });

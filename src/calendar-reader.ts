@@ -21,7 +21,7 @@ export class CalendarReader {
   private spawn: typeof Spawn | null = null;
   private existsSync: typeof ExistsSync | null = null;
 
-  constructor(binaryPath: string) {
+  constructor(binaryPath: string, private readonly extraArgs: string[] = []) {
     this.binaryPath = binaryPath;
     try {
       const cp = require("child_process") as typeof import("child_process");
@@ -93,7 +93,7 @@ export class CalendarReader {
     return new Promise<void>((resolve) => {
       this.execFile!(
         this.binaryPath,
-        ["export", "--days-back", "90", "--days-forward", "365"],
+        ["export", "--days-back", "90", "--days-forward", "365", ...this.extraArgs],
         { timeout: 15_000 },
         async (err, stdout) => {
           if (err) {
@@ -130,7 +130,7 @@ export class CalendarReader {
 
     this.lineBuffer = "";
     const proc = this.spawn(this.binaryPath, [
-      "watch", "--days-back", "90", "--days-forward", "365"
+      "watch", "--days-back", "90", "--days-forward", "365", ...this.extraArgs
     ]);
     this.process = proc;
 
