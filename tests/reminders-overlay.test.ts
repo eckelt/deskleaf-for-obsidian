@@ -157,7 +157,7 @@ function makeReminderEvent(overrides: Partial<CalendarEvent> = {}): CalendarEven
     end: "2026-09-10T14:30:00Z",
     isAllDay: false,
     isReminder: true,
-    calendar: "EK",
+    calendar: "Erinnerungen",
     attendees: [],
     isRecurring: false,
     isCancelled: false,
