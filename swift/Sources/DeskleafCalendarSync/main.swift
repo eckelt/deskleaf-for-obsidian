@@ -182,6 +182,18 @@ func fetchAndPrint(daysBack: Int, daysForward: Int) async {
     let pred = store.predicateForEvents(withStart: from, end: to, calendars: nil)
     var evs: [DeskleafEvent] = store.events(matching: pred).map { DeskleafEvent(from: $0) }
     evs += await fetchReminders().compactMap { DeskleafEvent(reminder: $0) }
+    printEvents(evs)
+}
+
+// --reminders-only mode (ADR 3): emits exclusively EKReminder-derived objects, never
+// touches store.events(matching:) or the .event EventKit scope, so a CalDAV user who
+// runs this alongside their CalDAV event path is never asked for full Calendar access.
+func fetchAndPrintReminders() async {
+    let evs: [DeskleafEvent] = await fetchReminders().compactMap { DeskleafEvent(reminder: $0) }
+    printEvents(evs)
+}
+
+func printEvents(_ evs: [DeskleafEvent]) {
     guard let data = try? encoder.encode(evs) else { return }
     FileHandle.standardOutput.write(data)
     FileHandle.standardOutput.write(Data([UInt8(ascii: "\n")]))
@@ -195,12 +207,42 @@ guard cmdArgs.count > 1 else {
     exit(1)
 }
 
-let command     = cmdArgs[1]
-let daysBack    = intArg("--days-back",    default: 90)
-let daysForward = intArg("--days-forward", default: 365)
+let command      = cmdArgs[1]
+let daysBack     = intArg("--days-back",    default: 90)
+let daysForward  = intArg("--days-forward", default: 365)
+let remindersOnly = cmdArgs.contains("--reminders-only")
 
 signal(SIGTERM) { _ in exit(0) }
 signal(SIGINT)  { _ in exit(0) }
+
+// ADR 3: --reminders-only skips requestAccess() (the .event scope) entirely — a
+// CalDAV user's second, parallel process must only ever prompt for reminder access.
+if remindersOnly {
+    Task {
+        guard await requestReminderAccess() else {
+            fputs("Reminder access denied\n", stderr)
+            exit(1)
+        }
+        switch command {
+        case "export":
+            await fetchAndPrintReminders()
+            exit(0)
+        case "watch":
+            await fetchAndPrintReminders()
+            NotificationCenter.default.addObserver(
+                forName: .EKEventStoreChanged, object: store, queue: .main
+            ) { _ in
+                store.reset()
+                Task { await fetchAndPrintReminders() }
+            }
+            // process kept alive by RunLoop.main.run() below
+        default:
+            fputs("--reminders-only only supports export/watch, got: \(command)\n", stderr)
+            exit(1)
+        }
+    }
+    RunLoop.main.run()
+}
 
 Task {
     guard await requestAccess() else {

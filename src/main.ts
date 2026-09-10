@@ -2,6 +2,7 @@ import { Plugin, WorkspaceLeaf, addIcon, normalizePath } from "obsidian";
 import { DeskleafSettingTab } from "./settings";
 import { CalendarReader } from "./calendar-reader";
 import { CalDAVReader } from "./caldav-reader";
+import { CompositeCalendarReader } from "./composite-calendar-reader";
 import { NoteManager } from "./note-manager";
 import { DeskleafCalendarView, VIEW_TYPE_CALENDAR } from "./calendar-view";
 import { DeskleafSidebarView, VIEW_TYPE_SIDEBAR } from "./sidebar-view";
@@ -14,24 +15,35 @@ export default class DeskleafPlugin extends Plugin {
   settings!: DeskleafSettings;
   private calendarCache: CalendarEvent[] = [];
   private calendarCacheDate: string | null = null;
-  calendarReader!: CalendarReader | CalDAVReader;
+  calendarReader!: CalendarReader | CalDAVReader | CompositeCalendarReader;
   noteManager!: NoteManager;
   icalFeedManager!: ICalFeedManager;
   releaseDate: string | null = null;
 
-  private makeReader(): CalendarReader | CalDAVReader {
+  private makeReader(): CalendarReader | CalDAVReader | CompositeCalendarReader {
     const { caldav } = this.settings;
     if (caldav.username && caldav.password) {
       const reader = new CalDAVReader(caldav.url || "https://caldav.fastmail.com", caldav.username, caldav.password);
       reader.selectedCalendars = caldav.selectedCalendars ?? [];
+      // Desktop with local binary access: layer a reminders-only EventKit process on top
+      // of CalDAV (ADR 3 / AC8). No basePath (iOS) → no local process is possible at all
+      // (AC10), same constraint getBinaryPath() already applies to the binary-only path.
+      if (this.getBasePath()) {
+        const reminders = new CalendarReader(this.getBinaryPath(), ["--reminders-only"]);
+        return new CompositeCalendarReader(reader, reminders);
+      }
       return reader;
     }
     return new CalendarReader(this.getBinaryPath());
   }
 
+  private getBasePath(): string | undefined {
+    return (this.app.vault.adapter as any).basePath;
+  }
+
   private getBinaryPath(): string {
     if (this.settings.binaryPath) return this.settings.binaryPath;
-    const basePath: string | undefined = (this.app.vault.adapter as any).basePath;
+    const basePath = this.getBasePath();
     if (!basePath) return "deskleaf-calendar-sync"; // iOS: no filesystem path; binary won't exist → cache fallback
     return `${basePath}/${this.manifest.dir}/deskleaf-calendar-sync`;
   }
@@ -152,7 +164,7 @@ export default class DeskleafPlugin extends Plugin {
   async saveSettings() {
     const { caldav } = this.settings;
     if (caldav.username && caldav.password) {
-      if (this.calendarReader instanceof CalDAVReader) {
+      if (this.calendarReader instanceof CalDAVReader || this.calendarReader instanceof CompositeCalendarReader) {
         this.calendarReader.updateCredentials(caldav.url, caldav.username, caldav.password);
         this.calendarReader.selectedCalendars = caldav.selectedCalendars ?? [];
         this.calendarReader.refresh();

@@ -24,3 +24,18 @@ export function getAllDayEventsForDate(events: CalendarEvent[], date: string): C
     return s <= date && date <= en;
   });
 }
+
+/**
+ * Merges the primary event source with a reminders-only source (see ADR 3). Only
+ * `isReminder` objects are taken from the second source — defensive against a future
+ * change to the reminders-only binary mode that starts emitting `EKEvent` data — and
+ * primary events always win on id collisions.
+ */
+export function mergeReminderEvents(
+  primaryEvents: CalendarEvent[],
+  reminderSourceEvents: CalendarEvent[],
+): CalendarEvent[] {
+  const primaryIds = new Set(primaryEvents.map((e) => e.id));
+  const reminders = reminderSourceEvents.filter((e) => e.isReminder && !primaryIds.has(e.id));
+  return [...primaryEvents, ...reminders];
+}
