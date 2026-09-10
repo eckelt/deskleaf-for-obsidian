@@ -8,13 +8,22 @@
 > Issue [#81](https://github.com/eckelt/deskleaf-for-obsidian/issues/81)). Die Produktlinie
 > **display** ist außerhalb dieses Repos spezifiziert und nicht Teil dieser Spec.
 
+> **Fix-forward (2026-09-10, nach #82-Merge)**: Der fest verdrahtete Listenname war
+> ursprünglich fälschlich als „EK" spezifiziert und implementiert (`main.swift`:
+> `reminder.calendar?.title != "EK"`). Der Nutzer hat bestätigt, dass die tatsächliche
+> Erinnerungsliste auf seinem Gerät „Erinnerungen" heißt — mit „EK" filtert der Binary
+> jede Erinnerung heraus, weshalb im Obsidian-Kalender nie etwas erschien. Diese Spec
+> ersetzt „EK" durchgängig durch „Erinnerungen"; der Builder muss den String in
+> `swift/Sources/DeskleafCalendarSync/main.swift` (und den zugehörigen Swift-Tests in
+> `DeskleafCoreTests/ReminderMappingTests.swift`) entsprechend korrigieren.
+
 ## User Story
-Als Nutzer möchte ich meine macOS/iOS-Erinnerungen aus der EventKit-Erinnerungsliste „EK"
+Als Nutzer möchte ich meine macOS/iOS-Erinnerungen aus der EventKit-Erinnerungsliste „Erinnerungen"
 im Deskleaf-Kalender sehen, damit ich Termine und fällige Erinnerungen an einem Ort im
 Blick habe, ohne die Reminders-App zu öffnen.
 
 ## Acceptance Criteria
-- [ ] AC1: Erinnerungen aus der EventKit-Erinnerungsliste **„EK"** erscheinen im
+- [ ] AC1: Erinnerungen aus der EventKit-Erinnerungsliste **„Erinnerungen"** erscheinen im
   Deskleaf-Kalender. Datenquelle ist ausschließlich der macOS/iOS-Binary-Backend
   (`EKReminder` über den Deskleaf-Binary); es gibt keinen CalDAV/VTODO-Codepfad für
   Erinnerungen. Erinnerungen aus anderen Listen werden nicht angezeigt.
@@ -39,22 +48,22 @@ Blick habe, ohne die Reminders-App zu öffnen.
 ## Acceptance Scenarios
 ```gherkin
 Scenario: Erinnerung ohne Fälligkeitszeit als Tagesevent
-  Given eine Erinnerung in Liste "EK" mit Fälligkeitsdatum 2026-09-10 und keiner Uhrzeit
+  Given eine Erinnerung in Liste "Erinnerungen" mit Fälligkeitsdatum 2026-09-10 und keiner Uhrzeit
   When der Kalender für den 10.09.2026 gerendert wird
   Then erscheint die Erinnerung als ganztägige Kachel an diesem Tag
 
 Scenario: Erinnerung mit Fälligkeitszeit als 30-Minuten-Block
-  Given eine Erinnerung in Liste "EK" mit Fälligkeit 2026-09-10 14:00
+  Given eine Erinnerung in Liste "Erinnerungen" mit Fälligkeit 2026-09-10 14:00
   When der Kalender für den 10.09.2026 gerendert wird
   Then erscheint die Erinnerung als Zeitblock von 14:00 bis 14:30
 
 Scenario: Erinnerung ohne jedes Fälligkeitsdatum wird ausgeblendet
-  Given eine Erinnerung in Liste "EK" ohne Fälligkeitsdatum
+  Given eine Erinnerung in Liste "Erinnerungen" ohne Fälligkeitsdatum
   When der Kalender gerendert wird
   Then erscheint diese Erinnerung an keinem Tag
 
 Scenario: Erledigte Erinnerung wird ausgeblendet
-  Given eine Erinnerung in Liste "EK", die in EventKit als erledigt markiert ist
+  Given eine Erinnerung in Liste "Erinnerungen", die in EventKit als erledigt markiert ist
   When der Kalender gerendert wird
   Then erscheint diese Erinnerung nicht im Kalender
 
@@ -82,7 +91,7 @@ Scenario: Erinnerungs-Kachel visuell unterscheidbar
 ## Out of Scope
 - CalDAV/VTODO-Erinnerungen (z. B. Fastmail) — nur `EKReminder` über den macOS/iOS-Binary
 - Zwei-Wege-Sync: Abhaken, Verschieben oder Bearbeiten von Erinnerungen aus Obsidian heraus
-- Konfigurierbarer Listen-Filter/-Einstellung — die Liste „EK" ist fest verdrahtet, keine UI zur Auswahl anderer Listen
+- Konfigurierbarer Listen-Filter/-Einstellung — die Liste „Erinnerungen" ist fest verdrahtet, keine UI zur Auswahl anderer Listen
 - Anzeige erledigter Erinnerungen (auch nicht optional/durchgestrichen)
 - Brain-Vault-Notiz-Beziehung für Erinnerungen (keine eigene Datei, keine Verknüpfung zu Kunden/Todos)
 - Nutzerkonfigurierbare Farbe/Icon für Erinnerungs-Kacheln
@@ -94,7 +103,7 @@ _None — geklärt in [#81](https://github.com/eckelt/deskleaf-for-obsidian/issu
 
 ## Affected Areas
 - `swift/Sources/DeskleafCalendarSync/main.swift` — `EKReminder`-Zugriff (`requestAccess`
-  um `.reminder`-Scope erweitern), Fetch der Liste „EK", Mapping auf das bestehende
+  um `.reminder`-Scope erweitern), Fetch der Liste „Erinnerungen", Mapping auf das bestehende
   `DeskleafEvent`-JSON-Schema mit einem neuen `isReminder`-Feld; Ausschluss erledigter
   Erinnerungen und Erinnerungen ohne Fälligkeitsdatum bereits im Binary.
 - `src/types.ts` — `CalendarEvent.isReminder?: boolean`.
@@ -119,10 +128,10 @@ Automatisiert (Vitest):
   verschiedene Farbe (deckt Scenario "visuell unterscheidbar").
 
 Manuell (QA, da EventKit-Berechtigungen und echte Reminders-Daten nur auf einem
-macOS-Gerät mit konfigurierter Liste „EK" verifizierbar sind):
+macOS-Gerät mit konfigurierter Liste „Erinnerungen" verifizierbar sind):
 - Erledigte Erinnerung wird nach Abhaken in Reminders.app beim nächsten Sync im
   Deskleaf-Kalender ausgeblendet (Scenario "erledigte Erinnerung").
-- Erinnerung aus einer anderen Liste als „EK" bleibt unsichtbar (Scenario "andere Liste").
+- Erinnerung aus einer anderen Liste als „Erinnerungen" bleibt unsichtbar (Scenario "andere Liste").
 - Berechtigungsdialog für Erinnerungszugriff erscheint beim ersten Start nach Update und
   blockiert bei Ablehnung nicht den bestehenden Event-Kalender.
 
@@ -186,7 +195,7 @@ ACs selbst.
 - `DeskleafEvent` um `let isReminder: Bool` erweitern (Default `false` über einen zweiten
   Initializer, kein Breaking Change für bestehende Event-Konsumenten).
 - Neuer Initializer `DeskleafEvent(reminder: EKReminder) -> DeskleafEvent?`:
-  - `nil`, wenn `reminder.calendar?.title != "EK"`, `reminder.isCompleted == true`, oder
+  - `nil`, wenn `reminder.calendar?.title != "Erinnerungen"`, `reminder.isCompleted == true`, oder
     `reminder.dueDateComponents` fehlt (AC1, AC3, AC4 bereits im Binary durchgesetzt —
     kleinere JSON-Payload, keine Filterlogik im TS-Layer nötig).
   - `isAllDay = reminder.dueDateComponents?.hour == nil` (AC2).
@@ -235,7 +244,7 @@ ACs selbst.
 |---|---|---|
 | Reminder-Berechtigung separat von Event-Berechtigung (macOS fragt beide einzeln ab) | Niedrig | Unabhängige Fehlerbehandlung; fehlender Reminder-Zugriff darf Event-Export nicht stoppen |
 | `dueDateComponents` ohne Zeitzone-Info bei manchen Alt-Erinnerungen | Niedrig | `Calendar.current`-Interpretation wie bei Events; kein bekannter Sonderfall in EventKit |
-| Listenname „EK" ändert sich/wird umbenannt | Niedrig | Fest verdrahteter String ist bewusste Nutzerentscheidung (siehe Issue #81); keine Fehlerbehandlung nötig, Liste erscheint dann einfach leer |
+| Listenname „Erinnerungen" ändert sich/wird umbenannt | Niedrig | Fest verdrahteter String ist bewusste Nutzerentscheidung (siehe Issue #81); keine Fehlerbehandlung nötig, Liste erscheint dann einfach leer |
 | iOS hat keinen lokalen Binary-Prozess | Niedrig | Bestehendes Fallback-Verhalten ("Mobiles Gerät", Cache-Anzeige) bleibt unverändert; explizit in Out of Scope benannt |
 
 **Gesamteinschätzung**: Kleines, additives Feature. Kein Umbau des bestehenden
