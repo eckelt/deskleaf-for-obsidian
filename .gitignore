@@ -26,3 +26,4 @@ reports/quality/
 .claude/scheduled_tasks.lock
 .claude/scheduled_tasks.json
 # END swamp managed section
+deskleaf-calendar-sync
