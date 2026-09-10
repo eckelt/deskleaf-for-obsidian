@@ -17,6 +17,18 @@
 > `swift/Sources/DeskleafCalendarSync/main.swift` (und den zugehörigen Swift-Tests in
 > `DeskleafCoreTests/ReminderMappingTests.swift`) entsprechend korrigieren.
 
+> **Fix-forward (2026-09-10, CalDAV-Koexistenz)**: Der Nutzer hat im Factory-Refinement
+> bestätigt, dass er CalDAV als aktives Backend nutzt (`caldav.username`+`password`
+> gesetzt). Weil `main.ts:makeReader()` genau einen Reader exklusiv wählt, wurde der
+> binary-basierte `CalendarReader` — und damit jede `isReminder`-Quelle — für ihn nie
+> instanziiert: das in #82/#83 gemergte Feature zeigt bei ihm keine Erinnerungen. Diese
+> Spec-Erweiterung führt einen parallelen, reminders-only Binary-Prozess ein, der
+> zusätzlich zum CalDAV-Eventpfad läuft, sofern das Gerät lokalen Dateisystemzugriff auf
+> das Binary hat (macOS Desktop). Siehe
+> [ADR 3](../../docs/adr/0003-reminders-coexist-with-caldav.md) für die architektonische
+> Entscheidung. AC8–AC12 und die zugehörigen Scenarios sind neu; AC1–AC7 gelten
+> unverändert weiter.
+
 ## User Story
 Als Nutzer möchte ich meine macOS/iOS-Erinnerungen aus der EventKit-Erinnerungsliste „Erinnerungen"
 im Deskleaf-Kalender sehen, damit ich Termine und fällige Erinnerungen an einem Ort im
@@ -44,6 +56,24 @@ Blick habe, ohne die Reminders-App zu öffnen.
 - [ ] AC7: Das Plugin schreibt nie nach EventKit zurück, um eine Erinnerung zu ändern
   (keine Fälligkeits-Änderung, kein Abhaken). Reminders.app/EventKit bleibt für
   Erinnerungen alleinige Quelle der Wahrheit.
+- [ ] AC8: Ist CalDAV das aktive Event-Backend (`caldav.username`+`password` gesetzt)
+  **und** läuft das Plugin auf einem Gerät mit lokalem Dateisystemzugriff auf das Binary
+  (macOS Desktop — derselbe `basePath`-Check wie in `getBinaryPath()`), startet das Plugin
+  zusätzlich einen zweiten, parallelen Binary-Prozess im Reminders-only-Modus. Erinnerungen
+  aus Liste „Erinnerungen" erscheinen dann **zusätzlich** zu den CalDAV-Events im Kalender,
+  mit demselben Mapping wie in AC2–AC5.
+- [ ] AC9: Dieser zweite Prozess liefert ausschließlich `isReminder`-Objekte, nie
+  `EKEvent`-Daten — es entstehen dadurch keine Duplikate mit den CalDAV-Events, und es wird
+  keine macOS-Kalenderzugriffs-Berechtigung angefragt (nur der `.reminder`-Scope).
+- [ ] AC10: Auf einem Gerät ohne lokalen Dateisystemzugriff zum Binary (iOS/Mobile) bleiben
+  Erinnerungen bei aktivem CalDAV-Backend weiterhin unsichtbar — unverändert zum
+  bestehenden "Mobiles Gerät"-Fallback-Verhalten für Events.
+- [ ] AC11: Schlägt der zweite, reminders-only Prozess fehl (Berechtigung verweigert,
+  Binary fehlt, Absturz), bleibt der CalDAV-Eventpfad davon vollständig unberührt — es gibt
+  höchstens einen reminder-spezifischen Fehlerhinweis, nie einen Fehler im Event-Kalender.
+- [ ] AC12: Ist der Binary selbst das aktive Event-Backend (keine CalDAV-Zugangsdaten
+  gesetzt), ändert sich nichts gegenüber #82/#83 — Erinnerungen kommen weiterhin aus
+  demselben, bereits laufenden Prozess (kein zweiter Prozess, keine Regression).
 
 ## Acceptance Scenarios
 ```gherkin
@@ -86,6 +116,22 @@ Scenario: Erinnerungs-Kachel visuell unterscheidbar
   Given eine sichtbare Erinnerungs-Kachel neben einem echten Kalender-Event am selben Tag
   When beide Kacheln im Kalender dargestellt werden
   Then trägt die Erinnerungs-Kachel ein Checkbox-Icon und eine feste Farbe außerhalb von CAL_COLOR_PALETTE
+
+Scenario: CalDAV aktiv, Desktop → Erinnerungen erscheinen zusätzlich
+  Given CalDAV ist als aktives Backend konfiguriert und das Plugin läuft auf macOS Desktop
+  And eine Erinnerung in Liste "Erinnerungen" mit Fälligkeit heute 14:00 existiert
+  When der Kalender gerendert wird
+  Then erscheinen sowohl die CalDAV-Events als auch die Erinnerung als 14:00–14:30-Block
+
+Scenario: CalDAV aktiv, Mobile → keine Erinnerungen
+  Given CalDAV ist als aktives Backend konfiguriert und das Plugin läuft auf iOS/Mobile
+  When der Kalender gerendert wird
+  Then erscheinen nur CalDAV-Events, keine Erinnerungen
+
+Scenario: Reminders-Zusatzprozess schlägt fehl → Events unberührt
+  Given CalDAV ist aktiv und der reminders-only Zusatzprozess kann das Binary nicht starten
+  When der Kalender gerendert wird
+  Then erscheinen die CalDAV-Events unverändert und es wird keine Erinnerung angezeigt
 ```
 
 ## Out of Scope
@@ -96,7 +142,13 @@ Scenario: Erinnerungs-Kachel visuell unterscheidbar
 - Brain-Vault-Notiz-Beziehung für Erinnerungen (keine eigene Datei, keine Verknüpfung zu Kunden/Todos)
 - Nutzerkonfigurierbare Farbe/Icon für Erinnerungs-Kacheln
 - Die Produktlinie **display** (separates Repo/Spec)
-- iOS-Erinnerungen ohne lokalen macOS-Binary (das Binary läuft nur auf macOS; auf iOS/Mobile bleibt der bestehende "Mobiles Gerät"-Fallback ohne Live-Reminders-Daten bestehen, analog zum bestehenden Event-Verhalten)
+- iOS-Erinnerungen ohne lokalen macOS-Binary (das Binary läuft nur auf macOS; auf
+  iOS/Mobile bleibt der bestehende "Mobiles Gerät"-Fallback ohne Live-Reminders-Daten
+  bestehen — auch bei aktivem CalDAV-Backend, siehe AC10)
+- Kein neues Setting/Toggle für die Reminders-Zusatzabfrage bei CalDAV — automatisch
+  analog zur bestehenden Backend-Auswahl (`makeReader()`), keine UI-Konfiguration
+- Kein Versuch, Erinnerungen selbst über CalDAV/VTODO zu synchronisieren — der
+  Zusatzprozess bleibt EventKit-only (weiterhin konsistent mit AC1)
 
 ## Open Questions
 _None — geklärt in [#81](https://github.com/eckelt/deskleaf-for-obsidian/issues/81)._
@@ -114,6 +166,23 @@ _None — geklärt in [#81](https://github.com/eckelt/deskleaf-for-obsidian/issu
   von Drag/Resize-Handles, Guard vor `noteManager.openOrCreate` für Erinnerungs-Kacheln.
 - `styles.css` — Kachel-Styling für Erinnerungen (Checkbox-Icon, feste Farbe außerhalb
   `CAL_COLOR_PALETTE`).
+- `swift/Sources/DeskleafCalendarSync/main.swift` — neuer Modus `--reminders-only` für
+  `export`/`watch`: überspringt `requestAccess()` (Event-Scope) vollständig, fragt nur
+  `requestReminderAccess()` an, und ruft eine aus `fetchAndPrint` extrahierte
+  `fetchAndPrintReminders`, die ausschließlich `EKReminder`→`DeskleafEvent`-Objekte
+  ausgibt (kein `store.events(matching:)`-Aufruf in diesem Modus).
+- `main.ts` — bei aktivem CalDAV-Backend **und** vorhandenem `basePath` (Desktop) einen
+  zweiten `CalendarReader`-Prozess im `--reminders-only`-Modus zusätzlich
+  starten/stoppen: gleicher Lifecycle wie der bestehende Reader
+  (`load()`/`startWatching()`/`stopWatching()`), inklusive Cleanup in `onunload()` und
+  Neustart bei Zugangsdaten-Wechsel in `saveSettings()`. Läuft der Zusatzprozess auf
+  einem Gerät ohne `basePath`, wird er gar nicht erst instanziiert (AC10).
+  Empfohlen: ein Composite, der beide Quellen (CalDAV-Events + reminders-only
+  Binary-Events) hinter derselben Reader-Schnittstelle zusammenführt, damit
+  `calendar-view.ts`/`sidebar-view.ts` unverändert bleiben und `plugin.calendarReader`
+  für die View-Schicht weiterhin eine einzelne Quelle ist. Write-Methoden
+  (`createEvent`/`moveEvent`/`updateEvent`/`cancelEvent`) delegieren dabei ausschließlich
+  an den primären (CalDAV-)Reader — Erinnerungen bleiben über AC7 read-only.
 
 ## Test Expectations
 Automatisiert (Vitest):
@@ -126,6 +195,13 @@ Automatisiert (Vitest):
   Note-Erstellung/-Öffnung auf (deckt Scenario "keine Note").
 - Farb-/Icon-Zuweisung: Reminder-Kachel erhält eine feste, von `CAL_COLOR_PALETTE`
   verschiedene Farbe (deckt Scenario "visuell unterscheidbar").
+- Merge-Logik der Composite-Quelle (pure function, unabhängig vom Binary testbar gegen
+  Fixtures): CalDAV-Events + reminders-only-Events werden dedupliziert/zusammengeführt,
+  ausschließlich `isReminder`-Objekte aus der zweiten Quelle werden übernommen (deckt
+  AC9 und Scenario "CalDAV aktiv, Desktop").
+- Reader-Auswahl: Bei CalDAV-Zugangsdaten **und** vorhandenem `basePath` wird der
+  reminders-only Zusatzprozess instanziiert; ohne `basePath` (iOS) oder ohne
+  CalDAV-Zugangsdaten (Binary bereits aktiv) nicht (deckt AC8, AC10, AC12).
 
 Manuell (QA, da EventKit-Berechtigungen und echte Reminders-Daten nur auf einem
 macOS-Gerät mit konfigurierter Liste „Erinnerungen" verifizierbar sind):
@@ -134,6 +210,14 @@ macOS-Gerät mit konfigurierter Liste „Erinnerungen" verifizierbar sind):
 - Erinnerung aus einer anderen Liste als „Erinnerungen" bleibt unsichtbar (Scenario "andere Liste").
 - Berechtigungsdialog für Erinnerungszugriff erscheint beim ersten Start nach Update und
   blockiert bei Ablehnung nicht den bestehenden Event-Kalender.
+- Mit konfiguriertem CalDAV-Backend auf einem macOS-Desktop-Vault: Erinnerungen aus
+  Liste „Erinnerungen" erscheinen zusätzlich zu den CalDAV-Events, und der
+  Reminders-only-Zusatzprozess fragt **nur** nach Erinnerungszugriff, nicht nach
+  vollem Kalenderzugriff (deckt AC8, AC9, Scenario "CalDAV aktiv, Desktop").
+- Mit CalDAV auf iOS (keine lokale Binary-Datei): keine Erinnerungen sichtbar, keine
+  Fehlermeldung im Event-Kalender (deckt AC10, Scenario "CalDAV aktiv, Mobile").
+- Binary-Pfad ungültig/Prozess crasht bei aktivem CalDAV+Desktop: CalDAV-Events bleiben
+  unbeeinträchtigt sichtbar (deckt AC11, Scenario "Reminders-Zusatzprozess schlägt fehl").
 
 ---
 
@@ -161,6 +245,13 @@ ACs selbst.
    nötig — konsistent mit dem bestehenden Polling-Modell des Binary-Backends.
 4. **Zeitzonen**: Fälligkeitszeit einer Erinnerung wird wie bei Events lokal interpretiert
    (`EKReminder.dueDateComponents` ist bereits lokal/Kalender-bezogen) — kein Zusatzaufwand.
+5. **CalDAV aktiv, aber kein Desktop-Binary vorhanden/lauffähig**: Kein Fehlerzustand —
+   Erinnerungen bleiben einfach unsichtbar, exakt wie beim bestehenden Mobile-Fallback für
+   Events (AC10/AC11). Kein zusätzlicher UI-Hinweis nötig, da dies kein neuer, sondern der
+   bereits bekannte Zustand ist.
+6. **Zwei Prozesse gleichzeitig auf Desktop mit CalDAV**: Der primäre CalDAV-Poll-Zyklus
+   und der reminders-only Binary-Prozess laufen unabhängig und beeinflussen sich nicht
+   gegenseitig in Timing/Fehlerbehandlung (AC11) — kein gemeinsamer Fehlerzustand.
 
 ### Barrierefreiheit
 - Reminder-Kacheln sollten wie bei den read-only iCal-Feed-Kacheln (siehe
@@ -246,6 +337,8 @@ ACs selbst.
 | `dueDateComponents` ohne Zeitzone-Info bei manchen Alt-Erinnerungen | Niedrig | `Calendar.current`-Interpretation wie bei Events; kein bekannter Sonderfall in EventKit |
 | Listenname „Erinnerungen" ändert sich/wird umbenannt | Niedrig | Fest verdrahteter String ist bewusste Nutzerentscheidung (siehe Issue #81); keine Fehlerbehandlung nötig, Liste erscheint dann einfach leer |
 | iOS hat keinen lokalen Binary-Prozess | Niedrig | Bestehendes Fallback-Verhalten ("Mobiles Gerät", Cache-Anzeige) bleibt unverändert; explizit in Out of Scope benannt |
+| Zweiter Binary-Prozess bei CalDAV+Desktop erhöht Ressourcen-/Prozessverbrauch | Niedrig | Reminders-only-Modus fragt nur `.reminder`-Scope an und überspringt den teuren Event-Fetch; Lifecycle exakt an den bestehenden Reader gekoppelt (kein verwaister Prozess) |
+| Reminders-only-Modus fragt versehentlich weiter nach vollem Kalenderzugriff (falls `requestAccess()` nicht übersprungen wird) | Mittel | Explizit in Affected Areas gefordert: `requestAccess()` (Event) wird im `--reminders-only`-Zweig des Binarys nicht aufgerufen; nur `requestReminderAccess()` |
 
 **Gesamteinschätzung**: Kleines, additives Feature. Kein Umbau des bestehenden
 Event-Datenmodells; ein neues Boolean-Feld plus eine zusätzliche Guard-Stelle im
@@ -253,6 +346,54 @@ View-Layer. Größte Abweichung vom Bestehenden ist die neue `openOrCreate`-Guar
 (AC6), die es für iCal-Feed-Events bislang nicht gibt.
 
 *Feature Planner — 2026-09-09*
+
+---
+
+## Design Review — CalDAV-Koexistenz (Nachtrag 2026-09-10)
+
+### 5. Reminders-only Binary-Modus
+- `main.swift`: neuer erster Positionsparameter-Zweig bzw. `--reminders-only`-Flag auf
+  `export`/`watch`. Wenn gesetzt: `requestAccess()` (Event-Scope, aktuell hart per `guard`
+  vor dem `switch` erzwungen) wird **nicht** aufgerufen — stattdessen direkt
+  `requestReminderAccess()`, danach eine neue `fetchAndPrintReminders(daysBack:daysForward:)`,
+  die nur den `evs += await fetchReminders()...`-Teil von `fetchAndPrint` enthält (kein
+  `store.events(matching:)`). Ohne das Flag verhält sich der Binary exakt wie heute — keine
+  Breaking Changes am bestehenden `export`/`watch`-Pfad.
+- `watch --reminders-only` bleibt über denselben `EKEventStoreChanged`-Observer aktuell
+  (feuert auch bei Reminder-Änderungen, wie im ursprünglichen Design Review Punkt 1
+  festgehalten).
+
+### 6. `main.ts` — zweiter Reader-Lifecycle
+- Bedingung für den Zusatzprozess: `caldav.username && caldav.password` **und**
+  `getBinaryPath()` liefert einen echten Dateisystempfad (nicht den iOS-Platzhalter) —
+  wiederverwendet denselben `basePath`-Check, der heute schon zwischen Desktop/iOS
+  unterscheidet.
+- Der Zusatzprozess ist eine zweite Instanz von `CalendarReader`, gestartet mit
+  `["export"/"watch", "--reminders-only", ...]`; sein `getEvents()`-Ergebnis enthält per
+  Konstruktion nur `isReminder`-Objekte (AC9), muss also clientseitig nicht gefiltert
+  werden.
+- Empfohlene Kapselung: ein schlanker Composite (z. B. `CompositeCalendarReader`), der
+  die bestehende Reader-Schnittstelle (`getEvents`, `getEventsForDate`,
+  `getAllDayEventsForDate`, `onChange`, `load`, `startWatching`, `stopWatching`,
+  `getLoadError`, `getCacheDate`, `getEventUrl`) implementiert, intern beide Reader hält
+  und ihre Events zusammenführt sowie ihre `onChange`-Watcher weiterleitet. Write-Methoden
+  delegieren ausschließlich an den primären (CalDAV-)Reader. Dadurch bleiben
+  `calendar-view.ts`, `sidebar-view.ts` und `note-manager.ts` unverändert — sie kennen nur
+  `plugin.calendarReader` als eine Quelle.
+- Lifecycle-Kopplung: `onLayoutReady` (`load()`+`startWatching()`), `onunload`
+  (`stopWatching()`) und der Zugangsdaten-Wechsel-Zweig in `saveSettings()` müssen den
+  Zusatzprozess exakt wie den primären Reader mitführen — kein separater Timer, keine
+  eigene Lifecycle-Quelle.
+
+### 7. Risiken (Nachtrag)
+Siehe aktualisierte Risikotabelle oben.
+
+**Gesamteinschätzung (Nachtrag)**: Die Änderung bleibt additiv und reversibel — das Flag
+ist optional, der bestehende Binary- und CalDAV-Pfad ändert sich ohne CalDAV+Desktop-
+Kombination nicht. Der einzige strukturelle Eingriff ist der empfohlene Composite-Reader
+in `main.ts`, der aber die View-Schicht komplett abschirmt.
+
+*Feature Planner — 2026-09-10*
 
 ---
 
