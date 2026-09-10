@@ -12,7 +12,7 @@ export interface CalendarEvent {
   isCancelled?: boolean;
   isAllDay?: boolean;
   isOrganizer?: boolean;
-  /** True for EventKit reminders (list "EK") surfaced read-only alongside events. */
+  /** True for EventKit reminders (list "Erinnerungen") surfaced read-only alongside events. */
   isReminder?: boolean;
   meetingPlatform?: string;
   /** Join link from RFC 7986 CONFERENCE, falling back to URL. */

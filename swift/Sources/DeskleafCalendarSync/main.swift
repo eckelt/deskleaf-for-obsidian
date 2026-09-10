@@ -73,7 +73,7 @@ struct DeskleafEvent: Encodable {
         isReminder = false
     }
 
-    // Reminders come from a single fixed EventKit list ("EK"); due-date-without-time
+    // Reminders come from a single fixed EventKit list ("Erinnerungen"); due-date-without-time
     // reminders render all-day, due-date-with-time reminders render as a 30-min block,
     // and completed/undated/other-list reminders are excluded entirely (mapReminderDueDate).
     init?(reminder: EKReminder) {
@@ -134,7 +134,7 @@ func findEvent(_ eid: String) -> EKEvent? {
     return store.event(withIdentifier: eid)
 }
 
-let reminderListTitle = "EK"
+let reminderListTitle = "Erinnerungen"
 
 func requestAccess() async -> Bool {
     do {

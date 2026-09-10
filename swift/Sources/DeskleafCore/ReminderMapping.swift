@@ -9,15 +9,15 @@ public enum ReminderMapping: Equatable {
 }
 
 /// Pure due-date mapping for reminders, kept independent of EventKit so it is
-/// unit-testable on any platform. `listTitle` must be exactly "EK" — no other
-/// reminder list is surfaced (see reminders-overlay spec, AC1).
+/// unit-testable on any platform. `listTitle` must be exactly "Erinnerungen" —
+/// no other reminder list is surfaced (see reminders-overlay spec, AC1).
 public func mapReminderDueDate(
     listTitle: String?,
     isCompleted: Bool,
     year: Int?, month: Int?, day: Int?, hour: Int?, minute: Int?,
     calendar: Calendar = .current
 ) -> ReminderMapping {
-    guard listTitle == "EK", !isCompleted else { return .excluded }
+    guard listTitle == "Erinnerungen", !isCompleted else { return .excluded }
     guard let y = year, let m = month, let d = day else { return .excluded }
 
     var comps = DateComponents()
