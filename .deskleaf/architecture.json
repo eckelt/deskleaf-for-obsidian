@@ -85,8 +85,8 @@
     "provenance": {
       "source": "derived",
       "extractor": "typescript@1",
-      "commit": "f24a906bf15fb6fa2c2ab176a140f003311576f8",
-      "at": "2026-09-19T06:58:11.639Z"
+      "commit": "b15a316f8a5d1a1a88241ed8ed326245b391bd68",
+      "at": "2026-09-19T06:58:52.102Z"
     },
     "nodes": [
       {
