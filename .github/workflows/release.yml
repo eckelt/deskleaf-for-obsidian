@@ -3,6 +3,7 @@ name: Release
 on:
   push:
     branches: [main]
+    paths-ignore: ['.deskleaf/**']
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
