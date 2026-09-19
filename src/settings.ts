@@ -1,5 +1,5 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
-import type DeskleafPlugin from "./main";
+import type { DeskleafPluginApi } from "./plugin-api";
 import { CalDAVClient } from "./caldav-client";
 import { formatVersionFooter } from "./date-utils";
 import { CAL_COLOR_PALETTE, calSwatchColor, type DeskleafSettings, type ICalFeedSubscription } from "./types";
@@ -18,9 +18,9 @@ function trashIconSvg(size: number): string {
 }
 
 export class DeskleafSettingTab extends PluginSettingTab {
-  plugin: DeskleafPlugin;
+  plugin: DeskleafPluginApi;
 
-  constructor(app: App, plugin: DeskleafPlugin) {
+  constructor(app: App, plugin: DeskleafPluginApi) {
     super(app, plugin);
     this.plugin = plugin;
   }

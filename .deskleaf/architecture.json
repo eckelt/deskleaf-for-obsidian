@@ -1,0 +1,1626 @@
+{
+  "schemaVersion": 2,
+  "product": "obsidian",
+  "repository": "eckelt/deskleaf-for-obsidian",
+  "declared": {
+    "name": "Deskleaf for Obsidian",
+    "summary": "Obsidian plugin that shows the calendar next to meeting notes, keeps todos and project priorities in the vault, and tracks Solidtime blocks. A Swift companion reads EventKit calendars and reminders on macOS.",
+    "docs": [
+      "README.md",
+      "specs/overview.md",
+      "docs/agent-workflow.md"
+    ],
+    "containers": [
+      {
+        "id": "plugin",
+        "kind": "plugin",
+        "name": "Obsidian plugin",
+        "summary": "TypeScript plugin bundled with esbuild: calendar view, sidebar, note manager, CalDAV and iCal readers, Solidtime client.",
+        "deployment": "Obsidian desktop and mobile via BRAT pre-release",
+        "interfaces": [
+          {
+            "id": "obsidian-api",
+            "direction": "consumes",
+            "protocol": "Obsidian plugin API"
+          },
+          {
+            "id": "fastmail-caldav",
+            "direction": "consumes",
+            "protocol": "CalDAV",
+            "summary": "Calendar read and edit"
+          },
+          {
+            "id": "ical-feeds",
+            "direction": "consumes",
+            "protocol": "iCal over HTTP",
+            "summary": "Subscribed calendars"
+          },
+          {
+            "id": "vault-files",
+            "direction": "consumes",
+            "protocol": "Local Markdown files",
+            "summary": "Meeting, person, project notes and todos"
+          },
+          {
+            "id": "solidtime",
+            "direction": "consumes",
+            "protocol": "Solidtime REST"
+          },
+          {
+            "id": "calendar-sync-binary",
+            "direction": "consumes",
+            "protocol": "Child process JSON",
+            "summary": "EventKit calendars and reminders on macOS"
+          }
+        ],
+        "extract": {
+          "typescript": {
+            "src": "src",
+            "noCycles": true
+          }
+        }
+      },
+      {
+        "id": "calendar-sync",
+        "kind": "daemon",
+        "name": "deskleaf-calendar-sync",
+        "summary": "Swift binary reading EventKit calendars and reminders, spawned by the plugin on macOS.",
+        "deployment": "macOS, shipped as release asset",
+        "interfaces": [
+          {
+            "id": "eventkit",
+            "direction": "consumes",
+            "protocol": "macOS EventKit"
+          },
+          {
+            "id": "calendar-sync-binary",
+            "direction": "provides",
+            "protocol": "Child process JSON"
+          }
+        ]
+      }
+    ]
+  },
+  "derived": {
+    "provenance": {
+      "source": "derived",
+      "extractor": "typescript@1",
+      "commit": "6e9d4c7faa4bc866a290b887726bb3d9efb74345",
+      "at": "2026-09-19T06:04:00.168Z"
+    },
+    "nodes": [
+      {
+        "id": "obsidian/plugin/brain-vault",
+        "level": "element",
+        "kind": "module",
+        "name": "brain-vault",
+        "path": "src/brain-vault.ts",
+        "exports": [
+          "slugify",
+          "brainLink",
+          "attendeeDomain",
+          "attendeeEmail",
+          "matchCustomer",
+          "matchCustomerByTitle",
+          "matchPerson",
+          "displayName",
+          "meetingFilename",
+          "sanitizeNoteName",
+          "frontmatterValue",
+          "MeetingNoteInput",
+          "renderMeetingFrontmatter",
+          "DEFAULT_MEETING_TEMPLATE",
+          "REQUIRED_MEETING_SECTIONS",
+          "renderMeetingNote",
+          "renderCustomerNote",
+          "renderProjectNote",
+          "renderPersonNote"
+        ],
+        "perspectives": [
+          "structure"
+        ]
+      },
+      {
+        "id": "obsidian/plugin/business-hours",
+        "level": "element",
+        "kind": "module",
+        "name": "business-hours",
+        "path": "src/business-hours.ts",
+        "exports": [
+          "BusinessHoursSegment",
+          "parseTimeToMinutes",
+          "getBusinessHoursSegment"
+        ],
+        "perspectives": [
+          "structure"
+        ]
+      },
+      {
+        "id": "obsidian/plugin/caldav-client",
+        "level": "element",
+        "kind": "module",
+        "name": "caldav-client",
+        "path": "src/caldav-client.ts",
+        "exports": [
+          "CalDAVCalendar",
+          "CalDAVClient"
+        ],
+        "perspectives": [
+          "structure"
+        ]
+      },
+      {
+        "id": "obsidian/plugin/caldav-client/CalDAVClient",
+        "level": "element",
+        "kind": "class",
+        "name": "CalDAVClient",
+        "path": "src/caldav-client.ts",
+        "outline": [
+          "req",
+          "abs",
+          "parse",
+          "discoverCalendars",
+          "findCalendarHome",
+          "listCalendars",
+          "fetchEvents",
+          "getEvent",
+          "putEvent",
+          "deleteEvent",
+          "moveEvent",
+          "hrefForEvent"
+        ],
+        "perspectives": [
+          "structure"
+        ]
+      },
+      {
+        "id": "obsidian/plugin/caldav-reader",
+        "level": "element",
+        "kind": "module",
+        "name": "caldav-reader",
+        "path": "src/caldav-reader.ts",
+        "exports": [
+          "CalDAVReader"
+        ],
+        "perspectives": [
+          "structure"
+        ]
+      },
+      {
+        "id": "obsidian/plugin/caldav-reader/CalDAVReader",
+        "level": "element",
+        "kind": "class",
+        "name": "CalDAVReader",
+        "path": "src/caldav-reader.ts",
+        "outline": [
+          "updateCredentials",
+          "setBinaryPath",
+          "getPath",
+          "setCacheCallbacks",
+          "getEvents",
+          "getLoadError",
+          "getCacheDate",
+          "getEventsForDate",
+          "getAllDayEventsForDate",
+          "onChange",
+          "load",
+          "startWatching",
+          "stopWatching",
+          "refresh",
+          "fetchAll",
+          "tryLoadCache",
+          "notify",
+          "createEvent",
+          "moveEvent",
+          "updateEvent",
+          "cancelEvent",
+          "updateRsvp",
+          "resolveCalendar",
+          "getEventUrl",
+          "requireHref",
+          "uidFromId",
+          "currentUserEmail"
+        ],
+        "perspectives": [
+          "structure"
+        ]
+      },
+      {
+        "id": "obsidian/plugin/calendar-reader",
+        "level": "element",
+        "kind": "module",
+        "name": "calendar-reader",
+        "path": "src/calendar-reader.ts",
+        "exports": [
+          "CalendarReader"
+        ],
+        "perspectives": [
+          "structure"
+        ]
+      },
+      {
+        "id": "obsidian/plugin/calendar-reader/CalendarReader",
+        "level": "element",
+        "kind": "class",
+        "name": "CalendarReader",
+        "path": "src/calendar-reader.ts",
+        "outline": [
+          "setCacheCallbacks",
+          "setBinaryPath",
+          "getEvents",
+          "getLoadError",
+          "getCacheDate",
+          "getPath",
+          "getEventUrl",
+          "getEventsForDate",
+          "getAllDayEventsForDate",
+          "onChange",
+          "notify",
+          "load",
+          "startWatching",
+          "stopWatching",
+          "startProcess",
+          "stopProcess",
+          "handleLine",
+          "cleanEvents",
+          "tryLoadCache",
+          "formatCacheDate",
+          "createEvent",
+          "moveEvent",
+          "updateEvent",
+          "cancelEvent"
+        ],
+        "perspectives": [
+          "structure"
+        ]
+      },
+      {
+        "id": "obsidian/plugin/calendar-view",
+        "level": "element",
+        "kind": "module",
+        "name": "calendar-view",
+        "path": "src/calendar-view.ts",
+        "exports": [
+          "VIEW_TYPE_CALENDAR",
+          "CARD_EMOJI",
+          "locationIconSvg",
+          "globeIconSvg",
+          "clockIconSvg",
+          "checkboxIconSvg",
+          "isUrlLocation",
+          "DeskleafCalendarView"
+        ],
+        "perspectives": [
+          "structure"
+        ]
+      },
+      {
+        "id": "obsidian/plugin/calendar-view/DeskleafCalendarView",
+        "level": "element",
+        "kind": "class",
+        "name": "DeskleafCalendarView",
+        "path": "src/calendar-view.ts",
+        "outline": [
+          "selectedEventId",
+          "selectedDate",
+          "selectedSeriesTitle",
+          "setHourOffset",
+          "setHourDuration",
+          "setEventVerticalMetrics",
+          "applyHourPxToGrid",
+          "applyHourPxToRenderedGrids",
+          "setDragGhostGeometry",
+          "applyCalendarTone",
+          "calendarHue",
+          "getViewType",
+          "getDisplayText",
+          "getIcon",
+          "setAnchor",
+          "setAnchorAndVisibleDays",
+          "onOpen",
+          "onClose",
+          "computeInitialScroll",
+          "render",
+          "setupResizeObserver",
+          "setupActiveLeafTracking",
+          "syncSelectionToFile",
+          "applySelection",
+          "clearSelection",
+          "buildNavBar",
+          "updateNavLabel",
+          "buildStatusBar",
+          "navigate",
+          "mobileNext",
+          "mobilePrev",
+          "mobileColSequence",
+          "animatedRender",
+          "getColumnsForOffset",
+          "buildHeadersInto",
+          "openDailyNote",
+          "buildBodiesInto",
+          "makeCarouselTrack",
+          "buildTimeGrid",
+          "setupSwipeGestures",
+          "setTracks",
+          "setupPinchZoom",
+          "setupDesktopTrackpadPinch",
+          "buildAllDayAreaInto",
+          "buildAllDayRowSpanning",
+          "buildDayBody",
+          "buildEventCard",
+          "addEventLongPress",
+          "enterMobileEditMode",
+          "exitMobileEditMode",
+          "onDayMouseDown",
+          "refreshGhost",
+          "cancelDrag",
+          "showCreatePopover",
+          "showEventEditPopover",
+          "removeEventEditOverlay",
+          "askDeleteConfirmation",
+          "askRecurringEditSpan",
+          "onDayTouchStart",
+          "cancelActiveTouchCreate",
+          "findDayBodyAt",
+          "onEventMoveMouseDown",
+          "onResizeMouseDown",
+          "buildMobileTodayFab",
+          "tickNowLine",
+          "showHoverPopover",
+          "hideHoverPopover",
+          "showEventContextMenu",
+          "openEvent",
+          "linkNoteLocation"
+        ],
+        "perspectives": [
+          "structure"
+        ]
+      },
+      {
+        "id": "obsidian/plugin/composite-calendar-reader",
+        "level": "element",
+        "kind": "module",
+        "name": "composite-calendar-reader",
+        "path": "src/composite-calendar-reader.ts",
+        "exports": [
+          "CompositeCalendarReader"
+        ],
+        "perspectives": [
+          "structure"
+        ]
+      },
+      {
+        "id": "obsidian/plugin/composite-calendar-reader/CompositeCalendarReader",
+        "level": "element",
+        "kind": "class",
+        "name": "CompositeCalendarReader",
+        "path": "src/composite-calendar-reader.ts",
+        "outline": [
+          "selectedCalendars",
+          "getPath",
+          "setBinaryPath",
+          "setCacheCallbacks",
+          "getEvents",
+          "getEventsForDate",
+          "getAllDayEventsForDate",
+          "getLoadError",
+          "getCacheDate",
+          "getEventUrl",
+          "onChange",
+          "load",
+          "startWatching",
+          "stopWatching",
+          "updateCredentials",
+          "refresh",
+          "createEvent",
+          "moveEvent",
+          "updateEvent",
+          "cancelEvent",
+          "updateRsvp"
+        ],
+        "perspectives": [
+          "structure"
+        ]
+      },
+      {
+        "id": "obsidian/plugin/date-utils",
+        "level": "element",
+        "kind": "module",
+        "name": "date-utils",
+        "path": "src/date-utils.ts",
+        "exports": [
+          "toDateStr",
+          "toTimeStr",
+          "minsToTimeStr",
+          "minsToISO",
+          "parseDate",
+          "addDays",
+          "weekStart",
+          "shortDayLabel",
+          "DayColumn",
+          "get3DayColumns",
+          "getWeekColumns",
+          "get1DayColumn",
+          "getNDayColumns",
+          "rangeHeaderLabel",
+          "dayHeaderLabel",
+          "weekHeaderLabel",
+          "formatReleaseDate",
+          "formatVersionFooter",
+          "getWeekNumber"
+        ],
+        "perspectives": [
+          "structure"
+        ]
+      },
+      {
+        "id": "obsidian/plugin/event-edit",
+        "level": "element",
+        "kind": "module",
+        "name": "event-edit",
+        "path": "src/event-edit.ts",
+        "exports": [
+          "parseClockTime",
+          "isEventReadOnly",
+          "validateEventEditInput"
+        ],
+        "perspectives": [
+          "structure"
+        ]
+      },
+      {
+        "id": "obsidian/plugin/event-filter",
+        "level": "element",
+        "kind": "module",
+        "name": "event-filter",
+        "path": "src/event-filter.ts",
+        "exports": [
+          "getEventsForDate",
+          "getAllDayEventsForDate",
+          "mergeReminderEvents"
+        ],
+        "perspectives": [
+          "structure"
+        ]
+      },
+      {
+        "id": "obsidian/plugin/event-layout",
+        "level": "element",
+        "kind": "module",
+        "name": "event-layout",
+        "path": "src/event-layout.ts",
+        "exports": [
+          "DEFAULT_HOUR_PX",
+          "EventLayout",
+          "topFromISO",
+          "heightFromISO",
+          "clampHourPx",
+          "hourPxForPinch",
+          "scrollTopForZoomAnchor",
+          "snapMins",
+          "assignColumns"
+        ],
+        "perspectives": [
+          "structure"
+        ]
+      },
+      {
+        "id": "obsidian/plugin/ical-feed-manager",
+        "level": "element",
+        "kind": "module",
+        "name": "ical-feed-manager",
+        "path": "src/ical-feed-manager.ts",
+        "exports": [
+          "isFeedEvent",
+          "ICalFeedManager"
+        ],
+        "perspectives": [
+          "structure"
+        ]
+      },
+      {
+        "id": "obsidian/plugin/ical-feed-manager/ICalFeedManager",
+        "level": "element",
+        "kind": "class",
+        "name": "ICalFeedManager",
+        "path": "src/ical-feed-manager.ts",
+        "outline": [
+          "getFeeds",
+          "getIntervalMinutes",
+          "addFeed",
+          "removeFeed",
+          "setEnabled",
+          "renameFeed",
+          "startPolling",
+          "stopPolling",
+          "fetchFeed",
+          "getCachedEvents",
+          "getAllEvents",
+          "assignColors",
+          "getWarnFeeds",
+          "_pollAll"
+        ],
+        "perspectives": [
+          "structure"
+        ]
+      },
+      {
+        "id": "obsidian/plugin/ical-parser",
+        "level": "element",
+        "kind": "module",
+        "name": "ical-parser",
+        "path": "src/ical-parser.ts",
+        "exports": [
+          "parseICalendar",
+          "buildVEvent",
+          "updateVEventTimes",
+          "updateVEvent",
+          "updateVEventAttendeePartstat"
+        ],
+        "perspectives": [
+          "structure"
+        ]
+      },
+      {
+        "id": "obsidian/plugin/main",
+        "level": "element",
+        "kind": "module",
+        "name": "main",
+        "path": "src/main.ts",
+        "exports": [
+          "DeskleafPlugin"
+        ],
+        "perspectives": [
+          "structure"
+        ]
+      },
+      {
+        "id": "obsidian/plugin/main/DeskleafPlugin",
+        "level": "element",
+        "kind": "class",
+        "name": "DeskleafPlugin",
+        "path": "src/main.ts",
+        "outline": [
+          "makeReader",
+          "getBasePath",
+          "getBinaryPath",
+          "onload",
+          "onunload",
+          "loadSettings",
+          "reloadFeeds",
+          "saveSettings",
+          "saveSettingsQuiet",
+          "colorsPath",
+          "restoreCalendarColors",
+          "persistCalendarColors",
+          "ensureView",
+          "openDefaultViews",
+          "activateSidebar",
+          "activateView"
+        ],
+        "perspectives": [
+          "structure"
+        ]
+      },
+      {
+        "id": "obsidian/plugin/note-logo",
+        "level": "element",
+        "kind": "module",
+        "name": "note-logo",
+        "path": "src/note-logo.ts",
+        "exports": [
+          "LogoRef",
+          "parseLogo"
+        ],
+        "perspectives": [
+          "structure"
+        ]
+      },
+      {
+        "id": "obsidian/plugin/note-manager",
+        "level": "element",
+        "kind": "module",
+        "name": "note-manager",
+        "path": "src/note-manager.ts",
+        "exports": [
+          "NoteManager"
+        ],
+        "perspectives": [
+          "structure"
+        ]
+      },
+      {
+        "id": "obsidian/plugin/note-manager/NoteManager",
+        "level": "element",
+        "kind": "class",
+        "name": "NoteManager",
+        "path": "src/note-manager.ts",
+        "outline": [
+          "notesIn",
+          "getCustomers",
+          "getPeople",
+          "getProjects",
+          "customerFor",
+          "uidOf",
+          "frontmatterDate",
+          "noteDate",
+          "recurrenceIdOf",
+          "noteExists",
+          "buildNoteCache",
+          "lookupInCache",
+          "openOrCreate",
+          "createNote",
+          "ensureFolder",
+          "resolveNewPath",
+          "renderNote",
+          "buildContext",
+          "attendeeLinks",
+          "createCustomerNote",
+          "createProjectNote",
+          "createPersonNote",
+          "syncEventNote",
+          "descriptionHeading",
+          "patchDescription",
+          "replaceEventHeading",
+          "replaceDescription",
+          "inferType",
+          "loadTemplate",
+          "defaultTemplate",
+          "fillLegacyTemplate",
+          "buildCarriedTodosQuery",
+          "buildFocusTodosQuery",
+          "buildLegacyFrontmatter",
+          "markForRemoval",
+          "runRemovalCleanup"
+        ],
+        "perspectives": [
+          "structure"
+        ]
+      },
+      {
+        "id": "obsidian/plugin/note-utils",
+        "level": "element",
+        "kind": "module",
+        "name": "note-utils",
+        "path": "src/note-utils.ts",
+        "exports": [
+          "toArray",
+          "normalizeAttendee",
+          "buildObsidianDeeplink",
+          "sanitizeFilename",
+          "cleanBody"
+        ],
+        "perspectives": [
+          "structure"
+        ]
+      },
+      {
+        "id": "obsidian/plugin/open-file",
+        "level": "element",
+        "kind": "module",
+        "name": "open-file",
+        "path": "src/open-file.ts",
+        "exports": [
+          "openFile"
+        ],
+        "perspectives": [
+          "structure"
+        ]
+      },
+      {
+        "id": "obsidian/plugin/plugin-api",
+        "level": "element",
+        "kind": "module",
+        "name": "plugin-api",
+        "path": "src/plugin-api.ts",
+        "exports": [
+          "CalendarSource",
+          "DeskleafPluginApi"
+        ],
+        "perspectives": [
+          "structure"
+        ]
+      },
+      {
+        "id": "obsidian/plugin/search-modal",
+        "level": "element",
+        "kind": "module",
+        "name": "search-modal",
+        "path": "src/search-modal.ts",
+        "exports": [
+          "DeskleafSearchModal"
+        ],
+        "perspectives": [
+          "structure"
+        ]
+      },
+      {
+        "id": "obsidian/plugin/search-modal/DeskleafSearchModal",
+        "level": "element",
+        "kind": "class",
+        "name": "DeskleafSearchModal",
+        "path": "src/search-modal.ts",
+        "outline": [
+          "onOpen",
+          "getNotesFiles",
+          "showRecentNotes",
+          "showSearchResults",
+          "renderResultRow",
+          "onClose"
+        ],
+        "perspectives": [
+          "structure"
+        ]
+      },
+      {
+        "id": "obsidian/plugin/settings",
+        "level": "element",
+        "kind": "module",
+        "name": "settings",
+        "path": "src/settings.ts",
+        "exports": [
+          "DeskleafSettingTab"
+        ],
+        "perspectives": [
+          "structure"
+        ]
+      },
+      {
+        "id": "obsidian/plugin/settings/DeskleafSettingTab",
+        "level": "element",
+        "kind": "class",
+        "name": "DeskleafSettingTab",
+        "path": "src/settings.ts",
+        "outline": [
+          "display",
+          "refreshCalendarViews",
+          "renderCalDAVList",
+          "renderICalList"
+        ],
+        "perspectives": [
+          "structure"
+        ]
+      },
+      {
+        "id": "obsidian/plugin/sidebar-view",
+        "level": "element",
+        "kind": "module",
+        "name": "sidebar-view",
+        "path": "src/sidebar-view.ts",
+        "exports": [
+          "VIEW_TYPE_SIDEBAR",
+          "DeskleafSidebarView"
+        ],
+        "perspectives": [
+          "structure"
+        ]
+      },
+      {
+        "id": "obsidian/plugin/sidebar-view/DeskleafSidebarView",
+        "level": "element",
+        "kind": "class",
+        "name": "DeskleafSidebarView",
+        "path": "src/sidebar-view.ts",
+        "outline": [
+          "getViewType",
+          "getDisplayText",
+          "getIcon",
+          "onOpen",
+          "onClose",
+          "loadLayout",
+          "saveLayout",
+          "highlightActiveEntity",
+          "debouncedRefresh",
+          "render",
+          "renderResizer",
+          "renderToolbar",
+          "getSectionLabel",
+          "renderMiniCal",
+          "observeMiniCal",
+          "navigateCalendarTo",
+          "order",
+          "saveOrder",
+          "upcomingByCustomer",
+          "getEntities",
+          "fileFor",
+          "openTodoChip",
+          "renderEntities",
+          "renderEntityRow",
+          "renderLogo",
+          "resolveVaultImage",
+          "renderNewEntityRow",
+          "openEntity",
+          "createEntity",
+          "initDragDrop",
+          "renderTodos",
+          "renderTodoItem",
+          "parseTodosFromFile",
+          "collectTodos",
+          "groupTodos",
+          "toggleTodo"
+        ],
+        "perspectives": [
+          "structure"
+        ]
+      },
+      {
+        "id": "obsidian/plugin/solidtime-block",
+        "level": "element",
+        "kind": "module",
+        "name": "solidtime-block",
+        "path": "src/solidtime-block.ts",
+        "exports": [
+          "registerSolidTimeBlock"
+        ],
+        "perspectives": [
+          "structure"
+        ]
+      },
+      {
+        "id": "obsidian/plugin/solidtime-client",
+        "level": "element",
+        "kind": "module",
+        "name": "solidtime-client",
+        "path": "src/solidtime-client.ts",
+        "exports": [
+          "SolidTimeClientRef",
+          "SolidTimeProjectRef",
+          "SolidTimeMembership",
+          "SolidTimeEntry",
+          "AggregateGroup",
+          "SolidTimeError",
+          "SolidTimeApi"
+        ],
+        "perspectives": [
+          "structure"
+        ]
+      },
+      {
+        "id": "obsidian/plugin/solidtime-client/SolidTimeError",
+        "level": "element",
+        "kind": "class",
+        "name": "SolidTimeError",
+        "path": "src/solidtime-client.ts",
+        "outline": [],
+        "perspectives": [
+          "structure"
+        ]
+      },
+      {
+        "id": "obsidian/plugin/solidtime-client/SolidTimeApi",
+        "level": "element",
+        "kind": "class",
+        "name": "SolidTimeApi",
+        "path": "src/solidtime-client.ts",
+        "outline": [
+          "getMembership",
+          "getIndex",
+          "aggregate",
+          "entries"
+        ],
+        "perspectives": [
+          "structure"
+        ]
+      },
+      {
+        "id": "obsidian/plugin/solidtime-query",
+        "level": "element",
+        "kind": "module",
+        "name": "solidtime-query",
+        "path": "src/solidtime-query.ts",
+        "exports": [
+          "SolidTimeView",
+          "SolidTimeQuery",
+          "DEFAULT_LIMIT",
+          "SolidTimeQueryError",
+          "resolveDate",
+          "parseSolidTimeQuery",
+          "SolidTimeRow",
+          "roundHours",
+          "centsToEur",
+          "formatHours",
+          "formatEur",
+          "totalRow",
+          "monthLabel"
+        ],
+        "perspectives": [
+          "structure"
+        ]
+      },
+      {
+        "id": "obsidian/plugin/solidtime-query/SolidTimeQueryError",
+        "level": "element",
+        "kind": "class",
+        "name": "SolidTimeQueryError",
+        "path": "src/solidtime-query.ts",
+        "outline": [],
+        "perspectives": [
+          "structure"
+        ]
+      },
+      {
+        "id": "obsidian/plugin/todo-parser",
+        "level": "element",
+        "kind": "module",
+        "name": "todo-parser",
+        "path": "src/todo-parser.ts",
+        "exports": [
+          "TODO_STATUS_PATTERN",
+          "TODO_DONE_PATTERN",
+          "ParsedTodo",
+          "classifyTodoStatus",
+          "extractDueDate",
+          "cleanTodoText",
+          "parseTodoLines",
+          "resolveTodoDate",
+          "completeTodoLine",
+          "reopenTodoLine",
+          "TodoGroup",
+          "groupForDate"
+        ],
+        "perspectives": [
+          "structure"
+        ]
+      },
+      {
+        "id": "obsidian/plugin/types",
+        "level": "element",
+        "kind": "module",
+        "name": "types",
+        "path": "src/types.ts",
+        "exports": [
+          "CalendarEvent",
+          "RsvpResponse",
+          "EventRsvp",
+          "EventUpdate",
+          "EventEditInput",
+          "EventNoteFrontmatter",
+          "NoteType",
+          "TodoStatus",
+          "CustomerRef",
+          "PersonRef",
+          "ProjectRef",
+          "CAL_COLOR_PALETTE",
+          "CalToneMode",
+          "CalToneSelected",
+          "CalTone",
+          "CAL_TONES",
+          "CAL_TONE_FALLBACK",
+          "calTone",
+          "calSwatchColor",
+          "CalDAVSettings",
+          "ICalFeedSubscription",
+          "BusinessHoursSettings",
+          "VaultSettings",
+          "SolidTimeSettings",
+          "DeskleafSettings",
+          "DEFAULT_SETTINGS"
+        ],
+        "perspectives": [
+          "structure"
+        ]
+      },
+      {
+        "id": "obsidian/plugin/ext:obsidian",
+        "level": "element",
+        "kind": "external",
+        "name": "obsidian",
+        "perspectives": [
+          "structure"
+        ]
+      },
+      {
+        "id": "obsidian/plugin/ext:child_process",
+        "level": "element",
+        "kind": "external",
+        "name": "child_process",
+        "perspectives": [
+          "structure"
+        ]
+      },
+      {
+        "id": "obsidian/plugin/ext:fs",
+        "level": "element",
+        "kind": "external",
+        "name": "fs",
+        "perspectives": [
+          "structure"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "from": "obsidian/plugin/brain-vault",
+        "to": "obsidian/plugin/types",
+        "perspective": "structure",
+        "kind": "imports",
+        "attributes": {
+          "typeOnly": true
+        }
+      },
+      {
+        "from": "obsidian/plugin/business-hours",
+        "to": "obsidian/plugin/types",
+        "perspective": "structure",
+        "kind": "imports",
+        "attributes": {
+          "typeOnly": true
+        }
+      },
+      {
+        "from": "obsidian/plugin/caldav-client",
+        "to": "obsidian/plugin/ext:obsidian",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/caldav-reader",
+        "to": "obsidian/plugin/types",
+        "perspective": "structure",
+        "kind": "imports",
+        "attributes": {
+          "typeOnly": true
+        }
+      },
+      {
+        "from": "obsidian/plugin/caldav-reader",
+        "to": "obsidian/plugin/event-filter",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/caldav-reader",
+        "to": "obsidian/plugin/caldav-client",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/caldav-reader",
+        "to": "obsidian/plugin/ical-parser",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/caldav-reader",
+        "to": "obsidian/plugin/ext:obsidian",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/calendar-reader",
+        "to": "obsidian/plugin/types",
+        "perspective": "structure",
+        "kind": "imports",
+        "attributes": {
+          "typeOnly": true
+        }
+      },
+      {
+        "from": "obsidian/plugin/calendar-reader",
+        "to": "obsidian/plugin/event-filter",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/calendar-reader",
+        "to": "obsidian/plugin/note-utils",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/calendar-reader",
+        "to": "obsidian/plugin/ext:obsidian",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/calendar-reader",
+        "to": "obsidian/plugin/ext:child_process",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/calendar-reader",
+        "to": "obsidian/plugin/ext:fs",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/calendar-view",
+        "to": "obsidian/plugin/plugin-api",
+        "perspective": "structure",
+        "kind": "imports",
+        "attributes": {
+          "typeOnly": true
+        }
+      },
+      {
+        "from": "obsidian/plugin/calendar-view",
+        "to": "obsidian/plugin/types",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/calendar-view",
+        "to": "obsidian/plugin/ical-feed-manager",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/calendar-view",
+        "to": "obsidian/plugin/date-utils",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/calendar-view",
+        "to": "obsidian/plugin/open-file",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/calendar-view",
+        "to": "obsidian/plugin/event-layout",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/calendar-view",
+        "to": "obsidian/plugin/business-hours",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/calendar-view",
+        "to": "obsidian/plugin/event-edit",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/calendar-view",
+        "to": "obsidian/plugin/note-utils",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/calendar-view",
+        "to": "obsidian/plugin/ext:obsidian",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/composite-calendar-reader",
+        "to": "obsidian/plugin/types",
+        "perspective": "structure",
+        "kind": "imports",
+        "attributes": {
+          "typeOnly": true
+        }
+      },
+      {
+        "from": "obsidian/plugin/composite-calendar-reader",
+        "to": "obsidian/plugin/calendar-reader",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/composite-calendar-reader",
+        "to": "obsidian/plugin/caldav-reader",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/composite-calendar-reader",
+        "to": "obsidian/plugin/event-filter",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/event-edit",
+        "to": "obsidian/plugin/types",
+        "perspective": "structure",
+        "kind": "imports",
+        "attributes": {
+          "typeOnly": true
+        }
+      },
+      {
+        "from": "obsidian/plugin/event-edit",
+        "to": "obsidian/plugin/date-utils",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/event-edit",
+        "to": "obsidian/plugin/ical-feed-manager",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/event-filter",
+        "to": "obsidian/plugin/types",
+        "perspective": "structure",
+        "kind": "imports",
+        "attributes": {
+          "typeOnly": true
+        }
+      },
+      {
+        "from": "obsidian/plugin/event-layout",
+        "to": "obsidian/plugin/types",
+        "perspective": "structure",
+        "kind": "imports",
+        "attributes": {
+          "typeOnly": true
+        }
+      },
+      {
+        "from": "obsidian/plugin/ical-feed-manager",
+        "to": "obsidian/plugin/types",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/ical-feed-manager",
+        "to": "obsidian/plugin/ical-parser",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/ical-parser",
+        "to": "obsidian/plugin/types",
+        "perspective": "structure",
+        "kind": "imports",
+        "attributes": {
+          "typeOnly": true
+        }
+      },
+      {
+        "from": "obsidian/plugin/ical-parser",
+        "to": "obsidian/plugin/note-utils",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/main",
+        "to": "obsidian/plugin/settings",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/main",
+        "to": "obsidian/plugin/calendar-reader",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/main",
+        "to": "obsidian/plugin/caldav-reader",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/main",
+        "to": "obsidian/plugin/composite-calendar-reader",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/main",
+        "to": "obsidian/plugin/note-manager",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/main",
+        "to": "obsidian/plugin/calendar-view",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/main",
+        "to": "obsidian/plugin/sidebar-view",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/main",
+        "to": "obsidian/plugin/search-modal",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/main",
+        "to": "obsidian/plugin/types",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/main",
+        "to": "obsidian/plugin/ical-feed-manager",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/main",
+        "to": "obsidian/plugin/solidtime-block",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/main",
+        "to": "obsidian/plugin/plugin-api",
+        "perspective": "structure",
+        "kind": "imports",
+        "attributes": {
+          "typeOnly": true
+        }
+      },
+      {
+        "from": "obsidian/plugin/main",
+        "to": "obsidian/plugin/ext:obsidian",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/note-manager",
+        "to": "obsidian/plugin/types",
+        "perspective": "structure",
+        "kind": "imports",
+        "attributes": {
+          "typeOnly": true
+        }
+      },
+      {
+        "from": "obsidian/plugin/note-manager",
+        "to": "obsidian/plugin/date-utils",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/note-manager",
+        "to": "obsidian/plugin/note-utils",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/note-manager",
+        "to": "obsidian/plugin/brain-vault",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/note-manager",
+        "to": "obsidian/plugin/ext:obsidian",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/open-file",
+        "to": "obsidian/plugin/ext:obsidian",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/plugin-api",
+        "to": "obsidian/plugin/calendar-reader",
+        "perspective": "structure",
+        "kind": "imports",
+        "attributes": {
+          "typeOnly": true
+        }
+      },
+      {
+        "from": "obsidian/plugin/plugin-api",
+        "to": "obsidian/plugin/caldav-reader",
+        "perspective": "structure",
+        "kind": "imports",
+        "attributes": {
+          "typeOnly": true
+        }
+      },
+      {
+        "from": "obsidian/plugin/plugin-api",
+        "to": "obsidian/plugin/composite-calendar-reader",
+        "perspective": "structure",
+        "kind": "imports",
+        "attributes": {
+          "typeOnly": true
+        }
+      },
+      {
+        "from": "obsidian/plugin/plugin-api",
+        "to": "obsidian/plugin/note-manager",
+        "perspective": "structure",
+        "kind": "imports",
+        "attributes": {
+          "typeOnly": true
+        }
+      },
+      {
+        "from": "obsidian/plugin/plugin-api",
+        "to": "obsidian/plugin/ical-feed-manager",
+        "perspective": "structure",
+        "kind": "imports",
+        "attributes": {
+          "typeOnly": true
+        }
+      },
+      {
+        "from": "obsidian/plugin/plugin-api",
+        "to": "obsidian/plugin/types",
+        "perspective": "structure",
+        "kind": "imports",
+        "attributes": {
+          "typeOnly": true
+        }
+      },
+      {
+        "from": "obsidian/plugin/plugin-api",
+        "to": "obsidian/plugin/ext:obsidian",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/search-modal",
+        "to": "obsidian/plugin/plugin-api",
+        "perspective": "structure",
+        "kind": "imports",
+        "attributes": {
+          "typeOnly": true
+        }
+      },
+      {
+        "from": "obsidian/plugin/search-modal",
+        "to": "obsidian/plugin/open-file",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/search-modal",
+        "to": "obsidian/plugin/ext:obsidian",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/settings",
+        "to": "obsidian/plugin/plugin-api",
+        "perspective": "structure",
+        "kind": "imports",
+        "attributes": {
+          "typeOnly": true
+        }
+      },
+      {
+        "from": "obsidian/plugin/settings",
+        "to": "obsidian/plugin/caldav-client",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/settings",
+        "to": "obsidian/plugin/date-utils",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/settings",
+        "to": "obsidian/plugin/types",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/settings",
+        "to": "obsidian/plugin/ext:obsidian",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/sidebar-view",
+        "to": "obsidian/plugin/plugin-api",
+        "perspective": "structure",
+        "kind": "imports",
+        "attributes": {
+          "typeOnly": true
+        }
+      },
+      {
+        "from": "obsidian/plugin/sidebar-view",
+        "to": "obsidian/plugin/date-utils",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/sidebar-view",
+        "to": "obsidian/plugin/open-file",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/sidebar-view",
+        "to": "obsidian/plugin/types",
+        "perspective": "structure",
+        "kind": "imports",
+        "attributes": {
+          "typeOnly": true
+        }
+      },
+      {
+        "from": "obsidian/plugin/sidebar-view",
+        "to": "obsidian/plugin/brain-vault",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/sidebar-view",
+        "to": "obsidian/plugin/note-logo",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/sidebar-view",
+        "to": "obsidian/plugin/todo-parser",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/sidebar-view",
+        "to": "obsidian/plugin/ext:obsidian",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/solidtime-block",
+        "to": "obsidian/plugin/plugin-api",
+        "perspective": "structure",
+        "kind": "imports",
+        "attributes": {
+          "typeOnly": true
+        }
+      },
+      {
+        "from": "obsidian/plugin/solidtime-block",
+        "to": "obsidian/plugin/solidtime-client",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/solidtime-block",
+        "to": "obsidian/plugin/solidtime-query",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/solidtime-block",
+        "to": "obsidian/plugin/ext:obsidian",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/solidtime-client",
+        "to": "obsidian/plugin/solidtime-query",
+        "perspective": "structure",
+        "kind": "imports",
+        "attributes": {
+          "typeOnly": true
+        }
+      },
+      {
+        "from": "obsidian/plugin/solidtime-client",
+        "to": "obsidian/plugin/ext:obsidian",
+        "perspective": "structure",
+        "kind": "imports"
+      },
+      {
+        "from": "obsidian/plugin/todo-parser",
+        "to": "obsidian/plugin/types",
+        "perspective": "structure",
+        "kind": "imports",
+        "attributes": {
+          "typeOnly": true
+        }
+      }
+    ],
+    "violations": []
+  }
+}

@@ -10,8 +10,9 @@ import { DeskleafSearchModal } from "./search-modal";
 import { DEFAULT_SETTINGS, type DeskleafSettings, type CalendarEvent } from "./types";
 import { ICalFeedManager } from "./ical-feed-manager";
 import { registerSolidTimeBlock } from "./solidtime-block";
+import type { DeskleafPluginApi } from "./plugin-api";
 
-export default class DeskleafPlugin extends Plugin {
+export default class DeskleafPlugin extends Plugin implements DeskleafPluginApi {
   settings!: DeskleafSettings;
   private calendarCache: CalendarEvent[] = [];
   private calendarCacheDate: string | null = null;

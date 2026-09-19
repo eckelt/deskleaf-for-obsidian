@@ -1,5 +1,5 @@
 import { ItemView, WorkspaceLeaf, TFile, MarkdownRenderer, setIcon } from "obsidian";
-import type DeskleafPlugin from "./main";
+import type { DeskleafPluginApi } from "./plugin-api";
 import { toDateStr, addDays, parseDate, weekStart, getWeekNumber } from "./date-utils";
 import { openFile } from "./open-file";
 import type { CustomerRef, ProjectRef, TodoStatus } from "./types";
@@ -66,7 +66,7 @@ interface TodoItem {
 }
 
 export class DeskleafSidebarView extends ItemView {
-  plugin: DeskleafPlugin;
+  plugin: DeskleafPluginApi;
   private refreshTimer: number | null = null;
   private activeFilePath: string | null = null;
   private sectionOrder: SectionName[] = [...SECTIONS];
@@ -83,7 +83,7 @@ export class DeskleafSidebarView extends ItemView {
   private minicalEl: HTMLElement | null = null;
   private miniResizeObs: ResizeObserver | null = null;
 
-  constructor(leaf: WorkspaceLeaf, plugin: DeskleafPlugin) {
+  constructor(leaf: WorkspaceLeaf, plugin: DeskleafPluginApi) {
     super(leaf);
     this.plugin = plugin;
   }

@@ -1,11 +1,11 @@
 import { App, Modal, TFile } from "obsidian";
-import type DeskleafPlugin from "./main";
+import type { DeskleafPluginApi } from "./plugin-api";
 import { openFile } from "./open-file";
 
 export class DeskleafSearchModal extends Modal {
-  plugin: DeskleafPlugin;
+  plugin: DeskleafPluginApi;
 
-  constructor(app: App, plugin: DeskleafPlugin) {
+  constructor(app: App, plugin: DeskleafPluginApi) {
     super(app);
     this.plugin = plugin;
   }

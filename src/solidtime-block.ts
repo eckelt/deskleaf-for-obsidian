@@ -1,5 +1,5 @@
 import { MarkdownPostProcessorContext, MarkdownRenderChild, TFile } from "obsidian";
-import type DeskleafPlugin from "./main";
+import type { DeskleafPluginApi } from "./plugin-api";
 import { SolidTimeApi, SolidTimeError, type SolidTimeClientRef, type SolidTimeProjectRef } from "./solidtime-client";
 import {
   parseSolidTimeQuery, SolidTimeQueryError, roundHours, centsToEur, formatHours, formatEur,
@@ -13,7 +13,7 @@ import {
  * time changes while the note stays open, and a stale number is worse than a
  * short wait.
  */
-export function registerSolidTimeBlock(plugin: DeskleafPlugin): void {
+export function registerSolidTimeBlock(plugin: DeskleafPluginApi): void {
   plugin.registerMarkdownCodeBlockProcessor("solidtime", async (source, el, ctx) => {
     const child = new MarkdownRenderChild(el);
     ctx.addChild(child);
@@ -22,7 +22,7 @@ export function registerSolidTimeBlock(plugin: DeskleafPlugin): void {
 }
 
 /** The customer a note is about, so a block inside it need not repeat the name. */
-function noteCustomer(plugin: DeskleafPlugin, ctx: MarkdownPostProcessorContext): string | undefined {
+function noteCustomer(plugin: DeskleafPluginApi, ctx: MarkdownPostProcessorContext): string | undefined {
   const file = plugin.app.vault.getAbstractFileByPath(ctx.sourcePath);
   if (!(file instanceof TFile)) return undefined;
   const fm = plugin.app.metadataCache.getFileCache(file)?.frontmatter;
@@ -35,7 +35,7 @@ function notice(el: HTMLElement, cls: string, text: string): void {
 }
 
 async function renderSolidTime(
-  plugin: DeskleafPlugin,
+  plugin: DeskleafPluginApi,
   source: string,
   el: HTMLElement,
   ctx: MarkdownPostProcessorContext,

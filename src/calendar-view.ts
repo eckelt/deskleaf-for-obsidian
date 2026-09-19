@@ -10,7 +10,7 @@ import {
   Menu,
   normalizePath,
 } from "obsidian";
-import type DeskleafPlugin from "./main";
+import type { DeskleafPluginApi } from "./plugin-api";
 import type { CalendarEvent, EventUpdate, RsvpResponse } from "./types";
 import { calTone } from "./types";
 import { isFeedEvent } from "./ical-feed-manager";
@@ -163,6 +163,9 @@ function obsidianCrystalIconSvg(size: number): string {
   );
 }
 
+// Fixed decorative emoji prepended to timed event card titles (day grid only).
+export const CARD_EMOJI = "🧠";
+
 function teamsIconSvg(size: number): string {
   return (
     `<svg width="${size}" height="${size}" viewBox="0 0 60 60" style="display:inline-block;vertical-align:middle;flex-shrink:0;fill-rule:evenodd;clip-rule:evenodd">` +
@@ -284,7 +287,7 @@ const ALLDAY_MAX_H = 30;
 // ── View ─────────────────────────────────────────────────────────────
 
 export class DeskleafCalendarView extends ItemView {
-  plugin: DeskleafPlugin;
+  plugin: DeskleafPluginApi;
   private anchor: Date = new Date();
   private visibleDays: number = 3;
   private selection: Selection = null;
@@ -326,7 +329,7 @@ export class DeskleafCalendarView extends ItemView {
   private activeTouchCreateCleanup: (() => void) | null = null;
   private hourPx = DEFAULT_HOUR_PX;
 
-  constructor(leaf: WorkspaceLeaf, plugin: DeskleafPlugin) {
+  constructor(leaf: WorkspaceLeaf, plugin: DeskleafPluginApi) {
     super(leaf);
     this.plugin = plugin;
   }
@@ -1459,7 +1462,7 @@ export class DeskleafCalendarView extends ItemView {
       const iconWrap = titleRow.createSpan({ cls: "dl-event-icon-wrap" });
       iconWrap.innerHTML = jitsiIconSvg(8);
     }
-    titleRow.createDiv({ cls: "dl-event-title", text: event.title });
+    titleRow.createDiv({ cls: "dl-event-title", text: `${CARD_EMOJI} ${event.title}` });
 
     // 2. Location — second, only for physical addresses (if enough space).
     // Meeting and other URL locations are already represented by the platform
