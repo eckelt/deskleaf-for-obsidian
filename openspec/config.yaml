@@ -1,0 +1,17 @@
+schema: spec-driven
+context: |
+  Deskleaf for Obsidian is one product of the Deskleaf ecosystem. openspec/specs/ is the
+  behaviour baseline: what the product does today, grounded in code. Changes
+  arrive as delta-specs under openspec/changes/ and are archived into the
+  baseline when released. The architecture twin lives in .deskleaf/architecture.json.
+rules:
+  proposal:
+    - Write artefacts in English; results are shared with a broader audience.
+    - Name the affected containers from .deskleaf/architecture.json and explicit non-goals.
+  specs:
+    - Every requirement needs observable WHEN/THEN scenarios and a _Source:_ line pointing at code.
+    - Security and confirmation boundaries must be explicit and testable.
+  design:
+    - Describe the impact on .deskleaf/architecture.json (containers, interfaces, contracts).
+  tasks:
+    - Every delivery needs tests, a twin refresh and a fix-forward path.
