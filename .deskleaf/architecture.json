@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "product": "obsidian",
   "repository": "eckelt/deskleaf-for-obsidian",
   "declared": {
@@ -27,7 +27,8 @@
             "id": "fastmail-caldav",
             "direction": "consumes",
             "protocol": "CalDAV",
-            "summary": "Calendar read and edit"
+            "summary": "Calendar read and edit",
+            "contractRef": "external.fastmail.caldav.v1"
           },
           {
             "id": "ical-feeds",
@@ -44,13 +45,15 @@
           {
             "id": "solidtime",
             "direction": "consumes",
-            "protocol": "Solidtime REST"
+            "protocol": "Solidtime REST",
+            "contractRef": "external.solidtime.api.v1"
           },
           {
             "id": "calendar-sync-binary",
             "direction": "consumes",
             "protocol": "Child process JSON",
-            "summary": "EventKit calendars and reminders on macOS"
+            "summary": "EventKit calendars and reminders on macOS",
+            "contractRef": "obsidian.calendar-sync-binary.v1"
           }
         ],
         "extract": {
@@ -70,14 +73,33 @@
           {
             "id": "eventkit",
             "direction": "consumes",
-            "protocol": "macOS EventKit"
+            "protocol": "macOS EventKit",
+            "contractRef": "external.eventkit.calendar.v1"
           },
           {
             "id": "calendar-sync-binary",
             "direction": "provides",
-            "protocol": "Child process JSON"
+            "protocol": "Child process JSON",
+            "contractRef": "obsidian.calendar-sync-binary.v1"
           }
         ]
+      }
+    ],
+    "contracts": [
+      {
+        "id": "obsidian.calendar-sync-binary.v1",
+        "producer": "obsidian",
+        "consumers": ["obsidian"],
+        "schemaRef": "swift/Sources/DeskleafCalendarSync/main.swift"
+      }
+    ],
+    "externals": [
+      {
+        "id": "anthropic",
+        "vendor": "Anthropic",
+        "category": "llm",
+        "consoleUrl": "https://console.anthropic.com/",
+        "docsUrl": "https://docs.claude.com/"
       }
     ]
   },
