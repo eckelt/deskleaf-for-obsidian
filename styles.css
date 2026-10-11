@@ -992,7 +992,8 @@
     color: var(--text-accent);
     opacity: 0.8;
 }
-.dl-hover-teams {
+.dl-hover-teams,
+.dl-hover-zoom {
     display: flex;
     align-items: center;
 }
