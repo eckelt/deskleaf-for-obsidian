@@ -34,7 +34,7 @@ else
   echo "▶  Skipping Swift EventKit helper (no swift toolchain; CalDAV backend is used)"
 fi
 
-echo "▶  Copying plugin artifacts to $DEST…"
+echo "▶  Copying plugin artifacts to ${DEST}…"
 mkdir -p "$DEST"
 cp main.js "$DEST/main.js"
 cp styles.css "$DEST/styles.css"
