@@ -8,7 +8,9 @@ mkdir -p "$CLANG_MODULE_CACHE_PATH" "$SWIFTPM_MODULECACHE_PATH"
 
 echo "▶  Building deskleaf-calendar-sync…"
 if swift build -c release --arch arm64 --arch x86_64 2>/dev/null; then
-    BINARY=".build/apple/Products/Release/DeskleafCalendarSync"
+    # The output folder moved between toolchains (.build/apple → .build/out);
+    # ask swift instead of hard-coding it.
+    BINARY="$(swift build -c release --arch arm64 --arch x86_64 --show-bin-path)/DeskleafCalendarSync"
 else
     echo "   (universal build unavailable, building for current arch)"
     swift build -c release
