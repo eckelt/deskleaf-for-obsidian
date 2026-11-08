@@ -170,8 +170,6 @@ function obsidianCrystalIconSvg(size: number): string {
   );
 }
 
-// Fixed decorative emoji prepended to timed event card titles (day grid only).
-export const CARD_EMOJI = "🧠";
 
 function teamsIconSvg(size: number): string {
   return (
@@ -1484,7 +1482,7 @@ export class DeskleafCalendarView extends ItemView {
       const iconWrap = titleRow.createSpan({ cls: "dl-event-icon-wrap" });
       iconWrap.innerHTML = jitsiIconSvg(8);
     }
-    titleRow.createDiv({ cls: "dl-event-title", text: `${CARD_EMOJI} ${event.title}` });
+    titleRow.createDiv({ cls: "dl-event-title", text: event.title });
 
     // 2. Location — second, only for physical addresses (if enough space).
     // Meeting and other URL locations are already represented by the platform
