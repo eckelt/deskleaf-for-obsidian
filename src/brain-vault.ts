@@ -139,30 +139,12 @@ export function renderMeetingFrontmatter(input: MeetingNoteInput): string {
 }
 
 /**
- * Display-friendly meeting skeleton: agent and user todos use ordinary Markdown
- * checkboxes under one stable heading, so another consumer need not understand
- * Dataview or the wider Brain structure.
+ * A new meeting note is just its frontmatter: customer, attendees and the
+ * calendar identity live there. The body is left to the user — or to the agent
+ * preparing the meeting / carrying todos forward in a series. A vault template
+ * (`<templateFolder>/termin.md`) can still add structure.
  */
-export const DEFAULT_MEETING_TEMPLATE = [
-  "## Notizen",
-  "",
-  "{{context}}",
-  "",
-  "## Todos",
-  "",
-  "- [ ] ",
-  "",
-  "## Related notes",
-  "",
-  "{{related}}",
-  "",
-].join("\n");
-
-/**
- * The relation list remains compatible with Brain/MCP consumers. Everything
- * else is intentionally optional: a minimal template should stay minimal.
- */
-export const REQUIRED_MEETING_SECTIONS = ["## Related notes"] as const;
+export const DEFAULT_MEETING_TEMPLATE = "";
 
 export function renderMeetingNote(input: MeetingNoteInput): string {
   const related = [...new Set([
@@ -184,18 +166,11 @@ export function renderMeetingNote(input: MeetingNoteInput): string {
     teilnehmer: (input.attendeeLinks ?? []).join(", "),
   };
 
-  let body = input.body.replace(/\{\{(\w+)\}\}/g, (full, key: string) => (key in values ? values[key] : full));
-
-  for (const heading of REQUIRED_MEETING_SECTIONS) {
-    if (body.includes(heading)) continue;
-    const key = heading.replace("## ", "").toLowerCase().replace(" ", "_");
-    const filler = key === "initial_context" ? values.context : key === "sources" ? values.sources : values.related;
-    body = `${body.trimEnd()}\n\n${heading}\n\n${filler}\n`;
-  }
+  const body = input.body.replace(/\{\{(\w+)\}\}/g, (full, key: string) => (key in values ? values[key] : full)).trim();
 
   // The filename already carries the event title. Keeping the body title-free
   // makes the note compact and leaves the display a small, predictable shape.
-  return `${renderMeetingFrontmatter(input)}\n\n${body.trimStart()}`;
+  return body ? `${renderMeetingFrontmatter(input)}\n\n${body}\n` : `${renderMeetingFrontmatter(input)}\n`;
 }
 
 /**

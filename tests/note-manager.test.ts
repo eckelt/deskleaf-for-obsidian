@@ -150,7 +150,7 @@ describe("NoteManager.syncEventNote", () => {
 });
 
 describe("NoteManager focus notes", () => {
-  it("creates compact focus notes with an explicit todo list", async () => {
+  it("creates focus notes with frontmatter only", async () => {
     const fixture = appForCreate();
     const manager = new NoteManager(fixture.app as any, settings);
 
@@ -164,8 +164,7 @@ describe("NoteManager focus notes", () => {
 
     expect(fixture.created.path).toBe("notes/Deep Work.md");
     expect(fixture.created.content).toContain("type: focus");
-    expect(fixture.created.content).toContain("## Todos");
-    expect(fixture.created.content).toContain("- [ ]");
+    expect(fixture.created.content).not.toContain("##");
     expect(fixture.created.content).not.toContain("```dataviewjs");
   });
 

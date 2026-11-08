@@ -183,45 +183,23 @@ describe("renderMeetingNote", () => {
     body: DEFAULT_MEETING_TEMPLATE,
   });
 
-  it("keeps only the display-friendly working sections", () => {
-    for (const heading of ["## Notizen", "## Todos", "## Related notes"]) {
-      expect(note).toContain(heading);
-    }
-    expect(note).not.toContain("## Mitgebracht");
-    expect(note).not.toContain("## Sources");
+  it("is just the frontmatter — no sections, no body", () => {
+    expect(note).toMatch(/^---\n[\s\S]*\n---\n$/);
+    expect(note).not.toContain("##");
   });
 
-  it("puts the customer and the attendees under Related notes", () => {
-    const related = note.slice(note.indexOf("## Related notes"));
-    expect(related).toContain("- [[Nordwind]]");
-    expect(related).toContain("- [[Wanda Sturm]]");
-    expect(related).toContain("- [[Kai Berger]]");
+  it("keeps customer and attendees in the frontmatter", () => {
+    expect(note).toContain('kunde: "[[Nordwind]]"');
+    expect(note).toContain("[[Wanda Sturm]]");
+    expect(note).toContain("tags: [kunde/nordwind]");
   });
 
-  it("uses the calendar description as the initial context", () => {
-    expect(note).toContain("Workshop Tag 1.");
+  it("does not write the calendar description into the body", () => {
+    expect(note).not.toContain("Workshop Tag 1.");
   });
 
   it("does not repeat the filename title as an H1", () => {
     expect(note).not.toContain("# Nordwind – Kick-off");
-  });
-
-  it("does not leave placeholders behind", () => {
-    expect(note).not.toMatch(/\{\{\w+\}\}/);
-  });
-
-  it("falls back to a marker when the event has no description", () => {
-    const empty = renderMeetingNote({ title: "X", date: "2026-08-21", calendarUid: "u", body: DEFAULT_MEETING_TEMPLATE });
-    expect(empty).toContain("_Keine Beschreibung im Kalendereintrag._");
-    expect(empty).toContain("_No related notes linked yet._");
-  });
-
-  it("does not repeat a link that is both customer and related", () => {
-    const once = renderMeetingNote({
-      title: "X", date: "2026-08-21", calendarUid: "u", body: DEFAULT_MEETING_TEMPLATE,
-      customer: customer("Nordwind"), relatedLinks: ["[[Nordwind]]"],
-    });
-    expect(once.split("- [[Nordwind]]").length - 1).toBe(1);
   });
 });
 
@@ -309,21 +287,23 @@ describe("renderMeetingNote with a hand-written template", () => {
     expect(note).toContain("## Todos bis nächstes Mal");
   });
 
-  it("appends the compact relation section rather than losing it", () => {
-    expect(note).toContain("## Related notes");
-    expect(note.slice(note.indexOf("## Related notes"))).toContain("- [[Nordwind]]");
+  it("does not force extra sections onto the template", () => {
+    expect(note).not.toContain("## Related notes");
+  });
+
+  it("fills {{context}} and {{related}} when a template asks for them", () => {
+    const filled = renderMeetingNote({
+      title: "X", date: "2026-08-21", calendarUid: "u",
+      customer: { name: "Nordwind", slug: "nordwind", path: "customers/Nordwind.md", domains: [], status: "aktiv" },
+      relatedLinks: ["[[Nordwind]]"],
+      body: "{{context}}\n\n## Related notes\n\n{{related}}\n",
+    });
+    expect(filled).toContain("_Keine Beschreibung im Kalendereintrag._");
+    expect(filled.split("- [[Nordwind]]").length - 1).toBe(1);
   });
 
   it("leaves an unknown placeholder alone instead of blanking it", () => {
     const custom = renderMeetingNote({ title: "X", date: "2026-08-21", calendarUid: "u", body: "{{eigenes_feld}}" });
     expect(custom).toContain("{{eigenes_feld}}");
-  });
-
-  it("does not append the relation section a second time", () => {
-    const withRelated = renderMeetingNote({
-      title: "X", date: "2026-08-21", calendarUid: "u",
-      body: "## Notizen\n\n{{context}}\n\n## Related notes\n\n{{related}}\n",
-    });
-    expect(withRelated.split("## Related notes").length - 1).toBe(1);
   });
 });

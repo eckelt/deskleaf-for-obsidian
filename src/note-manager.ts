@@ -303,7 +303,9 @@ export class NoteManager {
 
     const content = await this.app.vault.read(file);
     const withHeading = this.replaceEventHeading(content, previousEvent.title, updatedEvent.title);
-    const patched = this.replaceDescription(withHeading, cleanBody(updatedEvent.body));
+    // A Brain note's body is authored (by the user or the agent) — the calendar
+    // description is never written into it.
+    const patched = isBrainNote ? withHeading : this.replaceDescription(withHeading, cleanBody(updatedEvent.body));
     if (patched !== content) await this.app.vault.modify(file, patched);
   }
 
@@ -315,6 +317,7 @@ export class NoteManager {
   private async patchDescription(file: TFile, event: CalendarEvent): Promise<void> {
     const cleaned = cleanBody(event.body);
     if (!cleaned) return;
+    if (this.app.metadataCache.getFileCache(file)?.frontmatter?.type === "termin") return;
     const content = await this.app.vault.read(file);
     if (content.includes("## Beschreibung") || content.includes("## Initial context")) return;
     const section = `## Beschreibung\n${cleaned}\n\n`;
@@ -384,10 +387,10 @@ export class NoteManager {
   private defaultTemplate(type: NoteType): string {
     switch (type) {
       case "termin":     return DEFAULT_MEETING_TEMPLATE;
-      case "interview":  return `## Notizen\n\n## Todos\n- [ ]\n`;
-      case "recurring":  return `## Notizen\n\n## Todos\n- [ ]\n`;
-      case "task":       return `## Todos\n- [ ]\n`;
-      case "focus":      return `{{body}}## Todos\n- [ ]\n`;
+      case "interview":
+      case "recurring":
+      case "task":
+      case "focus":      return "";
     }
   }
 

@@ -93,9 +93,11 @@ Template files are loaded from `<templateFolder>/<type>.md` (`termin.md` for
 meetings). If the file doesn't exist, a built-in default is used. A template's
 own frontmatter and H1 are stripped — the note's own are authoritative.
 
-Whatever a custom template omits of `## Related notes` is appended so the
-Brain relation list is retained. The working content deliberately stays small:
-`## Notizen` and one Markdown-checkbox block under `## Todos`.
+The built-in defaults are empty: a new note is its frontmatter and nothing else.
+Customer, attendees and calendar identity live in the frontmatter; the body is
+left to the user, or to the agent preparing a meeting or carrying todos forward
+in a series. Nothing is appended to a custom template, and the calendar
+description is never patched into a `type: termin` note (on open or on sync).
 
 ### Substitution tokens
 
@@ -119,61 +121,8 @@ instead of silently eating content.
 
 ### Default templates
 
-**termin**
-```
-## Notizen
-{{context}}
-
-## Todos
-- [ ]
-
-## Related notes
-{{related}}
-```
-
-**interview**
-```
-## Notizen
-
-## Todos
-- [ ]
-
-## Bewertung
-[ ] Weiterführen  [ ] Absage
-```
-
-**recurring**
-```
-## Offene Todos (aus letzter Instanz)
-{{carried_todos}}
-
-## Status letztes Mal
-
-## Heute
-
-## Todos
-- [ ]
-```
-
-**task**
-```
-## Kontext
-
-## Notizen
-
-## Todos
-- [ ]
-```
-
-**focus**
-```
-{{body}}## Fokus-Todos
-{{focus_todos}}
-
-## Fokus
-
-## Notizen
-```
+All types (`termin`, `interview`, `recurring`, `task`, `focus`) default to an
+empty body. Put a `<templateFolder>/<type>.md` in the vault to get structure back.
 
 ### `{{carried_todos}}` — DataviewJS live query
 
