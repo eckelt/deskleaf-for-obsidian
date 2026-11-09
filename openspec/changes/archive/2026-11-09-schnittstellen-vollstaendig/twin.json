@@ -1,0 +1,1200 @@
+{
+  "schemaVersion": 4,
+  "system": {
+    "id": "deskleaf-for-obsidian",
+    "name": "Deskleaf for Obsidian",
+    "summary": "Obsidian plugin that shows the calendar next to meeting notes, keeps todos and project priorities in the vault, and…",
+    "repository": "eckelt/deskleaf-for-obsidian"
+  },
+  "containers": [
+    {
+      "id": "plugin",
+      "name": "Obsidian plugin",
+      "kind": "plugin",
+      "summary": "TypeScript plugin bundled with esbuild: calendar view, sidebar, note manager, CalDAV and iCal readers, Solidtime client.",
+      "deployment": "Obsidian desktop and mobile via BRAT pre-release",
+      "interfaces": [
+        {
+          "id": "obsidian-api",
+          "direction": "consumes",
+          "contractRef": "obsidian-api:api@1",
+          "protocol": "Obsidian plugin API"
+        },
+        {
+          "id": "fastmail-caldav",
+          "direction": "consumes",
+          "contractRef": "fastmail-caldav:caldav@1",
+          "protocol": "CalDAV",
+          "summary": "Calendar read and edit"
+        },
+        {
+          "id": "ical-feeds",
+          "direction": "consumes",
+          "contractRef": "ical-feeds:feeds@1",
+          "protocol": "iCal over HTTP",
+          "summary": "Subscribed calendars"
+        },
+        {
+          "id": "vault-files",
+          "direction": "consumes",
+          "contractRef": "vault-files:files@1",
+          "protocol": "Local Markdown files",
+          "summary": "Meeting, person, project notes and todos"
+        },
+        {
+          "id": "solidtime",
+          "direction": "consumes",
+          "contractRef": "solidtime-api:api@1",
+          "protocol": "Solidtime REST"
+        },
+        {
+          "id": "calendar-sync-binary",
+          "direction": "consumes",
+          "contractRef": "deskleaf-for-obsidian:calendar-sync-binary@1",
+          "protocol": "Child process JSON",
+          "summary": "EventKit calendars and reminders on macOS"
+        }
+      ],
+      "components": [
+        {
+          "id": "brain-vault",
+          "name": "brain-vault",
+          "kind": "module",
+          "summary": "Module brain-vault in src/brain-vault.ts.",
+          "path": "src/brain-vault.ts",
+          "evidence": [
+            "src/brain-vault.ts"
+          ],
+          "interfaces": [
+            {
+              "id": "imports-plugin-types",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-types@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            },
+            {
+              "id": "internal",
+              "direction": "provides",
+              "contractRef": "deskleaf-for-obsidian:plugin-brain-vault@1",
+              "protocol": "in-process"
+            }
+          ]
+        },
+        {
+          "id": "business-hours",
+          "name": "business-hours",
+          "kind": "module",
+          "summary": "Module business-hours in src/business-hours.ts.",
+          "path": "src/business-hours.ts",
+          "evidence": [
+            "src/business-hours.ts"
+          ],
+          "interfaces": [
+            {
+              "id": "imports-plugin-types",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-types@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            },
+            {
+              "id": "internal",
+              "direction": "provides",
+              "contractRef": "deskleaf-for-obsidian:plugin-business-hours@1",
+              "protocol": "in-process"
+            }
+          ]
+        },
+        {
+          "id": "caldav-client",
+          "name": "caldav-client",
+          "kind": "module",
+          "summary": "Module caldav-client in src/caldav-client.ts.",
+          "path": "src/caldav-client.ts",
+          "evidence": [
+            "src/caldav-client.ts"
+          ],
+          "interfaces": [
+            {
+              "id": "internal",
+              "direction": "provides",
+              "contractRef": "deskleaf-for-obsidian:plugin-caldav-client@1",
+              "protocol": "in-process"
+            }
+          ]
+        },
+        {
+          "id": "caldav-client-caldavclient",
+          "name": "CalDAVClient",
+          "kind": "class",
+          "summary": "Class CalDAVClient in src/caldav-client.ts.",
+          "path": "src/caldav-client.ts",
+          "evidence": [
+            "src/caldav-client.ts"
+          ]
+        },
+        {
+          "id": "caldav-reader",
+          "name": "caldav-reader",
+          "kind": "module",
+          "summary": "Module caldav-reader in src/caldav-reader.ts.",
+          "path": "src/caldav-reader.ts",
+          "evidence": [
+            "src/caldav-reader.ts"
+          ],
+          "interfaces": [
+            {
+              "id": "imports-plugin-types",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-types@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            },
+            {
+              "id": "imports-plugin-event-filter",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-event-filter@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            },
+            {
+              "id": "imports-plugin-caldav-client",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-caldav-client@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            },
+            {
+              "id": "imports-plugin-ical-parser",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-ical-parser@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            },
+            {
+              "id": "internal",
+              "direction": "provides",
+              "contractRef": "deskleaf-for-obsidian:plugin-caldav-reader@1",
+              "protocol": "in-process"
+            }
+          ]
+        },
+        {
+          "id": "caldav-reader-caldavreader",
+          "name": "CalDAVReader",
+          "kind": "class",
+          "summary": "Class CalDAVReader in src/caldav-reader.ts.",
+          "path": "src/caldav-reader.ts",
+          "evidence": [
+            "src/caldav-reader.ts"
+          ]
+        },
+        {
+          "id": "calendar-reader",
+          "name": "calendar-reader",
+          "kind": "module",
+          "summary": "Module calendar-reader in src/calendar-reader.ts.",
+          "path": "src/calendar-reader.ts",
+          "evidence": [
+            "src/calendar-reader.ts"
+          ],
+          "interfaces": [
+            {
+              "id": "imports-plugin-types",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-types@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            },
+            {
+              "id": "imports-plugin-event-filter",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-event-filter@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            },
+            {
+              "id": "imports-plugin-note-utils",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-note-utils@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            },
+            {
+              "id": "internal",
+              "direction": "provides",
+              "contractRef": "deskleaf-for-obsidian:plugin-calendar-reader@1",
+              "protocol": "in-process"
+            }
+          ]
+        },
+        {
+          "id": "calendar-reader-calendarreader",
+          "name": "CalendarReader",
+          "kind": "class",
+          "summary": "Class CalendarReader in src/calendar-reader.ts.",
+          "path": "src/calendar-reader.ts",
+          "evidence": [
+            "src/calendar-reader.ts"
+          ]
+        },
+        {
+          "id": "calendar-view",
+          "name": "calendar-view",
+          "kind": "module",
+          "summary": "Module calendar-view in src/calendar-view.ts.",
+          "path": "src/calendar-view.ts",
+          "evidence": [
+            "src/calendar-view.ts"
+          ],
+          "interfaces": [
+            {
+              "id": "imports-plugin-plugin-api",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-plugin-api@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            },
+            {
+              "id": "imports-plugin-types",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-types@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            },
+            {
+              "id": "imports-plugin-ical-feed-manager",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-ical-feed-manager@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            },
+            {
+              "id": "imports-plugin-date-utils",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-date-utils@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            },
+            {
+              "id": "imports-plugin-open-file",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-open-file@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            },
+            {
+              "id": "imports-plugin-event-layout",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-event-layout@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            },
+            {
+              "id": "imports-plugin-business-hours",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-business-hours@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            },
+            {
+              "id": "imports-plugin-event-edit",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-event-edit@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            },
+            {
+              "id": "imports-plugin-note-utils",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-note-utils@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            },
+            {
+              "id": "internal",
+              "direction": "provides",
+              "contractRef": "deskleaf-for-obsidian:plugin-calendar-view@1",
+              "protocol": "in-process"
+            }
+          ]
+        },
+        {
+          "id": "calendar-view-deskleafcalendarview",
+          "name": "DeskleafCalendarView",
+          "kind": "class",
+          "summary": "Class DeskleafCalendarView in src/calendar-view.ts.",
+          "path": "src/calendar-view.ts",
+          "evidence": [
+            "src/calendar-view.ts"
+          ]
+        },
+        {
+          "id": "composite-calendar-reader",
+          "name": "composite-calendar-reader",
+          "kind": "module",
+          "summary": "Module composite-calendar-reader in src/composite-calendar-reader.ts.",
+          "path": "src/composite-calendar-reader.ts",
+          "evidence": [
+            "src/composite-calendar-reader.ts"
+          ],
+          "interfaces": [
+            {
+              "id": "imports-plugin-types",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-types@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            },
+            {
+              "id": "imports-plugin-calendar-reader",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-calendar-reader@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            },
+            {
+              "id": "imports-plugin-caldav-reader",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-caldav-reader@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            },
+            {
+              "id": "imports-plugin-event-filter",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-event-filter@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            },
+            {
+              "id": "internal",
+              "direction": "provides",
+              "contractRef": "deskleaf-for-obsidian:plugin-composite-calendar-reader@1",
+              "protocol": "in-process"
+            }
+          ]
+        },
+        {
+          "id": "composite-calendar-reader-compositecalendarreader",
+          "name": "CompositeCalendarReader",
+          "kind": "class",
+          "summary": "Class CompositeCalendarReader in src/composite-calendar-reader.ts.",
+          "path": "src/composite-calendar-reader.ts",
+          "evidence": [
+            "src/composite-calendar-reader.ts"
+          ]
+        },
+        {
+          "id": "date-utils",
+          "name": "date-utils",
+          "kind": "module",
+          "summary": "Module date-utils in src/date-utils.ts.",
+          "path": "src/date-utils.ts",
+          "evidence": [
+            "src/date-utils.ts"
+          ],
+          "interfaces": [
+            {
+              "id": "internal",
+              "direction": "provides",
+              "contractRef": "deskleaf-for-obsidian:plugin-date-utils@1",
+              "protocol": "in-process"
+            }
+          ]
+        },
+        {
+          "id": "event-edit",
+          "name": "event-edit",
+          "kind": "module",
+          "summary": "Module event-edit in src/event-edit.ts.",
+          "path": "src/event-edit.ts",
+          "evidence": [
+            "src/event-edit.ts"
+          ],
+          "interfaces": [
+            {
+              "id": "internal",
+              "direction": "provides",
+              "contractRef": "deskleaf-for-obsidian:plugin-event-edit@1",
+              "protocol": "in-process"
+            },
+            {
+              "id": "imports-plugin-types",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-types@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            },
+            {
+              "id": "imports-plugin-date-utils",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-date-utils@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            },
+            {
+              "id": "imports-plugin-ical-feed-manager",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-ical-feed-manager@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            }
+          ]
+        },
+        {
+          "id": "event-filter",
+          "name": "event-filter",
+          "kind": "module",
+          "summary": "Module event-filter in src/event-filter.ts.",
+          "path": "src/event-filter.ts",
+          "evidence": [
+            "src/event-filter.ts"
+          ],
+          "interfaces": [
+            {
+              "id": "internal",
+              "direction": "provides",
+              "contractRef": "deskleaf-for-obsidian:plugin-event-filter@1",
+              "protocol": "in-process"
+            },
+            {
+              "id": "imports-plugin-types",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-types@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            }
+          ]
+        },
+        {
+          "id": "event-layout",
+          "name": "event-layout",
+          "kind": "module",
+          "summary": "Module event-layout in src/event-layout.ts.",
+          "path": "src/event-layout.ts",
+          "evidence": [
+            "src/event-layout.ts"
+          ],
+          "interfaces": [
+            {
+              "id": "internal",
+              "direction": "provides",
+              "contractRef": "deskleaf-for-obsidian:plugin-event-layout@1",
+              "protocol": "in-process"
+            },
+            {
+              "id": "imports-plugin-types",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-types@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            }
+          ]
+        },
+        {
+          "id": "ical-feed-manager",
+          "name": "ical-feed-manager",
+          "kind": "module",
+          "summary": "Module ical-feed-manager in src/ical-feed-manager.ts.",
+          "path": "src/ical-feed-manager.ts",
+          "evidence": [
+            "src/ical-feed-manager.ts"
+          ],
+          "interfaces": [
+            {
+              "id": "internal",
+              "direction": "provides",
+              "contractRef": "deskleaf-for-obsidian:plugin-ical-feed-manager@1",
+              "protocol": "in-process"
+            },
+            {
+              "id": "imports-plugin-types",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-types@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            },
+            {
+              "id": "imports-plugin-ical-parser",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-ical-parser@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            }
+          ]
+        },
+        {
+          "id": "ical-feed-manager-icalfeedmanager",
+          "name": "ICalFeedManager",
+          "kind": "class",
+          "summary": "Class ICalFeedManager in src/ical-feed-manager.ts.",
+          "path": "src/ical-feed-manager.ts",
+          "evidence": [
+            "src/ical-feed-manager.ts"
+          ]
+        },
+        {
+          "id": "ical-parser",
+          "name": "ical-parser",
+          "kind": "module",
+          "summary": "Module ical-parser in src/ical-parser.ts.",
+          "path": "src/ical-parser.ts",
+          "evidence": [
+            "src/ical-parser.ts"
+          ],
+          "interfaces": [
+            {
+              "id": "internal",
+              "direction": "provides",
+              "contractRef": "deskleaf-for-obsidian:plugin-ical-parser@1",
+              "protocol": "in-process"
+            },
+            {
+              "id": "imports-plugin-types",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-types@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            },
+            {
+              "id": "imports-plugin-note-utils",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-note-utils@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            }
+          ]
+        },
+        {
+          "id": "main",
+          "name": "main",
+          "kind": "module",
+          "summary": "Module main in src/main.ts.",
+          "path": "src/main.ts",
+          "evidence": [
+            "src/main.ts"
+          ],
+          "interfaces": [
+            {
+              "id": "imports-plugin-settings",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-settings@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            },
+            {
+              "id": "imports-plugin-calendar-reader",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-calendar-reader@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            },
+            {
+              "id": "imports-plugin-caldav-reader",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-caldav-reader@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            },
+            {
+              "id": "imports-plugin-composite-calendar-reader",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-composite-calendar-reader@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            },
+            {
+              "id": "imports-plugin-note-manager",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-note-manager@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            },
+            {
+              "id": "imports-plugin-calendar-view",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-calendar-view@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            },
+            {
+              "id": "imports-plugin-sidebar-view",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-sidebar-view@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            },
+            {
+              "id": "imports-plugin-search-modal",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-search-modal@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            },
+            {
+              "id": "imports-plugin-types",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-types@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            },
+            {
+              "id": "imports-plugin-ical-feed-manager",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-ical-feed-manager@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            },
+            {
+              "id": "imports-plugin-solidtime-block",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-solidtime-block@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            },
+            {
+              "id": "imports-plugin-plugin-api",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-plugin-api@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            }
+          ]
+        },
+        {
+          "id": "main-deskleafplugin",
+          "name": "DeskleafPlugin",
+          "kind": "class",
+          "summary": "Class DeskleafPlugin in src/main.ts.",
+          "path": "src/main.ts",
+          "evidence": [
+            "src/main.ts"
+          ]
+        },
+        {
+          "id": "note-logo",
+          "name": "note-logo",
+          "kind": "module",
+          "summary": "Module note-logo in src/note-logo.ts.",
+          "path": "src/note-logo.ts",
+          "evidence": [
+            "src/note-logo.ts"
+          ],
+          "interfaces": [
+            {
+              "id": "internal",
+              "direction": "provides",
+              "contractRef": "deskleaf-for-obsidian:plugin-note-logo@1",
+              "protocol": "in-process"
+            }
+          ]
+        },
+        {
+          "id": "note-manager",
+          "name": "note-manager",
+          "kind": "module",
+          "summary": "Module note-manager in src/note-manager.ts.",
+          "path": "src/note-manager.ts",
+          "evidence": [
+            "src/note-manager.ts"
+          ],
+          "interfaces": [
+            {
+              "id": "internal",
+              "direction": "provides",
+              "contractRef": "deskleaf-for-obsidian:plugin-note-manager@1",
+              "protocol": "in-process"
+            },
+            {
+              "id": "imports-plugin-types",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-types@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            },
+            {
+              "id": "imports-plugin-date-utils",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-date-utils@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            },
+            {
+              "id": "imports-plugin-note-utils",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-note-utils@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            },
+            {
+              "id": "imports-plugin-brain-vault",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-brain-vault@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            }
+          ]
+        },
+        {
+          "id": "note-manager-notemanager",
+          "name": "NoteManager",
+          "kind": "class",
+          "summary": "Class NoteManager in src/note-manager.ts.",
+          "path": "src/note-manager.ts",
+          "evidence": [
+            "src/note-manager.ts"
+          ]
+        },
+        {
+          "id": "note-utils",
+          "name": "note-utils",
+          "kind": "module",
+          "summary": "Module note-utils in src/note-utils.ts.",
+          "path": "src/note-utils.ts",
+          "evidence": [
+            "src/note-utils.ts"
+          ],
+          "interfaces": [
+            {
+              "id": "internal",
+              "direction": "provides",
+              "contractRef": "deskleaf-for-obsidian:plugin-note-utils@1",
+              "protocol": "in-process"
+            }
+          ]
+        },
+        {
+          "id": "open-file",
+          "name": "open-file",
+          "kind": "module",
+          "summary": "Module open-file in src/open-file.ts.",
+          "path": "src/open-file.ts",
+          "evidence": [
+            "src/open-file.ts"
+          ],
+          "interfaces": [
+            {
+              "id": "internal",
+              "direction": "provides",
+              "contractRef": "deskleaf-for-obsidian:plugin-open-file@1",
+              "protocol": "in-process"
+            }
+          ]
+        },
+        {
+          "id": "plugin-api",
+          "name": "plugin-api",
+          "kind": "module",
+          "summary": "Module plugin-api in src/plugin-api.ts.",
+          "path": "src/plugin-api.ts",
+          "evidence": [
+            "src/plugin-api.ts"
+          ],
+          "interfaces": [
+            {
+              "id": "internal",
+              "direction": "provides",
+              "contractRef": "deskleaf-for-obsidian:plugin-plugin-api@1",
+              "protocol": "in-process"
+            },
+            {
+              "id": "imports-plugin-calendar-reader",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-calendar-reader@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            },
+            {
+              "id": "imports-plugin-caldav-reader",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-caldav-reader@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            },
+            {
+              "id": "imports-plugin-composite-calendar-reader",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-composite-calendar-reader@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            },
+            {
+              "id": "imports-plugin-note-manager",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-note-manager@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            },
+            {
+              "id": "imports-plugin-ical-feed-manager",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-ical-feed-manager@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            },
+            {
+              "id": "imports-plugin-types",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-types@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            }
+          ]
+        },
+        {
+          "id": "search-modal",
+          "name": "search-modal",
+          "kind": "module",
+          "summary": "Module search-modal in src/search-modal.ts.",
+          "path": "src/search-modal.ts",
+          "evidence": [
+            "src/search-modal.ts"
+          ],
+          "interfaces": [
+            {
+              "id": "internal",
+              "direction": "provides",
+              "contractRef": "deskleaf-for-obsidian:plugin-search-modal@1",
+              "protocol": "in-process"
+            },
+            {
+              "id": "imports-plugin-plugin-api",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-plugin-api@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            },
+            {
+              "id": "imports-plugin-open-file",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-open-file@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            }
+          ]
+        },
+        {
+          "id": "search-modal-deskleafsearchmodal",
+          "name": "DeskleafSearchModal",
+          "kind": "class",
+          "summary": "Class DeskleafSearchModal in src/search-modal.ts.",
+          "path": "src/search-modal.ts",
+          "evidence": [
+            "src/search-modal.ts"
+          ]
+        },
+        {
+          "id": "settings",
+          "name": "settings",
+          "kind": "module",
+          "summary": "Module settings in src/settings.ts.",
+          "path": "src/settings.ts",
+          "evidence": [
+            "src/settings.ts"
+          ],
+          "interfaces": [
+            {
+              "id": "internal",
+              "direction": "provides",
+              "contractRef": "deskleaf-for-obsidian:plugin-settings@1",
+              "protocol": "in-process"
+            },
+            {
+              "id": "imports-plugin-plugin-api",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-plugin-api@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            },
+            {
+              "id": "imports-plugin-caldav-client",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-caldav-client@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            },
+            {
+              "id": "imports-plugin-date-utils",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-date-utils@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            },
+            {
+              "id": "imports-plugin-types",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-types@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            }
+          ]
+        },
+        {
+          "id": "settings-deskleafsettingtab",
+          "name": "DeskleafSettingTab",
+          "kind": "class",
+          "summary": "Class DeskleafSettingTab in src/settings.ts.",
+          "path": "src/settings.ts",
+          "evidence": [
+            "src/settings.ts"
+          ]
+        },
+        {
+          "id": "sidebar-view",
+          "name": "sidebar-view",
+          "kind": "module",
+          "summary": "Module sidebar-view in src/sidebar-view.ts.",
+          "path": "src/sidebar-view.ts",
+          "evidence": [
+            "src/sidebar-view.ts"
+          ],
+          "interfaces": [
+            {
+              "id": "internal",
+              "direction": "provides",
+              "contractRef": "deskleaf-for-obsidian:plugin-sidebar-view@1",
+              "protocol": "in-process"
+            },
+            {
+              "id": "imports-plugin-plugin-api",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-plugin-api@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            },
+            {
+              "id": "imports-plugin-date-utils",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-date-utils@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            },
+            {
+              "id": "imports-plugin-open-file",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-open-file@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            },
+            {
+              "id": "imports-plugin-types",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-types@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            },
+            {
+              "id": "imports-plugin-brain-vault",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-brain-vault@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            },
+            {
+              "id": "imports-plugin-note-logo",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-note-logo@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            },
+            {
+              "id": "imports-plugin-todo-parser",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-todo-parser@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            }
+          ]
+        },
+        {
+          "id": "sidebar-view-deskleafsidebarview",
+          "name": "DeskleafSidebarView",
+          "kind": "class",
+          "summary": "Class DeskleafSidebarView in src/sidebar-view.ts.",
+          "path": "src/sidebar-view.ts",
+          "evidence": [
+            "src/sidebar-view.ts"
+          ]
+        },
+        {
+          "id": "solidtime-block",
+          "name": "solidtime-block",
+          "kind": "module",
+          "summary": "Module solidtime-block in src/solidtime-block.ts.",
+          "path": "src/solidtime-block.ts",
+          "evidence": [
+            "src/solidtime-block.ts"
+          ],
+          "interfaces": [
+            {
+              "id": "internal",
+              "direction": "provides",
+              "contractRef": "deskleaf-for-obsidian:plugin-solidtime-block@1",
+              "protocol": "in-process"
+            },
+            {
+              "id": "imports-plugin-plugin-api",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-plugin-api@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            },
+            {
+              "id": "imports-plugin-solidtime-client",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-solidtime-client@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            },
+            {
+              "id": "imports-plugin-solidtime-query",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-solidtime-query@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            }
+          ]
+        },
+        {
+          "id": "solidtime-client",
+          "name": "solidtime-client",
+          "kind": "module",
+          "summary": "Module solidtime-client in src/solidtime-client.ts.",
+          "path": "src/solidtime-client.ts",
+          "evidence": [
+            "src/solidtime-client.ts"
+          ],
+          "interfaces": [
+            {
+              "id": "internal",
+              "direction": "provides",
+              "contractRef": "deskleaf-for-obsidian:plugin-solidtime-client@1",
+              "protocol": "in-process"
+            },
+            {
+              "id": "imports-plugin-solidtime-query",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-solidtime-query@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            }
+          ]
+        },
+        {
+          "id": "solidtime-client-solidtimeapi",
+          "name": "SolidTimeApi",
+          "kind": "class",
+          "summary": "Class SolidTimeApi in src/solidtime-client.ts.",
+          "path": "src/solidtime-client.ts",
+          "evidence": [
+            "src/solidtime-client.ts"
+          ]
+        },
+        {
+          "id": "solidtime-client-solidtimeerror",
+          "name": "SolidTimeError",
+          "kind": "class",
+          "summary": "Class SolidTimeError in src/solidtime-client.ts.",
+          "path": "src/solidtime-client.ts",
+          "evidence": [
+            "src/solidtime-client.ts"
+          ]
+        },
+        {
+          "id": "solidtime-query",
+          "name": "solidtime-query",
+          "kind": "module",
+          "summary": "Module solidtime-query in src/solidtime-query.ts.",
+          "path": "src/solidtime-query.ts",
+          "evidence": [
+            "src/solidtime-query.ts"
+          ],
+          "interfaces": [
+            {
+              "id": "internal",
+              "direction": "provides",
+              "contractRef": "deskleaf-for-obsidian:plugin-solidtime-query@1",
+              "protocol": "in-process"
+            }
+          ]
+        },
+        {
+          "id": "solidtime-query-solidtimequeryerror",
+          "name": "SolidTimeQueryError",
+          "kind": "class",
+          "summary": "Class SolidTimeQueryError in src/solidtime-query.ts.",
+          "path": "src/solidtime-query.ts",
+          "evidence": [
+            "src/solidtime-query.ts"
+          ]
+        },
+        {
+          "id": "todo-parser",
+          "name": "todo-parser",
+          "kind": "module",
+          "summary": "Module todo-parser in src/todo-parser.ts.",
+          "path": "src/todo-parser.ts",
+          "evidence": [
+            "src/todo-parser.ts"
+          ],
+          "interfaces": [
+            {
+              "id": "internal",
+              "direction": "provides",
+              "contractRef": "deskleaf-for-obsidian:plugin-todo-parser@1",
+              "protocol": "in-process"
+            },
+            {
+              "id": "imports-plugin-types",
+              "direction": "consumes",
+              "contractRef": "deskleaf-for-obsidian:plugin-types@1",
+              "protocol": "in-process",
+              "relation": "imports"
+            }
+          ]
+        },
+        {
+          "id": "types",
+          "name": "types",
+          "kind": "module",
+          "summary": "Module types in src/types.ts.",
+          "path": "src/types.ts",
+          "evidence": [
+            "src/types.ts"
+          ],
+          "interfaces": [
+            {
+              "id": "internal",
+              "direction": "provides",
+              "contractRef": "deskleaf-for-obsidian:plugin-types@1",
+              "protocol": "in-process"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "calendar-sync",
+      "name": "deskleaf-calendar-sync",
+      "kind": "daemon",
+      "summary": "Swift binary reading EventKit calendars and reminders, spawned by the plugin on macOS.",
+      "deployment": "macOS, shipped as release asset",
+      "interfaces": [
+        {
+          "id": "eventkit",
+          "direction": "consumes",
+          "contractRef": "eventkit-calendar:calendar@1",
+          "protocol": "macOS EventKit"
+        },
+        {
+          "id": "calendar-sync-binary",
+          "direction": "provides",
+          "contractRef": "deskleaf-for-obsidian:calendar-sync-binary@1",
+          "protocol": "Child process JSON"
+        }
+      ]
+    }
+  ]
+}

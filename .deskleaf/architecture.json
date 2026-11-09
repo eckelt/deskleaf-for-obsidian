@@ -21,7 +21,8 @@
           {
             "id": "obsidian-api",
             "direction": "consumes",
-            "protocol": "Obsidian plugin API"
+            "protocol": "Obsidian plugin API",
+            "contractRef": "external.obsidian.api.v1"
           },
           {
             "id": "fastmail-caldav",
@@ -34,13 +35,15 @@
             "id": "ical-feeds",
             "direction": "consumes",
             "protocol": "iCal over HTTP",
-            "summary": "Subscribed calendars"
+            "summary": "Subscribed calendars",
+            "contractRef": "external.ical.feeds.v1"
           },
           {
             "id": "vault-files",
             "direction": "consumes",
             "protocol": "Local Markdown files",
-            "summary": "Meeting, person, project notes and todos"
+            "summary": "Meeting, person, project notes and todos",
+            "contractRef": "external.vault.files.v1"
           },
           {
             "id": "solidtime",
@@ -100,6 +103,55 @@
         "category": "llm",
         "consoleUrl": "https://console.anthropic.com/",
         "docsUrl": "https://docs.claude.com/"
+      },
+      {
+        "id": "obsidian-api",
+        "vendor": "Obsidian",
+        "category": "platform",
+        "docsUrl": "https://docs.obsidian.md/",
+        "interfaces": [
+          {
+            "id": "api",
+            "protocol": "Obsidian plugin API",
+            "contractRef": "external.obsidian.api.v1",
+            "consumers": [
+              "obsidian"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "vault-files",
+        "vendor": "Obsidian",
+        "category": "platform",
+        "docsUrl": "https://help.obsidian.md/",
+        "interfaces": [
+          {
+            "id": "files",
+            "protocol": "Local Markdown files",
+            "contractRef": "external.vault.files.v1",
+            "consumers": [
+              "display",
+              "obsidian"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "ical-feeds",
+        "vendor": "iCal feeds",
+        "category": "calendar",
+        "docsUrl": "https://datatracker.ietf.org/doc/html/rfc5545",
+        "interfaces": [
+          {
+            "id": "feeds",
+            "protocol": "iCal over HTTP",
+            "contractRef": "external.ical.feeds.v1",
+            "consumers": [
+              "obsidian"
+            ]
+          }
+        ]
       }
     ]
   },
