@@ -1907,6 +1907,11 @@
     min-width: 0;
 }
 
+.dl-event-platform-icon {
+    margin-left: auto;
+    margin-right: 7px; /* clear the note indicator dot */
+}
+
 .dl-event-title {
     font-size: 0.82em;
     font-weight: 700;

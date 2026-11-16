@@ -1460,29 +1460,25 @@ export class DeskleafCalendarView extends ItemView {
         (event.location?.toLowerCase().includes("meet") && event.location?.toLowerCase().includes("google"))
       );
 
-    // 1. Title — always first
+    // 1. Title — always first; the meeting-platform icon sits at the right end.
     const titleRow = card.createDiv({ cls: "dl-event-title-row" });
     if (event.isReminder) {
       const iconWrap = titleRow.createSpan({ cls: "dl-event-icon-wrap" });
       iconWrap.setAttribute("aria-hidden", "true");
       iconWrap.innerHTML = checkboxIconSvg(9);
-    } else if (isEckeCard) {
-      const iconWrap = titleRow.createSpan({ cls: "dl-event-icon-wrap" });
-      iconWrap.innerHTML = neIconSvg(9);
-    } else if (isTeamsCard) {
-      const iconWrap = titleRow.createSpan({ cls: "dl-event-icon-wrap" });
-      iconWrap.innerHTML = teamsIconSvg(8);
-    } else if (isZoomCard) {
-      const iconWrap = titleRow.createSpan({ cls: "dl-event-icon-wrap" });
-      iconWrap.innerHTML = zoomIconSvg(8);
-    } else if (isMeetCard) {
-      const iconWrap = titleRow.createSpan({ cls: "dl-event-icon-wrap" });
-      iconWrap.innerHTML = meetIconSvg(8);
-    } else if (isJitsiCard) {
-      const iconWrap = titleRow.createSpan({ cls: "dl-event-icon-wrap" });
-      iconWrap.innerHTML = jitsiIconSvg(8);
     }
     titleRow.createDiv({ cls: "dl-event-title", text: event.title });
+    const platformSvg = event.isReminder ? null
+      : isEckeCard ? neIconSvg(9)
+      : isTeamsCard ? teamsIconSvg(8)
+      : isZoomCard ? zoomIconSvg(8)
+      : isMeetCard ? meetIconSvg(8)
+      : isJitsiCard ? jitsiIconSvg(8)
+      : null;
+    if (platformSvg) {
+      const iconWrap = titleRow.createSpan({ cls: "dl-event-icon-wrap dl-event-platform-icon" });
+      iconWrap.innerHTML = platformSvg;
+    }
 
     // 2. Location — second, only for physical addresses (if enough space).
     // Meeting and other URL locations are already represented by the platform
