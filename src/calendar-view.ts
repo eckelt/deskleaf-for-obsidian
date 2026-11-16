@@ -1485,18 +1485,12 @@ export class DeskleafCalendarView extends ItemView {
     // icon in the title row, so the location line stays reserved for addresses.
     if (heightPx > 40 && event.location && !isUrlLocation(event.location)) {
       const loc = card.createDiv({ cls: "dl-event-location" });
-      const iconWrap = loc.createSpan({ cls: "dl-event-icon-wrap" });
-      iconWrap.setAttribute("aria-hidden", "true");
-      iconWrap.innerHTML = locationIconSvg(9);
       loc.createSpan({ text: event.location.replace(/\n/g, ", ") });
     }
 
     // 3. Time — third (start – end, if enough space)
     if (heightPx >= 26) {
       const timeRow = card.createDiv("dl-event-time-row");
-      const clockWrap = timeRow.createSpan({ cls: "dl-event-icon-wrap" });
-      clockWrap.setAttribute("aria-hidden", "true");
-      clockWrap.innerHTML = clockIconSvg(9);
       timeRow.createSpan({
         cls: "dl-event-time",
         text: `${toTimeStr(event.start)} – ${toTimeStr(event.end)}`,
