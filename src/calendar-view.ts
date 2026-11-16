@@ -171,9 +171,11 @@ function obsidianCrystalIconSvg(size: number): string {
 }
 
 
+// Platform glyphs use tight, square viewBoxes centred on the glyph, so every
+// logo fills its box the same way and none looks smaller at the same size.
 function teamsIconSvg(size: number): string {
   return (
-    `<svg width="${size}" height="${size}" viewBox="0 0 60 60" style="display:inline-block;vertical-align:middle;flex-shrink:0;fill-rule:evenodd;clip-rule:evenodd">` +
+    `<svg width="${size}" height="${size}" viewBox="8.66 7.65 41.74 41.74" style="display:inline-block;vertical-align:middle;flex-shrink:0;fill-rule:evenodd;clip-rule:evenodd">` +
     `<g transform="translate(-2.4078,0.458041)">` +
     `<path fill="currentColor" d="${TEAMS_SVG_PATH}"/>` +
     `</g></svg>`
@@ -182,7 +184,7 @@ function teamsIconSvg(size: number): string {
 
 function meetIconSvg(size: number): string {
   return (
-    `<svg width="${size}" height="${size}" viewBox="0 0 20 20" style="display:inline-block;vertical-align:middle;flex-shrink:0">` +
+    `<svg width="${size}" height="${size}" viewBox="1.52 1.26 17.48 17.48" style="display:inline-block;vertical-align:middle;flex-shrink:0">` +
     `<path fill="currentColor" d="${MEET_SVG_PATH}"/>` +
     `</svg>`
   );
@@ -206,7 +208,7 @@ function neIconSvg(size: number): string {
 
 function zoomIconSvg(size: number): string {
   return (
-    `<svg width="${size}" height="${size}" viewBox="0 0 20 20" style="display:inline-block;vertical-align:middle;flex-shrink:0;fill-rule:evenodd;clip-rule:evenodd">` +
+    `<svg width="${size}" height="${size}" viewBox="1 1 18 18" style="display:inline-block;vertical-align:middle;flex-shrink:0;fill-rule:evenodd;clip-rule:evenodd">` +
     `<path fill="currentColor" d="${ZOOM_SVG_PATH}"/>` +
     `</svg>`
   );
@@ -214,7 +216,7 @@ function zoomIconSvg(size: number): string {
 
 function jitsiIconSvg(size: number): string {
   return (
-    `<svg width="${size}" height="${size}" viewBox="0 0 60 60" style="display:inline-block;vertical-align:middle;flex-shrink:0">` +
+    `<svg width="${size}" height="${size}" viewBox="6.08 6 48 48" style="display:inline-block;vertical-align:middle;flex-shrink:0">` +
     `<path fill="currentColor" d="${JITSI_SVG_PATH}"/>` +
     `</svg>`
   );

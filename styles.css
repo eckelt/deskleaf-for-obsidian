@@ -722,7 +722,9 @@
     border: none;
     border-left: 4px solid hsl(var(--cal-h, var(--accent-h)) 100% var(--cal-bd-l, 45%));
     color: hsl(var(--cal-h, var(--accent-h)) 100% var(--cal-tx-l, 27%));
-    padding: 4px 14px 3px 6px;
+    /* Right inset matches the note dot's 4px corner offset, so the platform
+       icon and text end on the same line as the dot. */
+    padding: 4px 4px 3px 6px;
     cursor: pointer;
     overflow: hidden;
     border-radius: 5px;
@@ -1878,6 +1880,8 @@
 
 .dl-event-time-row {
     display: flex;
+    /* The bottom row shares the corner with the note dot (4px + 5px wide). */
+    padding-right: 7px;
     align-items: center;
     gap: 2px;
     min-width: 0;
@@ -1933,6 +1937,14 @@
     white-space: nowrap;
     text-overflow: ellipsis;
     opacity: 0.82;
+    min-width: 0;
+}
+
+/* text-overflow does not reach a flex item's text, so the span ellipsises itself. */
+.dl-event-location > span {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
     min-width: 0;
 }
 
