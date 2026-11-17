@@ -722,7 +722,7 @@
     border: none;
     border-left: 4px solid hsl(var(--cal-h, var(--accent-h)) 100% var(--cal-bd-l, 45%));
     color: hsl(var(--cal-h, var(--accent-h)) 100% var(--cal-tx-l, 27%));
-    padding: 4px 14px 3px 6px;
+    padding: 4px 4px 3px 6px;
     cursor: pointer;
     overflow: hidden;
     border-radius: 5px;
@@ -1908,7 +1908,11 @@
 }
 
 .dl-event-platform-icon {
+    /* 10px box centred on the note dot below (dot centre = 6.5px from edge) */
+    width: 10px;
+    justify-content: center;
     margin-left: auto;
+    margin-right: -1.5px;
 }
 
 .dl-event-title {
